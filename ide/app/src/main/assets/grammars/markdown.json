@@ -1,0 +1,28 @@
+{
+  "name": "markdown",
+  "scopeName": "source.aster.markdown",
+  "patterns": [
+    {
+      "name": "markup.heading",
+      "match": "^#{1,6} .*"
+    },
+    {
+      "name": "string.quoted",
+      "begin": "```",
+      "end": "```"
+    },
+    {
+      "name": "string.quoted",
+      "begin": "`",
+      "end": "`"
+    },
+    {
+      "name": "markup.bold",
+      "match": "\\*\\*[^*]+\\*\\*"
+    },
+    {
+      "name": "entity.name.tag",
+      "match": "\\[[^\\]]+\\]\\([^)]+\\)"
+    }
+  ]
+}

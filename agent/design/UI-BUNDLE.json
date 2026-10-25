@@ -1,0 +1,19 @@
+{
+  "tool": "esbuild",
+  "version": "0.28.2",
+  "target": "chrome61",
+  "format": "iife",
+  "sha256": "310c59c0e5b450ac6c2ae03438e71adb22be35950187eccb16d49657962450fd",
+  "inputs": {
+    "agent/app/src/main/assets/agent/icons.js": "39678580f20d3ec576039f8dac0d2bacffcc3854c3435c284c79402963e26070",
+    "agent/app/src/main/assets/agent/dom.js": "f59b2cca11956fd60f2afb7f1bacbe0ca38324e853d25e835b73b96bca8ff164",
+    "agent/app/src/main/assets/agent/choices.js": "8027f1470f11f0cbcb0b3826c492ff1a40316032e26bdfdbbf835b33b5a34f5c",
+    "agent/app/src/main/assets/agent/patterns.js": "04e1246d25885a7e0398f88fcbac8fe12374ac3c812f2c6f0aeecc8bf45561f2",
+    "agent/app/src/main/assets/agent/components.js": "b3da52a60031767b7e3520b9a912b4724a17549785fd759dcc763de2a2b2a19b",
+    "agent/app/src/main/assets/agent/engines/codex.js": "abc2dcbd892830cde803b4454733c880512d66bf8e7ff7b7daa3aca371180944",
+    "agent/app/src/main/assets/agent/engines/openclaude.js": "1c2ff9a81326f5f1e9c1a8848a068d944ecece01f53180571a34986908159cec",
+    "agent/app/src/main/assets/agent/engines/gemini.js": "ed3cb7f38a8f40648dd5f238216f77e6fd28e707587a3982856faf3df10501e6",
+    "agent/app/src/main/assets/agent/engines/pi.js": "47725c7eed7c2e2b06aafcb4152133d7438910b0d4e9b1cf926d14fc2ce12cfd",
+    "agent/app/src/main/assets/agent/app.js": "b68d61b502dd3487920d23bb1d798517fa0cd1d3750a01f3d7a5d15cf4557c0f"
+  }
+}

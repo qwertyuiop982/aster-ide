@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Aster" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#70E1BD</item>
+        <item name="android:statusBarColor">#11141D</item>
+        <item name="android:navigationBarColor">#11141D</item>
+        <item name="android:windowBackground">#11141D</item>
+    </style>
+</resources>

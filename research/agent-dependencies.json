@@ -1,0 +1,52 @@
+{
+  "jinja2": {
+    "version": "3.1.6",
+    "sdist": {
+      "comment_text": "",
+      "core-metadata": false,
+      "digests": {
+        "blake2b_256": "dfbff7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b",
+        "md5": "66d4c25ff43d1deaf9637ccda523dec8",
+        "sha256": "0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d"
+      },
+      "downloads": -1,
+      "filename": "jinja2-3.1.6.tar.gz",
+      "has_sig": false,
+      "md5_digest": "66d4c25ff43d1deaf9637ccda523dec8",
+      "packagetype": "sdist",
+      "python_version": "source",
+      "requires_python": ">=3.7",
+      "size": 245115,
+      "upload_time": "2025-03-05T20:05:02",
+      "upload_time_iso_8601": "2025-03-05T20:05:02.478302Z",
+      "url": "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz",
+      "yanked": false,
+      "yanked_reason": null
+    }
+  },
+  "markupsafe": {
+    "version": "3.0.4",
+    "sdist": {
+      "comment_text": null,
+      "core-metadata": false,
+      "digests": {
+        "blake2b_256": "389be422a865e1d5d57d0e509b4e0bf1c1a70a7f6382c29a5aa428df994c8bc8",
+        "md5": "7c70b0284d3733795287d8d67e7164e0",
+        "sha256": "2e9ad7dd851bf45fab9f75cbff4cb493fee9979e8d8c7c9c3ee119022518edd6"
+      },
+      "downloads": -1,
+      "filename": "markupsafe-3.0.4.tar.gz",
+      "has_sig": false,
+      "md5_digest": "7c70b0284d3733795287d8d67e7164e0",
+      "packagetype": "sdist",
+      "python_version": "source",
+      "requires_python": ">=3.9",
+      "size": 153777,
+      "upload_time": "2026-10-02T23:07:22",
+      "upload_time_iso_8601": "2026-10-02T23:07:22.290270Z",
+      "url": "https://files.pythonhosted.org/packages/38/9b/e422a865e1d5d57d0e509b4e0bf1c1a70a7f6382c29a5aa428df994c8bc8/markupsafe-3.0.4.tar.gz",
+      "yanked": false,
+      "yanked_reason": null
+    }
+  }
+}

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22)
+project(aster LANGUAGES CXX)
+add_library(aster SHARED native_search.cpp)
+target_compile_features(aster PRIVATE cxx_std_17)
+target_compile_options(aster PRIVATE -O3 -Wall -Wextra -Werror -fvisibility=hidden)
+target_link_options(aster PRIVATE -Wl,-z,max-page-size=16384)

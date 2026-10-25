@@ -1,0 +1,124 @@
+{
+  "engine": "Pi Coding Agent 1.3.0",
+  "package": "@earendil-works/pi-coding-agent",
+  "version": "1.3.0",
+  "repository": "https://github.com/earendil-works/pi",
+  "commit": "71023aec1546d6d677a65669c5665c0927ce0dd0",
+  "license": "MIT",
+  "components": [
+    "pi-agent-core agent loop",
+    "coding-agent SessionManager",
+    "coding-agent context compaction"
+  ],
+  "platformAdapter": "Aster authenticated model/project bridge; Termux environment and native Compose UI",
+  "bundleSha256": "33d66e8cce4fd313562e18531aa903433378177a865c71728266d70f260fa1d1",
+  "runnerSha256": "e0e2e0695a9c12a39a7838dd516a5d53a2756d245698c80d6993d02223936939",
+  "lockSha256": "872ca97fdcd4c4a6af7791d052f0c8b18d0e6c48d5529a66d2d5e8f9f2a4a055",
+  "buildScriptSha256": "60c58f9b6e2d8005154710c0f04947bd0ee9463b4d7bef2394616d81cb48dee1",
+  "buildConfigurationSha256": "351dfd9b7d204382708a3a5aead5abd480a1ebdd025801e1662de0d4262c298f",
+  "sourceSnapshot": {
+    "url": "https://github.com/earendil-works/pi/archive/71023aec1546d6d677a65669c5665c0927ce0dd0.tar.gz",
+    "sha256": "d520df6b84f8860901f25f601c439deca752251515333dcbe406b7de26ba4ac4",
+    "retainedSource": "vendor/pi"
+  },
+  "upstreamInputs": {
+    "packages/ai/src/utils/event-stream.ts": "9fd5e33a8e295d88b5911af71d7afbfd437c9620288808d18331f16811e24dac",
+    "packages/ai/src/api/lazy.ts": "1d38468b570b179dc404be7d13b737cb1d001bd96a0a9b3626d8c3f0bf9a49be",
+    "packages/ai/src/auth/context.ts": "03101bfa711fad214af111e25328b6f607d6b0a7ebfe289af58a89cd55baf639",
+    "packages/ai/src/utils/abort.ts": "e81dc16de331e82d7f15759b27e38c7d0a3d28955693e0cf157dd52dadea7035",
+    "packages/ai/src/auth/credential-store.ts": "50ebde56b80b5862025e031719006ea303edd9aa80fec780fbc64319bb9e2847",
+    "packages/ai/src/auth/helpers.ts": "37b4c7f8048f09a54363607fa91bb1c265ddfe0790067de3c3220c1f06485b90",
+    "packages/ai/src/auth/types.ts": "2d14d659f1c62f11cc942b1c2d681f2218c0b671cc37a1df59a5e1a1ee37aef5",
+    "packages/ai/src/utils/diagnostics.ts": "06fcbc2347f65a43938078094a7118036b5f12e73147affb5c73cd72753443f0",
+    "packages/ai/src/utils/models-error.ts": "f35f82bd86123be7ef05e86036f18e8d3d5df14f394f558b22c38b23d122c12c",
+    "packages/ai/src/auth/resolve.ts": "b64d4b13ccdb3e8d056ec4849190aa68f002988ee0417317151d59d8668502ec",
+    "packages/ai/src/models-store.ts": "34ee433ca1501e98d19f31e0e5adf8d1721902e9f35e46c270626e32d7f711cc",
+    "packages/ai/src/utils/model-operations.ts": "d8a7bb663ad3b97253f03b424c6d9e821ed066c8c0449aa00e1f06b75f41115b",
+    "packages/ai/src/utils/text.ts": "d37c1825855c7fc71669a545b5b266810242c1c7e58d57228c0c143f29c1c544",
+    "packages/ai/src/utils/transcript.ts": "e0814f35bdcc93b017fa45589a6920e46b5480b88fba01ef93e5d2d4e815f0f2",
+    "packages/ai/src/models.ts": "c10385291e4e79dc3ea5301629288a35cac354f8a3635c07f9312608c269f573",
+    "packages/ai/src/providers/faux.ts": "aeaa8df95399776587ad0cfccccd3b498891a20c5c5846f935e04d9d09dd84a1",
+    "packages/ai/src/session-resources.ts": "3e6d76f038d6b7fe515ede0b6650d41a7df16eb4b3a9f1aa91c9de329ff092e2",
+    "packages/ai/src/types.ts": "258627828297eb0165de9828cab62666265a77e932dea5dba1542ace9c47c7d5",
+    "packages/ai/src/utils/json-parse.ts": "b101d288394a45498a50e06966c753ffb55a2b4900bec24ecbecafb7c17591bd",
+    "packages/ai/src/utils/overflow.ts": "2fa34713faa32430af3295ac25a10fd2e361cc0343b0f554491c16d2a2f44fc9",
+    "packages/ai/src/utils/retry.ts": "1f7947fa6f30596415e78fca0c0cbd43345c918509f6160b79cdeec459881dd8",
+    "packages/ai/src/utils/typebox-helpers.ts": "caf756258ce20c793dc8002cb8130a8efce18a7b5262ba0c54832b96f5a76e9f",
+    "packages/ai/src/utils/uuid.ts": "234a48d4b999e69188fdfa49173ccfa7887d947e443ef206cc30219515105a1f",
+    "packages/ai/src/utils/validation.ts": "e4b8029c184bd6df830e0ee2cb7034a39d49b5ecb8c068c26af9564c20246594",
+    "packages/ai/src/index.ts": "d8f7f7414fcf821c87ea69ee6f95ba654c955491e31586509dc51dbdf54edea8",
+    "packages/agent/src/stream-fn.ts": "1f9dee101a5ce1052558458d9ce47e53e05187224e879217899059a80d90bc45",
+    "packages/agent/src/agent-loop.ts": "28a2b03e34a7e32f004aa851e54d3b5be9dad71c392205614cbc9abdf3a9020a",
+    "packages/agent/src/agent.ts": "7024a3145a6ebc951a0f030164adb1dfb12d33d6e0dbbac15ef0efda49c87457",
+    "packages/agent/src/proxy.ts": "cf33691a899323b77026ecbfeface4bf33a8ca3f9f07397c97c80e9dde618306",
+    "packages/agent/src/types.ts": "2e116ef60fdaca4e26be5a1ace8d8b47f545d648d365de60b8c9f9d1ba629ee4",
+    "packages/agent/src/index.ts": "8bec36d174aee7e4326b1bfa61b4d7c6ac19dd659439e70f91d2d448794cc892",
+    "packages/coding-agent/src/utils/child-process.ts": "cd324f5b9a1abadd85ab5a331750d475c8bd51ec65cae091ad9b416245ec85d4",
+    "packages/coding-agent/src/utils/paths.ts": "64c3ebef724fa21ed0042e127908b4323a5d2f1b8aaa91eee550442332fe8502",
+    "packages/coding-agent/src/core/messages.ts": "5397e3c96c9504266e4ee8b6e88d5098b3280ee7dbb0c687b74708c62a06c8d4",
+    "packages/coding-agent/src/core/session-manager.ts": "450d82c529933214e088b8422f00061815e617f352f6c834689787a314064bff",
+    "packages/coding-agent/src/core/usage-totals.ts": "8b18dd04d65e90af9b331cd5aa23d7891aab8a296f38a6026ce17a098d674ee9",
+    "packages/coding-agent/src/core/compaction/utils.ts": "37eab7698cdbff8b5987d4529005ea16d7e1ae4a5344d7d0443c3466444aa90e",
+    "packages/coding-agent/src/core/compaction/compaction.ts": "d5aebd41333957b57fa3f1bee2a18b3c00b5d47bb1b4af6f913cf8cd791099c8"
+  },
+  "packages": [
+    {
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "integrity": "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==",
+      "licenseFile": "cross-spawn-LICENSE.txt",
+      "licenseSha256": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
+    },
+    {
+      "name": "isexe",
+      "version": "2.0.0",
+      "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==",
+      "licenseFile": "isexe-LICENSE.txt",
+      "licenseSha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+    },
+    {
+      "name": "partial-json",
+      "version": "0.1.7",
+      "integrity": "sha512-Njv/59hHaokb/hRUjce3Hdv12wd60MtM9Z5Olmn+nehe0QDAsRtRbJPvJ0Z91TusF0SuZRIvnM+S4l6EIP8leA==",
+      "licenseFile": "partial-json-LICENSE.txt",
+      "licenseSha256": "cd519ad3d7e012427f978dfb2e3b92ee403d189d7b859ba6bf68fd7e12ca456f"
+    },
+    {
+      "name": "path-key",
+      "version": "3.1.1",
+      "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
+      "licenseFile": "path-key-LICENSE.txt",
+      "licenseSha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+    },
+    {
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
+      "licenseFile": "shebang-command-LICENSE.txt",
+      "licenseSha256": "69dee148a2cc470554dfa7142e830662062394d0fe67cddd379aba90dc60d6b3"
+    },
+    {
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
+      "licenseFile": "shebang-regex-LICENSE.txt",
+      "licenseSha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+    },
+    {
+      "name": "typebox",
+      "version": "1.3.27",
+      "integrity": "sha512-zu+jc1pcy4UiNThxikUr36f0Rybk9PEeCg/NE6adeWr/SKsdNO4EzZHYRDlv2YCVAfj3Odq3dESSo/jNyoBXzA==",
+      "licenseFile": "typebox-LICENSE.txt",
+      "licenseSha256": "e8a7cc256941a26ba8234f04390165243a4d42f74fd6491934140605bf7eae2d"
+    },
+    {
+      "name": "which",
+      "version": "2.0.2",
+      "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
+      "licenseFile": "which-LICENSE.txt",
+      "licenseSha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+    }
+  ],
+  "nodeMinimum": "22.19.0",
+  "nativeDependencies": false
+}

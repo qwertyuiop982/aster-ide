@@ -1,0 +1,5 @@
+Aster embedded client components
+Qingzhou: Copyright upstream contributors; AGPL-3.0. BrowserEngine.kt and WebViewEngine.kt are compiled from vendor/qingzhou.
+Shizuku: MIT-licensed API and provider artifacts 13.1.5 are resolved from Maven Central (dev.rikka.shizuku:api and dev.rikka.shizuku:provider). The separate Shizuku app/service is installed and started by the device user; no Shizuku app, server, API, or AIDL source is vendored here. The upstream license is retained in shizuku-LICENSE.txt.
+Operit: LGPL-3.0 upstream reference pinned in vendor/operit/SOURCE.json; unused full reference source is omitted and its license is retained. Not compiled wholesale.
+Pinned revisions and dependency coordinates are listed in CLIENT-SOURCES.json. Corresponding source and notices must accompany distribution of combined binaries as required by component licenses.

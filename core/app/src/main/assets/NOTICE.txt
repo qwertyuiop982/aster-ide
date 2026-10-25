@@ -1,0 +1,45 @@
+Aster IDE 1.0.1
+
+Copyright (C) 2026 Aster contributors.
+This application is distributed under GNU GPL version 3, consistent with the included Termux components. See LICENSE and vendor/termux-app/LICENSE.md in the complete source distribution.
+
+Termux terminal-emulator and terminal-view
+https://github.com/termux/termux-app
+Version v0.118.3, commit 5b657c6adf4304e5198951ce815fe0205dcac29c.
+Copyright Termux contributors. GPL-3.0.
+Modifications: AGP 8.13 / CMake build integration, API 24 baseline and external-transport TerminalSession adapter. Upstream application and package prefix are unchanged. The Termux bootstrap and PRoot are embedded in termux-runtime. PRoot redirects guest paths to Aster private storage; no separate Termux APK is required.
+
+PRoot 5.1.107.96: https://github.com/termux/proot, GPL-2.0. libtalloc 2.5.0: LGPL-3.0-or-later. libandroid-shmem 0.7: Apache-2.0. Binary payload checksums and upstream source/build recipes are in termux-runtime/src/main/assets/runtime/checksums.json and research/runtime-sources/.
+
+Sora Editor and language-textmate 0.24.4
+https://github.com/Rosemoe/sora-editor
+Copyright Rosemoe and contributors. LGPL-2.1-or-later.
+Sources are unmodified. Matching editor and language-textmate sources are included in the source distribution under research/ and may also be obtained from Maven Central. The complete Aster Gradle project permits modification, rebuilding and relinking with another compatible version. No restriction is imposed on reverse engineering for debugging library modifications.
+
+AndroidX, Jetpack Compose, Material Icons
+https://android.googlesource.com/platform/frameworks/support/
+Apache-2.0.
+
+Kotlin and kotlinx.coroutines
+https://github.com/JetBrains/kotlin
+https://github.com/Kotlin/kotlinx.coroutines
+Apache-2.0.
+
+TextMate engine (TM4E), Joni, JCodings, Gson, SnakeYAML
+These are transitive dependencies of Sora's language-textmate module. Their upstream copyright and license notices are retained in their artifacts and source archives. See THIRD_PARTY_NOTICES.md in the project for source URLs and applicable licenses.
+
+The 18 lightweight TextMate grammars and Aster themes in assets/grammars are original project resources. Language servers are installed on demand into Termux and remain subject to their respective upstream licenses. Android SDK resources are optional downloads from Google and subject to the Android SDK license.
+Pi 1.3.0, Gemini CLI 0.64.0 and Codex app-server 0.163.0
+The Agent runtime uses the pinned upstream production implementations and Aster's Android adapters. Pi is MIT and Codex/Gemini retain Apache-2.0 and their dependency notices. The separate OpenClaude SDK/runtime is not included in this public source or APK; only Aster's adapter is retained. Aster supplies the host bridge, workspace-scoped tools, command approval, streaming state, context handling and session recovery. Commits, package integrity values, production source and feature-validation scope are recorded under vendor/, research/agent-engines, research/pi-agent, research/gemini-agent and the corresponding bridge assets. Generated native libraries and pinned binary dependency archives are excluded from the source repository.
+
+Lucide static icon subset
+https://github.com/lucide-icons/lucide
+ISC. Aster bundles only the locally generated SVG subset used by the Agent WebView under agent/LUCIDE-LICENSE.txt; source package, version and integrity are recorded in agent/design/LUCIDE-SOURCE.json.
+
+
+Android Code Studio / AndroidIDE UI presentation
+https://github.com/AndroidCSOfficial/android-code-studio
+Revision e93e7468e6482ea51ef8e1adad6b7c6de86ae7cd, fetched through https://v4.gh-proxy.org/.
+Copyright Android Code Studio and AndroidIDE contributors. GPL-3.0-or-later.
+Adaptations: Compose drawer/toolbar/editor-card/bottom-tool-panel presentation, common ACS language-service preferences and rounded completion rows/windows. Aster workspace, LSP protocol/client, runtime, Agent and build services remain the implementation.
+License and provenance: licenses/ACS-LICENSE.txt and licenses/ACS-SOURCE.json. Matching upstream files and SHA-256 hashes are retained in research/acs-ui in the complete source distribution.

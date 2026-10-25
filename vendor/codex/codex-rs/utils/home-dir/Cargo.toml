@@ -1,0 +1,18 @@
+[package]
+autotests = false
+autoexamples = false
+autobenches = false
+name = "codex-utils-home-dir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codex-utils-absolute-path = { workspace = true }
+dirs = { workspace = true }
+
+[lib]
+doctest = false

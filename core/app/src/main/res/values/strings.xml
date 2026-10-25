@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" formatted="false">&quot;AsterIDE&quot;</string>
+    <string name="action">Increment</string>
+    <string name="click_count">Count: %1$d</string>
+    <string name="home">Home</string>
+    <string name="explore">Explore</string>
+    <string name="profile">Profile</string>
+    <string name="home_body">Home content</string>
+    <string name="explore_body">Explore content</string>
+    <string name="profile_body">Profile content</string>
+    <string name="open_menu">Menu</string>
+    <string name="close_menu">Close</string>
+    <string name="native_loading">Loading native library</string>
+</resources>

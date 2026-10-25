@@ -1,0 +1,26 @@
+{
+  "bootstrap": {
+    "tag": "2025.03.28-r1+apt-android-7",
+    "aarch64": "c8d702b6f742935001c37cda81b8ac69504a95d5cf28f2899532dd8cd4b057eb"
+  },
+  "hostPackages": [
+    {
+      "Package": "proot",
+      "Version": "5.1.107.96",
+      "Filename": "pool/main/p/proot/proot_5.1.107.96_aarch64.deb",
+      "SHA256": "8199dca06dccb693ec09fb1759e3e1ad08b4863f0c11c612f89c20bd9ecdc1a0"
+    },
+    {
+      "Package": "libtalloc",
+      "Version": "2.5.0",
+      "Filename": "pool/main/libt/libtalloc/libtalloc_2.5.0_aarch64.deb",
+      "SHA256": "556591f43bb773ad8777e1a29522640866a55f95dab71914418b94a8c58ad5a7"
+    },
+    {
+      "Package": "libandroid-shmem",
+      "Version": "0.7",
+      "Filename": "pool/main/liba/libandroid-shmem/libandroid-shmem_0.7_aarch64.deb",
+      "SHA256": "0da3a24d558b93c92bcf8d611e0826a99ff96e396b148e6cdf33b47c47c57ff6"
+    }
+  ]
+}

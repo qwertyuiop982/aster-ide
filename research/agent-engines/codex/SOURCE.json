@@ -1,0 +1,13 @@
+{
+  "engine": "codex",
+  "repository": "https://github.com/openai/codex",
+  "tag": "rust-v0.163.0",
+  "commit": "83086188ae0614bd882818ff1aa23f3194962012",
+  "sourceDirectory": "vendor/codex",
+  "archiveUrl": "https://github.com/openai/codex/archive/83086188ae0614bd882818ff1aa23f3194962012.tar.gz",
+  "downloadUrl": "https://v4.gh-proxy.org/https://github.com/openai/codex/archive/83086188ae0614bd882818ff1aa23f3194962012.tar.gz",
+  "archiveSha256": "e57f1d4f914c71c3532a12d5c14f740909fca4e7e041fa1b3db71618c88e5567",
+  "licenseSha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+  "redistribution": "Apache-2.0",
+  "archiveOmitted": "Duplicate upstream archive is downloadable by archiveUrl and archiveSha256; build uses the retained trimmed sourceDirectory."
+}

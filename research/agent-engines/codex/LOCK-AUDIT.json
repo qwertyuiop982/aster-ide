@@ -1,0 +1,10 @@
+{
+  "verified": true,
+  "upstreamLockSha256": "17cdd862471774ba7aef836aaf0a0a3ed76bd23e503b1fc7278c89d1f2719d03",
+  "androidLockSha256": "cae541406f7ec43a418e126be2bcd5de00b243e7bbf6382570028727d99c1069",
+  "workspaceVersionOnly": true,
+  "workspacePackages": 160,
+  "externalDependencyChanges": 0,
+  "packageCount": 1474,
+  "explanation": "Upstream release tag stamps workspace package version but retains 0.0.0 in Cargo.lock; only 160 local package versions change to 0.163.0."
+}

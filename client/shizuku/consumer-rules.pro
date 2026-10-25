@@ -1,0 +1,4 @@
+-keep class dev.aster.client.shizuku.DeviceService { *; }
+-keep class dev.aster.client.shizuku.IDeviceService$Stub { *; }
+-keepnames class moe.shizuku.api.BinderContainer
+-keepclassmembers class moe.shizuku.api.BinderContainer { public static final android.os.Parcelable$Creator CREATOR; }

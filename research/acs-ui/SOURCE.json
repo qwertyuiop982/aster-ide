@@ -1,0 +1,21 @@
+{
+  "source": "https://github.com/AndroidCSOfficial/android-code-studio",
+  "downloadProxy": "https://v4.gh-proxy.org/",
+  "commit": "e93e7468e6482ea51ef8e1adad6b7c6de86ae7cd",
+  "license": "GPL-3.0-or-later",
+  "files": {
+    "core/app/src/main/res/layout/activity_editor.xml": "752a22632d735ab0f277b0dd7f4edd782ffd050b51b456076839994a2ce2442d",
+    "core/app/src/main/res/layout/content_editor.xml": "245fa98d3cd2b8625611faeb1ad608b7cdc6d97d5a4e5d5621899b541aafd5dd",
+    "core/app/src/main/res/layout/layout_editor_bottom_sheet.xml": "377a8c5c082d51e4df176cce4f59071c268a392eeaa84f00a0de40c507f925b3",
+    "core/app/src/main/res/layout/layout_editor_bottom_action.xml": "ab1624bcf7bb973e724791c6e27739359baf5d586165af0093a1824cdb8a7ed5",
+    "core/app/src/main/res/layout/layout_diagnostic_info.xml": "48d5e5ecfe162f054b74a300cebfb152d48ec2d6eabd604a15a1cd8ccd022c79",
+    "core/app/src/main/java/com/tom/rv2ide/preferences/lspPrefs.kt": "5814326512332c1111906f83e9efc5beadba4f5d38497a73eb898a841df098df",
+    "editor/impl/src/main/res/layout/layout_completion_item.xml": "de995d8f7e8529ab6373756e215fdc959454ce3ae57118e57ada4379477c4bbc",
+    "editor/impl/src/main/res/values/dimens.xml": "9ac565caa71aead018fdbbafed35d3a16f5d955c89c50117dd1df32874f43e9a",
+    "editor/impl/src/main/java/com/tom/rv2ide/editor/adapters/CompletionListAdapter.kt": "551cb47a698799bb72d8aaabc2e9931fb056ce9e19c134236dd26e74f3fb8bd8",
+    "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/EditorCompletionLayout.kt": "b37e65b625896a569de7d50f0d469012ab99b6e6b6f064bd2ea4773feff4c9ea",
+    "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/BaseEditorWindow.java": "20b39a472a35166e3e9e7cd447abdfa957aace4c582eb0493dba42154a21602f",
+    "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/SignatureHelpWindow.java": "101fe63ed9da22b1ed435e33f857d42de51bf3793fa8690b50b0a650bc749a90"
+  },
+  "scope": "UI layouts and completion presentation only; Aster services remain the implementation"
+}

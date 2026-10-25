@@ -1,0 +1,19 @@
+{
+  "source": "/idesetup.py supplied by the user",
+  "sourceSha256": "18b2ccd4b83ca44e8b6f4654e110368e69619212c1e6b45139e4742101030f00",
+  "embeddedSha256": "f9e78976b3b4ef9d6a4e5d8b3339cb260b4f0c08dcbaa78d336d13315f7af0e6",
+  "adaptations": [
+    "Read ACS metadata using stdlib instead of requiring the external acs command",
+    "Support Android/Bionic plain NDK archives and the original encrypted bundle extractor",
+    "Use selected NDK version and SDK destination for patches",
+    "Accept the supplied Android ARM64 static tools and reject desktop dynamic loaders",
+    "Use application-managed package updates and USTC source",
+    "Atomic archive downloads and filtered tar extraction",
+    "Stage and validate SDK executables before replacing the installed SDK; validate the selected JDK",
+    "Resolve the ACS r29 manifest identifier to the archive revision 29.0.14206865",
+    "Prefer aria2c with 16 connections and resumable unlimited retries, then wget, then urllib",
+    "Reuse SHA256-verified HOME/acs NDK downloads and preserve cache after installation",
+    "Preserve aria2 control files and separate segmented from sequential fallback progress"
+  ],
+  "standaloneSha256": "ba94be13455a1f36cfef32b2037bfbf93b31cc25088cc8208b278f2adf0f071e"
+}

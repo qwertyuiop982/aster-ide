@@ -1,0 +1,14 @@
+{
+  "name": "aster-pi-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "typebox": "1.3.27",
+    "partial-json": "0.1.7",
+    "cross-spawn": "7.0.6"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

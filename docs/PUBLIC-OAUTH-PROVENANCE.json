@@ -1,0 +1,8 @@
+{
+  "official_source": "https://raw.githubusercontent.com/google-gemini/gemini-cli/v0.64.0/packages/core/src/code_assist/oauth2.ts",
+  "constants_match_official_public_source": {
+    "OAUTH_CLIENT_ID": true,
+    "OAUTH_CLIENT_SECRET": true
+  },
+  "official_file_sha256": "a3f8c55ad885656ed62144fb74e3f737117f58606a98c095f5e96f0707d9fd68"
+}

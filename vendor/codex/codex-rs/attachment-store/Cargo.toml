@@ -1,0 +1,21 @@
+[package]
+autotests = false
+autoexamples = false
+autobenches = false
+edition.workspace = true
+license.workspace = true
+name = "codex-attachment-store"
+version.workspace = true
+
+[lib]
+doctest = false
+name = "codex_attachment_store"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+

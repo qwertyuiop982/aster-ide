@@ -1,0 +1,28 @@
+{
+  "qingzhou": {
+    "url": "https://github.com/myos-Lu/qingzhou",
+    "commit": "3ec0701bef960f13ff6a91e41f225b6c599dc8f4",
+    "license": "AGPL-3.0",
+    "compiled": [
+      "BrowserEngine.kt",
+      "WebViewEngine.kt"
+    ]
+  },
+  "shizuku": {
+    "app": "Install and start the separate Shizuku app on the device; it is not bundled.",
+    "upstream": "https://github.com/RikkaApps/Shizuku-API",
+    "version": "13.1.5",
+    "license": "MIT",
+    "dependencies": [
+      "dev.rikka.shizuku:api:13.1.5",
+      "dev.rikka.shizuku:provider:13.1.5"
+    ],
+    "integration": "Resolved from Maven Central; Shizuku app/server/API source is not vendored in this repository."
+  },
+  "operit": {
+    "url": "https://github.com/AAswordman/Operit",
+    "commit": "dbf71916fae9750cfdc9f9a774f5a0fee56633fb",
+    "license": "LGPL-3.0",
+    "status": "Pinned upstream reference only; unused reference tree omitted; Aster adapters and license retained; not full feature parity"
+  }
+}

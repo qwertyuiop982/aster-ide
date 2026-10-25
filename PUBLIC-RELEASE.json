@@ -1,0 +1,58 @@
+{
+  "version": "1.0.1",
+  "release_tag": "v1.0.1-free64",
+  "release_date": "2026-10-25",
+  "site_version": "3.0",
+  "repo_url": "https://github.com/qwertyuiop982/aster-ide",
+  "release_url": "https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.0.1-free64",
+  "android_requirement": "Android 7.0+",
+  "editions": {
+    "account": {
+      "title": "Aster 1.0.1 · free64",
+      "badge": "预览版",
+      "description": "完整 IDE 与 Agent，新增账户模型及连续工具调用修复。测试构建，使用前建议备份项目。",
+      "apk": {
+        "name": "aster-account-v1.0.1-free64.apk",
+        "url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-account-v1.0.1-free64.apk",
+        "direct_url": "https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-account-v1.0.1-free64.apk",
+        "bytes": 163776303,
+        "size_label": "156.2 MB",
+        "sha256": "5a4ec4915e1229c38966de18b031ab967c6e13cf9f4398d43865a3bf75ffb9f0"
+      },
+      "source": {
+        "name": "aster-account-v1.0.1-free64-source.zip",
+        "url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-account-v1.0.1-free64-source.zip",
+        "direct_url": "https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-account-v1.0.1-free64-source.zip",
+        "bytes": 24342953,
+        "size_label": "23.2 MB",
+        "sha256": "4ae95bd57d0960da93a2cc733261a1184d31afd37dd86851aa91921f6d328313"
+      },
+      "validation_url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/validation-account-free64.json",
+      "checksums_url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/SHA256SUMS.txt"
+    },
+    "original": {
+      "title": "Aster 1.0.1 · 原版",
+      "badge": "Release 构建",
+      "description": "完整 IDE、终端与 Pi / Codex / Gemini，使用自定义模型。原版不包含账户模型与 free64 修复。",
+      "apk": {
+        "name": "aster-v1.0.1-release.apk",
+        "url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-v1.0.1-release.apk",
+        "direct_url": "https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-v1.0.1-release.apk",
+        "bytes": 137175085,
+        "size_label": "130.8 MB",
+        "sha256": "19f0b1697a1a940c312950597b36cc9b217ba3aed2b9ccce004fbd7e0689d1ff"
+      },
+      "source": {
+        "name": "aster-v1.0.1-source.zip",
+        "url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-v1.0.1-source.zip",
+        "direct_url": "https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/aster-v1.0.1-source.zip",
+        "bytes": 24082614,
+        "size_label": "23.0 MB",
+        "sha256": "8975211f305a83d503215f2798b38d81001a0dcbdc7b1f1731dd97b2ed28084e"
+      },
+      "validation_url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/validation-original-1.0.1.json",
+      "checksums_url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/SHA256SUMS.txt"
+    }
+  },
+  "live_validation_url": "https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1-free64/pi-live-free64.json"
+}

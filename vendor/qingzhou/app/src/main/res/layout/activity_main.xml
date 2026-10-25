@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:orientation="vertical"
+android:background="?android:attr/windowBackground">
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:paddingStart="8dp"
+android:paddingEnd="8dp"
+android:gravity="center_vertical"
+android:background="?android:attr/colorBackground">
+
+<ImageView
+android:layout_width="32dp"
+android:layout_height="32dp"
+android:src="@drawable/ic_boat"
+android:contentDescription="浏览器图标" />
+
+<View
+android:layout_width="0dp"
+android:layout_height="0dp"
+android:layout_weight="1" />
+
+<ImageButton
+android:id="@+id/btn_timer"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_timer_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="计时" />
+
+<ImageButton
+android:id="@+id/btn_scripts"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_menu_bookmarks"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="脚本管理" />
+
+<ImageButton
+android:id="@+id/btn_bookmark"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_bookmark_border_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="收藏当前" />
+
+<ImageButton
+android:id="@+id/btn_refresh"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_refresh_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="刷新" />
+</LinearLayout>
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="wrap_content"
+android:orientation="horizontal"
+android:padding="4dp"
+android:gravity="center_vertical"
+android:background="?android:attr/colorBackground">
+
+<EditText
+android:id="@+id/et_url"
+android:layout_width="0dp"
+android:layout_height="48dp"
+android:layout_weight="1"
+android:hint="输入网址或搜索"
+android:singleLine="true"
+android:imeOptions="actionGo"
+android:textColor="?android:attr/textColorPrimary"
+android:textColorHint="?android:attr/textColorSecondary"
+android:background="@null"
+android:paddingStart="8dp"
+android:paddingEnd="8dp" />
+
+<ImageButton
+android:id="@+id/btn_go"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_go_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="访问" />
+</LinearLayout>
+
+<ProgressBar
+android:id="@+id/progress_bar"
+style="?android:attr/progressBarStyleHorizontal"
+android:layout_width="match_parent"
+android:layout_height="3dp"
+android:max="100"
+android:visibility="gone" />
+
+<FrameLayout
+android:id="@+id/fragment_container"
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1" />
+
+<LinearLayout
+android:layout_width="match_parent"
+android:layout_height="56dp"
+android:orientation="horizontal"
+android:gravity="center"
+android:background="?android:attr/colorBackground"
+android:paddingStart="16dp"
+android:paddingEnd="16dp">
+
+<ImageButton
+android:id="@+id/btn_back"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_back_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="后退" />
+
+<ImageButton
+android:id="@+id/btn_forward"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_forward_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="前进" />
+
+<FrameLayout
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:clipChildren="false"
+android:clipToPadding="false">
+
+<ImageButton
+android:id="@+id/btn_tabs"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_tabs_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="标签管理" />
+</FrameLayout>
+
+<ImageButton
+android:id="@+id/btn_incognito"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_incognito_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="无痕模式" />
+
+<View
+android:layout_width="0dp"
+android:layout_height="0dp"
+android:layout_weight="1" />
+
+<ImageButton
+android:id="@+id/btn_mine"
+android:layout_width="48dp"
+android:layout_height="48dp"
+android:src="@drawable/ic_mine_adaptive"
+android:background="?android:attr/selectableItemBackgroundBorderless"
+android:contentDescription="我的" />
+</LinearLayout>
+
+</LinearLayout>

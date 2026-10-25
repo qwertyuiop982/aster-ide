@@ -1,0 +1,13 @@
+{
+  "engine": "gemini",
+  "repository": "https://github.com/google-gemini/gemini-cli",
+  "tag": "v0.64.0",
+  "commit": "4a0749aceac5643e6f85a36d7420314d85e13b52",
+  "sourceDirectory": "vendor/gemini-cli",
+  "archiveUrl": "https://github.com/google-gemini/gemini-cli/archive/4a0749aceac5643e6f85a36d7420314d85e13b52.tar.gz",
+  "downloadUrl": "https://v4.gh-proxy.org/https://github.com/google-gemini/gemini-cli/archive/4a0749aceac5643e6f85a36d7420314d85e13b52.tar.gz",
+  "archiveSha256": "5bdfe2e7cad30594a40b84b1447dfa3c84e3d3859c606ef8a46e728e0b8203d6",
+  "licenseSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+  "redistribution": "Apache-2.0",
+  "archiveOmitted": "Duplicate upstream archive is downloadable by archiveUrl and archiveSha256; build uses the retained trimmed sourceDirectory."
+}
