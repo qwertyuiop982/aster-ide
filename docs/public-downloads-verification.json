@@ -1,0 +1,51 @@
+{
+  "repo_public_anonymous": true,
+  "repo_url": "https://github.com/qwertyuiop982/aster-ide",
+  "proxy_downloads": [
+    {
+      "name": "SHA256SUMS.txt",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "name": "aster-account-v1.0.1-free64-source.zip",
+      "status": 206,
+      "zip_header": true,
+      "size_header": "bytes 0-63/24342953"
+    },
+    {
+      "name": "aster-account-v1.0.1-free64.apk",
+      "status": 206,
+      "zip_header": true,
+      "size_header": "bytes 0-63/163776303"
+    },
+    {
+      "name": "aster-v1.0.1-release.apk",
+      "status": 206,
+      "zip_header": true,
+      "size_header": "bytes 0-63/137175085"
+    },
+    {
+      "name": "aster-v1.0.1-source.zip",
+      "status": 206,
+      "zip_header": true,
+      "size_header": "bytes 0-63/24082614"
+    },
+    {
+      "name": "pi-live-free64.json",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "name": "validation-account-free64.json",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "name": "validation-original-1.0.1.json",
+      "status": 200,
+      "sha256_matches": true
+    }
+  ],
+  "success": true
+}

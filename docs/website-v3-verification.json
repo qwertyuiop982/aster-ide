@@ -1,0 +1,80 @@
+{
+  "success": true,
+  "site_url": "https://asteride.cn",
+  "site_version": "3.0",
+  "release": "/var/www/aster/releases/site-v3-20261025T002008Z",
+  "previous_release": "/var/www/aster/releases/20261018T150656Z-v101-client",
+  "archive_sha256": "f71653d6f73c9886094808131375ba401fcfdf005609646a1112aea1ac9cafc8",
+  "public_pages": [
+    {
+      "path": "/",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/guide/",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/licenses/",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/privacy/",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/release.json",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/assets/site.css",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/assets/site.js",
+      "status": 200,
+      "sha256_matches": true
+    },
+    {
+      "path": "/assets/release-data.js",
+      "status": 200,
+      "sha256_matches": true
+    }
+  ],
+  "custom_404": true,
+  "health": {
+    "capabilities": {
+      "email_login": false,
+      "free": true,
+      "free_go": true,
+      "github_login": true
+    },
+    "status": "ok",
+    "version": "1.0.1"
+  },
+  "source_commit": "a84e71d9f85500c0b9f5e34d96bd22184ed6aa81",
+  "development_and_build": "local",
+  "server_role": "static deployment only",
+  "browser_checks": {
+    "preview_tabs": true,
+    "engine_sources": true,
+    "edition_downloads_and_hashes": true,
+    "token_calculator": true,
+    "faq": true,
+    "mobile_navigation_and_escape": true,
+    "viewport_widths": [
+      320,
+      390,
+      768,
+      1440
+    ],
+    "horizontal_overflow": false,
+    "console_errors": 0
+  }
+}
