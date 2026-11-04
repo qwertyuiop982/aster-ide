@@ -19,6 +19,7 @@ import shlex
 import shutil
 import signal
 import socket
+import time
 import socketserver
 import struct
 import sys
@@ -43,6 +44,8 @@ BIN = BASE / 'bin'
 LIMIT = threading.BoundedSemaphore(24)
 PROCESSES = threading.BoundedSemaphore(8)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'agent_vendor'))
+from aster_diagnostics import LinkerWarningFilter
 
 
 def packet(stream, value):
@@ -177,12 +180,15 @@ def stream_process(argv, root, out, job_id, options=None):
         if control.cancelled.is_set():
             terminate(process)
         decode = codecs.getincrementaldecoder('utf-8')('replace')
+        filter_output = LinkerWarningFilter()
         while True:
             chunk = process.stdout.read1(8192)
             if not chunk:
                 break
-            packet(out, {'type': 'output', 'text': decode.decode(chunk)})
-        tail = decode.decode(b'', final=True)
+            text = decode.decode(filter_output.feed(chunk))
+            if text:
+                packet(out, {'type': 'output', 'text': text})
+        tail = decode.decode(filter_output.feed(final=True), final=True)
         if tail:
             packet(out, {'type': 'output', 'text': tail})
         return process.wait()
@@ -410,6 +416,27 @@ class Handler(socketserver.StreamRequestHandler):
                 import agent_runner
                 accepted = agent_runner.control(request, cancel=op == 'agent_cancel')
                 packet(self.wfile, {'ok': True, 'accepted': accepted})
+            elif op == 'agent_terminal_close':
+                from aster_terminal import TERMINALS, conversation_scope
+                scope = conversation_scope(BASE, root, str(request.get('engineId', 'pi')), str(request.get('sessionId', '')))
+                closed = TERMINALS.close_scope(scope)
+                packet(self.wfile, {'ok': True, 'closed': closed})
+            elif op == 'agent_warmup':
+                import agent_runner
+                session = agent_runner.AgentSession(str(request.get('job')), root, BASE, request, environment(request.get('options')), lambda event: None)
+                session.deadline = time.monotonic() + 60
+                try:
+                    session.prepare()
+                    if session.engine_id == 'codex' and (request.get('configuration') or {}).get('model'):
+                        from agent_codex import run_codex
+                        run_codex(session, request['configuration'], prepare_only=True)
+                    else:
+                        from agent_engines import require_available
+                        require_available(session.engine_id, BASE, Path(__file__).parent / 'agent_vendor', session.environment)
+                    packet(self.wfile, {'ok': True, 'ready': True, 'modelRequested': False})
+                finally:
+                    if session.stage_lock is not None:
+                        session.stage_lock.close()
             elif op == 'put':
                 data = base64.b64decode(request.get('data', ''), validate=True)
                 if len(data) > MAX_FILE:
@@ -508,7 +535,7 @@ class Handler(socketserver.StreamRequestHandler):
                     PROCESSES.release()
             else:
                 raise ValueError('Unknown operation')
-        except (BrokenPipeError, ConnectionResetError, EOFError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, EOFError):
             pass
         except Exception as e:
             with contextlib.suppress(Exception):
@@ -582,6 +609,7 @@ class Handler(socketserver.StreamRequestHandler):
         packet(self.wfile, {'ok': True, 'job': job})
         stop = threading.Event()
         def output():
+            filter_output = LinkerWarningFilter()
             try:
                 while not stop.is_set():
                     ready, _, _ = select.select([master], [], [], 0.5)
@@ -592,7 +620,9 @@ class Handler(socketserver.StreamRequestHandler):
                     data = os.read(master, 8192)
                     if not data:
                         break
-                    packet(self.wfile, {'type': 'output', 'data': base64.b64encode(data).decode('ascii')})
+                    data = filter_output.feed(data)
+                    if data:
+                        packet(self.wfile, {'type': 'output', 'data': base64.b64encode(data).decode('ascii')})
             except OSError:
                 pass
             finally:

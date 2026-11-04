@@ -27,6 +27,12 @@ import dev.aster.ide.data.IdeSettings
     val motion = LocalMotion.current
     val lines by vm.output.lines.collectAsStateWithLifecycle()
     val failure = vm.startupError ?: runtime.error
+    if (failure == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Aster", style = MaterialTheme.typography.headlineMedium)
+        }
+        return
+    }
     val running = vm.connecting || vm.preparingEditor || !vm.workspaceLoaded
     val status = when {
         !vm.workspaceLoaded -> "读取工作区…"

@@ -25,7 +25,9 @@ args.log_dir.mkdir(parents=True, exist_ok=True)
 task = args.variant[0].upper() + args.variant[1:]
 directory = ROOT / 'core/build/application/outputs/apk' / args.variant
 metadata = json.loads((directory / 'output-metadata.json').read_text())
-assert metadata['applicationId'] == 'dev.aster.ide' and len(metadata['elements']) == 1
+application_id = metadata.get('applicationId', '')
+assert application_id and len(metadata['elements']) == 1
+
 element = metadata['elements'][0]
 UNSIGNED = directory / element['outputFile']
 assert UNSIGNED.name.endswith('-unsigned.apk'), 'Expected unsigned Gradle output'
@@ -36,6 +38,11 @@ build_log = args.build_log.read_text()
 assert '> Task :app:assemble' + task in build_log and 'BUILD SUCCESSFUL' in build_log and 'BUILD FAILED' not in build_log, 'Release assembly must complete before signing'
 mapping = ROOT / 'core/build/application/outputs/mapping' / args.variant / 'mapping.txt'
 assert 'minify' + task + 'WithR8' in build_log and mapping.stat().st_size > 0
+assert 'Supplied proguard configuration does not exist' not in build_log, 'R8 must not silently omit a configured rules file'
+effective_rules = (mapping.parent / 'configuration.txt').read_text()
+assert 'proguard-android-optimize.txt' in effective_rules, 'Android default optimize rules were not loaded'
+for required in ['-allowaccessmodification', '@android.webkit.JavascriptInterface', 'implements android.os.Parcelable']:
+    assert required in effective_rules, 'Android default R8 protection is missing: ' + required
 assert any(name + task + suffix in build_log for name, suffix in [('shrink', 'Res'), ('optimize', 'Resources')]), 'Resource shrinking task missing'
 local_key = Path.home() / '.android/debug.keystore'
 keystore = Path(os.environ.get('ASTER_RELEASE_KEYSTORE', str(local_key)))
@@ -90,7 +97,7 @@ if previous.exists():
 
 badging = subprocess.run([str(TOOLS / 'aapt2'), 'dump', 'badging', str(SIGNED)], capture_output=True, text=True, check=True)
 assert 'application-debuggable' not in badging.stdout, 'Release must not be debuggable'
-assert "name='dev.aster.ide'" in badging.stdout
+assert f"name='{application_id}'" in badging.stdout, 'Signed APK package differs from Gradle output metadata'
 version_code = element['versionCode']
 version = element['versionName']
 assert f"versionCode='{version_code}'" in badging.stdout and f"versionName='{version}'" in badging.stdout

@@ -35,4 +35,13 @@ window.AsterReceive=(state,revision=0)=>{
  } catch(error) { window.AsterBoot?.fail(error.message||String(error)); return false; }
 };
 window.AsterClosePanel=()=>page?.closePanel()||false;
+// Build all static labels and panels before workspace/runtime discovery completes.
+if (!page) {
+ const profile=profiles.pi, local={text:'',dirty:false};
+ const initial=createPage(profile,()=>{},local);
+ initial.update({engine:'pi',busy:true,status:'',messages:[],history:[],tasks:[],changes:[],contextFiles:[],engines:[]});
+ document.body.dataset.engine='pi';
+ document.getElementById('app').replaceChildren(initial.root);
+ page=initial;
+}
 window.AsterBoot?.ready();

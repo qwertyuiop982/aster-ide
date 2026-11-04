@@ -4,7 +4,9 @@ import re
 
 def available_levels(engine, model, max_tokens=4096):
     model = str(model).lower()
-    if engine in ('pi', 'codex'):
+    if engine == 'codex':
+        return ('auto', 'none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra')
+    if engine == 'pi':
         return ('auto', 'off', 'minimal', 'low', 'medium', 'high', 'xhigh')
     if engine == 'openclaude':
         return ('auto', 'off') + (('low', 'medium', 'high') if max_tokens >= 2048 and 'claude-3-' not in model else ())
@@ -19,8 +21,17 @@ def available_levels(engine, model, max_tokens=4096):
         return ('auto',)
     raise ValueError('Unknown thinking engine')
 
+def _effort(engine, level):
+    if engine == 'codex':
+        if level in ('max', 'ultra'):
+            return 'max'
+        if level == 'none':
+            return 'none'
+    return 'none' if level == 'off' else level
+
 
 def _legacy_thinking(engine, configuration):
+
     level = configuration.get('thinkingLevel', 'auto')
     model = str(configuration.get('model', '')).lower()
     maximum = configuration.get('maxTokens', 4096)
@@ -32,7 +43,8 @@ def _legacy_thinking(engine, configuration):
     if level == 'auto':
         return result
     if engine in ('pi', 'codex'):
-        return {**result, 'effort': 'none' if level == 'off' else level}
+        return {**result, 'effort': _effort(engine, level)}
+
     if engine == 'gemini' and 'gemini-2.5' not in model:
         return {**result, 'gemini': {'thinkingLevel': level.upper()}}
     minimum = 1024 if engine == 'openclaude' else 512 if 'flash-lite' in model else 128
@@ -45,6 +57,8 @@ def _legacy_thinking(engine, configuration):
 
 def resolve_thinking(engine, configuration):
     mode = configuration.get("thinkingMode", "legacy")
+    if configuration.get("thinkingLevel") == "ultra" and engine != "codex":
+        raise ValueError("Ultra is only supported by Codex")
     if engine == 'gemini' and configuration.get('protocol') == 'openai':
         level = configuration.get('thinkingLevel', 'auto')
         if mode == 'budget':
@@ -89,7 +103,8 @@ def resolve_thinking(engine, configuration):
             raise ValueError("Model does not support selected thinking strength")
         if engine == "gemini":
             return {"mode": mode, "level": level, "gemini": {"thinkingLevel": level.upper()}}
-        return {"mode": mode, "level": level, "effort": level}
+        return {"mode": mode, "level": level, "effort": _effort(engine, level)}
+
     if mode == "budget":
         supported = engine == "openclaude" or engine == "gemini" and re.search(r"(?:^|/)gemini-2[.]5-(?:pro|flash)(?:-|$)", model)
         if not supported:

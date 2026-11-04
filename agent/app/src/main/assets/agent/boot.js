@@ -93,5 +93,5 @@
   }
   supportReplaceChildren(window.Element); supportReplaceChildren(window.DocumentFragment);
   connect();
-  setTimeout(function () { if (!ready && !failure) fail('界面脚本没有完成加载（8 秒）。'); }, 8000);
+  setTimeout(function () { if (!ready && !failure) transmit('loading', 'UI script is still loading'); }, 15000);
 }());

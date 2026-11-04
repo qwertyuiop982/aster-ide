@@ -1,0 +1,37 @@
+{
+  "repository": "https://github.com/openai/codex",
+  "commit": "83086188ae0614bd882818ff1aa23f3194962012",
+  "tag": "rust-v0.163.0",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/LICENSE"
+    },
+    {
+      "path": "codex-rs/core/src/tools/handlers/mod.rs",
+      "sha256": "4332e4e5ebed1495d271b0622a8d08801ab66629988a1749651c3b8f633e9839",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/tools/handlers/mod.rs"
+    },
+    {
+      "path": "codex-rs/core/src/tools/handlers/shell_spec.rs",
+      "sha256": "f63500f061206cec364f3f994fe4e5a8c18bb205b0f8f25bae83afe123505247",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/tools/handlers/shell_spec.rs"
+    },
+    {
+      "path": "codex-rs/core/src/tools/handlers/apply_patch.rs",
+      "sha256": "1256b2219f6acb9c49ae472860ee69d73c75bb427dcca4dae2a30018d30216c0",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/tools/handlers/apply_patch.rs"
+    },
+    {
+      "path": "codex-rs/core/src/tools/handlers/plan.rs",
+      "sha256": "f1e0acbe71dc6160ade7f4751f00c98f2d5e999d6c0954d015bf7709c382ce50",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/tools/handlers/plan.rs"
+    },
+    {
+      "path": "codex-rs/core/src/tools/handlers/view_image.rs",
+      "sha256": "788b24418a885ef75109a3b71de366119fa733f9e91c6f0de142d437835258db",
+      "url": "https://raw.githubusercontent.com/openai/codex/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/tools/handlers/view_image.rs"
+    }
+  ]
+}

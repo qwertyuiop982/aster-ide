@@ -61,7 +61,7 @@ export class OpenAIContentGenerator {
         }
       } finally { reader.releaseLock(); }
       const raw = Buffer.concat(chunks).toString('utf8');
-      if (!response.ok) throw new Error('Gemini OpenAI HTTP ' + response.status + ': ' + raw.slice(0, 1200).split(this.options.apiKey || '\u0000').join('[hidden]'));
+      if (!response.ok) throw Object.assign(new Error('Gemini OpenAI HTTP ' + response.status + ': ' + raw.slice(0, 1200).split(this.options.apiKey || '\u0000').join('[hidden]')), { status: response.status });
       const value = JSON.parse(raw);
       const choice = value.choices?.[0];
       if (!choice?.message) throw new Error('OpenAI response has no message');

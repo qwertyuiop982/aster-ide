@@ -53,6 +53,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         append("本地共享 Termux：${core.termux.directory}\n$runtimeInventory\n")
         append("\n当前底层：${engine.displayName} · ${engine.apiLabel}\n")
         append("模型：${profile.model.ifBlank { "未配置" }}\n")
+        append("工具权限：${settings.value.agentPermissionMode}；命令无审查：${settings.value.agentNativeCommandsUnchecked}\n")
+        append("项目目录：${workspace?.directory?.absolutePath.orEmpty()}\n")
         val host = runCatching { java.net.URI(profile.endpoint).host }.getOrNull()
         append("模型服务主机：${host ?: "未配置"}（不显示 Key）\n")
         append("已保存窗口：${profile.contextWindow} tokens；下一次任务使用\n")
@@ -71,14 +73,31 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         append("界面缓存：最多 60 条、合计 200000 字符、单条 24000；引擎会话与原生压缩另行持久化。\n")
         append("\n界面诊断：\n$webDiagnostics\n运行日志（尾部）：\n${core.output.text.value.takeLast(12000)}")
     })
+    suspend fun runtimeRawDiagnostics(): String = withContext(Dispatchers.IO) {
+        val root = dev.aster.termux.PathRedirect.layout(getApplication()).home
+        listOf("runtime.log", "agent-environment.log").joinToString("\n") { name ->
+            val file = java.io.File(root, ".aster/logs/$name")
+            name + "\n" + if (file.isFile()) file.readText().takeLast(12000) else "暂无原始日志"
+        }
+    }
     fun copyStartupDiagnostics() {
-        val keys = AgentEngine.entries.mapNotNull { runCatching { agent.secrets.read(it) }.getOrNull()?.takeIf(String::isNotBlank) }
-        val text = AgentDiagnostics.redact(diagnosticsText(), keys)
-        val clipboard = getApplication<Application>().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Aster 启动诊断", text))
+        viewModelScope.launch {
+            val keys = AgentEngine.entries.mapNotNull { runCatching { agent.secrets.read(it) }.getOrNull()?.takeIf(String::isNotBlank) }
+            val text = AgentDiagnostics.redact(diagnosticsText() + "\n\n原始兼容性诊断：\n" + runtimeRawDiagnostics(), keys)
+            val clipboard = getApplication<Application>().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Aster 启动诊断", text))
+        }
     }
     var error by mutableStateOf<String?>(null)
     var showSettings by mutableStateOf(false)
+    var showAppearance by mutableStateOf(false)
+    var showEnvironment by mutableStateOf(false)
+    var showLongTaskInfo by mutableStateOf(false)
+    var environmentInstalling by mutableStateOf(false); private set
+    var environmentStatus by mutableStateOf(""); private set
+    var environmentTools by mutableStateOf<Map<String, String>>(emptyMap()); private set
+    @Volatile private var environmentJobId = ""
+
     var showWorkspaces by mutableStateOf(false)
     var reviewChanges by mutableStateOf(false)
     var showContextFiles by mutableStateOf(false)
@@ -92,6 +111,39 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     var prompt by mutableStateOf(""); private set
     private val preferences = application.getSharedPreferences("agent-prompts", 0)
     private var activeJob: Job? = null
+    private var warming: Job? = null
+    private fun prewarmWorkspace() {
+        if (warming?.isActive == true || agent.running || setupState.phase != AgentSetupPhase.READY) return
+        val current = workspace ?: return
+        warming = viewModelScope.launch {
+            try {
+                val prepared = prepareProjectAccess()
+                core.bridge.sync(prepared, core.repo)
+                if (workspace?.id == prepared.id && !agent.running) agent.prewarm(prepared)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { core.logs.append("后台预加载：${e.message}\n") }
+        }
+    }
+    private suspend fun prepareProjectAccess(): Workspace {
+        var current = checkNotNull(workspace) { "工作区尚未就绪" }
+        if (settings.value.agentPermissionMode == "native" || current.direct) {
+            current = core.repo.nativeWorkspace(current)
+            workspace = current
+            core.repo.select(current)
+            workspaces = core.repo.recent()
+            core.termux.start()
+        }
+        return current
+    }
+    fun openNativeWorkspace(uri: Uri) = action {
+        warming?.join()
+        val opened = core.repo.openDirectTree(uri)
+        settings.update { it.copy(agentPermissionMode = "native") }
+        val mounted = core.repo.nativeWorkspace(opened)
+        agent.selectWorkspace(mounted.id); workspace = mounted; core.repo.select(mounted)
+        workspaces = core.repo.recent(); showWorkspaces = false; showSettings = false; webPanelOpen = false
+        loadContextFiles(); core.termux.start(); prewarmWorkspace()
+    }
     private val refresh = MutableStateFlow(0L)
     private val mutablePage = MutableStateFlow("{}")
     val page = mutablePage.asStateFlow()
@@ -99,7 +151,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     init {
         prompt = preferences.getString("prompt", "").orEmpty()
         viewModelScope.launch {
-            merge(agent.messages.map { Unit }, agent.state.map { Unit }, agent.changes.map { Unit },
+            merge(agent.subagentConversations.map { Unit }, agent.messages.map { Unit }, agent.state.map { Unit }, agent.changes.map { Unit },
                 agent.tasks.map { Unit }, agent.contextUsage.map { Unit }, agent.conversations.map { Unit },
                 agent.conversation.map { Unit }, agent.selectedEngine.map { Unit }, agent.mode.map { Unit },
                 agent.availableEngines.map { Unit }, agent.saveError.map { Unit }, core.termux.state.map { Unit },
@@ -112,6 +164,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
         }
+        preloadAgentInterface(application, viewModelScope)
         initializeWorkspace()
     }
     fun initializeWorkspace() = action {
@@ -132,6 +185,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     stage = { setupState = AgentSetupState(it); core.output.append("Agent 启动：${it.title}\n"); changed() }
                 )
             }
+            prewarmWorkspace()
         } catch (e: CancellationException) {
             setupState = AgentSetupState(AgentSetupPhase.CANCELLED, stoppedAt = setupState.phase); throw e
         } catch (e: Exception) {
@@ -155,19 +209,24 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         prompt = value; preferences.edit().putString("prompt", value).apply(); changed()
     }
     fun selectEngine(id: String) = action {
+        warming?.join()
         agent.selectEngine(AgentEngine.entries.firstOrNull { it.id == id } ?: error("未知引擎")); webPanelOpen = false
+        prewarmWorkspace()
     }
     fun selectWorkspace(id: String) = action {
+        warming?.join()
         val selected = workspaces.firstOrNull { it.id == id } ?: error("工作区不存在")
         agent.selectWorkspace(selected.id); workspace = selected; core.repo.select(selected)
-        showWorkspaces = false; webPanelOpen = false; loadContextFiles()
+        showWorkspaces = false; webPanelOpen = false; loadContextFiles(); prewarmWorkspace()
     }
     fun createWorkspace(name: String) = action {
+        warming?.join()
         require(name.trim().length in 1..100)
         val created = core.repo.create(name)
-        agent.selectWorkspace(created.id); workspace = created; workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles()
+        agent.selectWorkspace(created.id); workspace = created; workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles(); prewarmWorkspace()
     }
     fun importWorkspace(uri: Uri) = action {
+        warming?.join()
         val (imported, skipped) = core.repo.importTree(uri)
         agent.selectWorkspace(imported.id); workspace = imported; workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles()
         if (skipped > 0) error = "已导入工作区，跳过 $skipped 个不支持或超出限制的文件"
@@ -203,19 +262,109 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val selected = pendingDelete ?: return
         action { agent.deleteConversation(selected.id); pendingDelete = null }
     }
-    fun newConversation() = action { agent.newConversation(); webPanelOpen = false }
-    fun selectConversation(id: String) = action { agent.selectConversation(id); webPanelOpen = false }
-    fun deleteConversation(id: String) = action { agent.deleteConversation(id) }
+    fun newConversation() = action { warming?.join(); agent.newConversation(); webPanelOpen = false; prewarmWorkspace() }
+    fun selectConversation(id: String) = action { warming?.join(); agent.selectConversation(id); webPanelOpen = false; prewarmWorkspace() }
+    fun deleteConversation(id: String) = action { warming?.join(); agent.deleteConversation(id) }
     fun setMode(id: String) = action {
+        warming?.join()
         agent.setMode(AgentMode.entries.firstOrNull { it.id == id } ?: error("未知操作模式"))
     }
     fun setThinking(id: String) = action {
         val engine = agent.selectedEngine.value
-        val profile = agent.profile.copy(thinkingLevel = id, thinkingMode = if (id in setOf("auto", "off")) id else "strength")
+        val thinkingMode = when {
+            id == "auto" || id == "off" -> id
+            id in setOf("none", "max", "ultra") -> "strength"
+            AgentThinkingPolicy.supportsStrength(engine, agent.profile) -> "strength"
+            else -> "legacy"
+        }
+        val profile = agent.profile.copy(thinkingLevel = id, thinkingMode = thinkingMode)
         AgentThinkingPolicy.validate(engine, profile)
         settings.updateAgentProfile(engine) { profile }
     }
+
+    fun saveCodexAppearance(left: String, right: String, wholeInterface: Boolean, layout: String) {
+        require(layout in setOf("chat", "classic")) { "未知界面样式" }
+        require(AgentAppearance.isColor(left) && AgentAppearance.isColor(right)) { "请输入 #RRGGBB 格式的颜色" }
+        settings.update { it.copy(
+            agentCodexNebulaLeft = AgentAppearance.color(left, AgentAppearance.DEFAULT_LEFT),
+            agentCodexNebulaRight = AgentAppearance.color(right, AgentAppearance.DEFAULT_RIGHT),
+            agentCodexNebulaAll = wholeInterface, agentUiLayout = layout
+        ) }
+        showAppearance = false
+    }
+    fun setThinkingBudget(value: Int) = action {
+        val engine = agent.selectedEngine.value
+        val profile = agent.profile.copy(thinkingMode = "budget", thinkingBudget = value)
+        AgentThinkingPolicy.validate(engine, profile)
+        settings.updateAgentProfile(engine) { profile }
+    }
+    fun setLongTaskMode(enabled: Boolean) {
+        check(!locked) { "请先停止或等待当前任务完成" }
+        settings.update { it.copy(agentLongTaskMode = enabled) }
+        changed()
+    }
     fun connect() = initializeWorkspace()
+    fun openEnvironmentSettings() {
+        showSettings = false
+        showEnvironment = true
+        if (!locked) checkBuildEnvironment()
+    }
+    private suspend fun refreshEnvironmentInventory() {
+        val report = core.bridge.info()
+        val tools = report.optJSONObject("tools") ?: JSONObject()
+        environmentTools = tools.keys().asSequence().associateWith { key -> if (tools.isNull(key)) "" else tools.optString(key) }
+    }
+    fun checkBuildEnvironment() = action {
+        withForeground {
+            environmentStatus = "正在检查编译工具…"
+            core.termux.start()
+            refreshEnvironmentInventory()
+            environmentStatus = "本地连接与工具检查完成"
+        }
+    }
+    fun changeEnvironmentPort(port: Int) {
+        if (locked) { error = "请先停止当前任务"; return }
+        require(port in 1024..65535)
+        core.termux.close()
+        core.settings.update { it.copy(port = port) }
+        environmentTools = emptyMap()
+        checkBuildEnvironment()
+    }
+    fun installBuildEnvironment(kind: String) = action {
+        require(kind in setOf("base", "android"))
+        val label = if (kind == "android") "Android SDK / NDK" else "基础编译工具"
+        val identifier = "environment-" + UUID.randomUUID().toString()
+        environmentInstalling = true
+        environmentStatus = "正在安装 $label"
+        environmentJobId = identifier
+        core.output.append("\n开始安装 $label（与 IDE 共用）\n")
+        try {
+            withForeground {
+                core.termux.start()
+                val code = withTimeout(3600000) {
+                    core.bridge.stream("install", workspace?.id ?: "environment", identifier,
+                        JSONObject().put("server", kind)) { core.output.append(it) }
+                }
+                check(code == 0) { "$label 安装失败（退出码 $code），请查看日志并重试" }
+                refreshEnvironmentInventory()
+                environmentStatus = "$label 安装完成"
+                core.output.append("$label 安装成功，工具列表已更新。\n")
+            }
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { withTimeoutOrNull(3000) { runCatching { core.bridge.cancel(identifier) } } }
+            environmentStatus = "$label 安装已停止，可重新安装"
+            throw e
+        } catch (e: Exception) {
+            environmentStatus = e.message ?: "$label 安装失败，请查看日志并重试"
+            core.output.append(environmentStatus + "\n")
+            throw e
+        } finally {
+            environmentJobId = ""
+            environmentInstalling = false
+            changed()
+        }
+    }
+
     private suspend fun prepareEnvironment(install: Boolean): JSONObject {
         val report = AgentRuntimePreparation.run(getApplication(), core.settings.value.termuxMirror, install) { core.output.append(it) }
         runtimeInventory = "Node：${report.optString("nodePath")} ${report.optString("nodeVersion")}\nGit：${report.optString("gitReady")}；ripgrep：${report.optString("rgReady")}\nOpenSSL：${report.optString("opensslReady")}；CA：${report.optString("caReady")}"
@@ -229,6 +378,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         check(available?.available == true) { engine.label + "：" + (available?.reason ?: "引擎检查未返回结果") }
     }
     private suspend fun ensureRuntime() {
+        if (core.termux.isReady() && setupState.phase == AgentSetupPhase.READY && agent.availableEngines.value.any { it.id == agent.selectedEngine.value.id && it.available }) return
         setupState = AgentSetupState(AgentSetupPhase.TERMUX); changed()
         if (!prepareEnvironment(false).optBoolean("ready")) {
             setupState = AgentSetupState(AgentSetupPhase.NODE); changed()
@@ -253,7 +403,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val task = text.trim()
         require(compact || task.isNotEmpty()) { "请输入任务" }
         require(task.length <= 12000) { "任务超过 12000 字符" }
-        val current = checkNotNull(workspace) { "工作区尚未就绪" }
+        var current = checkNotNull(workspace) { "工作区尚未就绪" }
         if (agent.profile.model.isBlank() || agent.profile.endpoint.isBlank()) {
             showSettings = true
             error = "请先配置模型"
@@ -261,9 +411,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         }
         val compactRequested = compact || task == "/compact"
         check(!compactRequested || agent.selectedEngine.value != AgentEngine.OPENCLAUDE) { "此引擎暂不支持手动压缩" }
-        val context = taskContext(current)
         val sentDraftKey = draftKey()
         withForeground {
+            warming?.join()
+            current = prepareProjectAccess()
+            val context = taskContext(current)
             ensureRuntime()
             val availability = agent.availableEngines.value.firstOrNull { it.id == agent.selectedEngine.value.id }
             check(availability?.available == true) { availability?.reason ?: "引擎尚未就绪" }
@@ -284,6 +436,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         stopping = true; changed()
         viewModelScope.launch {
             try {
+                environmentJobId.takeIf { it.isNotBlank() }?.let { core.bridge.cancel(it) }
                 agent.cancel()
             } catch (e: Exception) { error = e.message }
             finally { activeJob?.cancelAndJoin(); stopping = false; busy = false; changed() }
@@ -341,8 +494,13 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 "engine" -> selectEngine(request.getString("id"))
                 "mode" -> setMode(request.getString("id"))
                 "thinking" -> setThinking(request.getString("id"))
+                "thinking_budget" -> setThinkingBudget(request.getInt("value"))
+                "long_task" -> setLongTaskMode(request.getString("id") == "on")
+                "long_task_info" -> { webPanelOpen = false; showLongTaskInfo = true }
                 "prompt" -> savePrompt(request.getString("text"))
                 "settings" -> { check(!locked); showSettings = true }
+                "appearance" -> { webPanelOpen = false; showAppearance = true }
+                "environment" -> openEnvironmentSettings()
                 "diagnostics" -> { showDiagnostics = true }
                 "browser" -> dev.aster.client.browser.BrowserRuntime.open(getApplication())
                 "device_permissions" -> getApplication<Application>().startActivity(android.content.Intent(getApplication(), dev.aster.client.shizuku.PermissionActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -373,24 +531,31 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         return JSONObject().put("workspace", workspace?.id.orEmpty()).put("workspaceName", workspace?.name.orEmpty())
             .put("session", agent.conversation.value?.id.orEmpty()).put("title", agent.conversation.value?.title ?: "新会话")
             .put("engine", engine.id).put("model", agent.profile.model).put("mode", agent.mode.value.id)
+            .put("permissionMode", settings.value.agentPermissionMode).put("commandsUnchecked", settings.value.agentPermissionMode == "native" && settings.value.agentNativeCommandsUnchecked)
             .put("reducedMotion", core.settings.value.reducedMotion || !core.settings.value.animations)
-            .put("thinkingLevel", agent.profile.thinkingLevel).put("thinkingLabel", AgentThinkingPolicy.summary(agent.profile))
+            .put("longTaskMode", settings.value.agentLongTaskMode)
+            .put("uiLayout", settings.value.agentUiLayout)
+            .put("thinkingLevel", agent.profile.thinkingLevel).put("thinkingLabel", if (engine == AgentEngine.CODEX) AgentThinkingPolicy.label(engine, agent.profile.thinkingLevel) else AgentThinkingPolicy.summary(agent.profile))
+            .put("codexAppearance", JSONObject().put("leftColor", settings.value.agentCodexNebulaLeft).put("rightColor", settings.value.agentCodexNebulaRight).put("wholeInterface", settings.value.agentCodexNebulaAll))
             .put("thinkingMode", agent.profile.thinkingMode).put("thinkingBudget", agent.profile.thinkingBudget)
+            .put("thinkingBudgetSupported", AgentThinkingPolicy.supportsBudget(engine, agent.profile))
+            .put("thinkingBudgetRange", AgentThinkingPolicy.budgetRange(engine, agent.profile).let { JSONArray(listOf(it.first, it.last)) })
             .put("thinkingNote", AgentThinkingPolicy.note(engine, agent.profile))
             .put("thinkingChoices", JSONArray(AgentThinkingPolicy.available(engine, agent.profile).map { level ->
-                JSONObject().put("id", level).put("label", AgentThinkingPolicy.label(level))
+                JSONObject().put("id", level).put("label", AgentThinkingPolicy.label(engine, level))
                     .put("detail", AgentThinkingPolicy.detail(engine, agent.profile, level))
             }))
             .put("draft", draft()).put("acceptance", acceptance).put("acceptedText", acceptedText)
             .put("contextFiles", JSONArray(contextFiles)).put("stopping", stopping)
             .put("compactSupported", engine != AgentEngine.OPENCLAUDE)
             .put("busy", locked).put("running", state.running).put("status", if (busy && !state.running) "准备中" else state.status)
-            .put("runtime", core.termux.state.value.message).put("runtimeError", setupState.error ?: "").put("saveError", agent.saveError.value ?: "")
+            .put("runtime", if (setupState.error != null) core.termux.state.value.message else "").put("runtimeError", setupState.error ?: "").put("saveError", agent.saveError.value ?: "")
             .put("approval", state.approval != null).put("steps", state.step)
             .put("tokens", usage.tokens).put("window", usage.window).put("compactions", usage.compactions)
             .put("configuredWindow", agent.profile.contextWindow).put("contextSource", usage.source).put("contextUpdatedAt", usage.updatedAt)
             .put("contextPolicy", AgentContextPolicy.description(engine)).put("engineVersion", engine.version).put("setupPhase", setupState.phase.title)
             .put("prompt", prompt).put("messages", JSONArray(agent.messages.value.map { JSONObject().put("id", it.id).put("role", it.role).put("text", it.text) }))
+            .put("subagents", AgentJson.subagents(agent.subagentConversations.value))
             .put("tasks", JSONArray(agent.tasks.value.map { JSONObject().put("task", it.task).put("status", it.status) }))
             .put("changes", JSONArray(agent.changes.value.map { JSONObject().put("path", it.path).put("deleted", it.deleted) }))
             .put("history", JSONArray(agent.conversations.value.filter { it.engineId == engine.id }.map { JSONObject().put("id", it.id).put("title", it.title).put("updated", it.updated) }))
@@ -400,5 +565,5 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     .put("checked", available != null).put("reason", available?.reason ?: "连接环境后检查")
             }))
     }
-    override fun onCleared() { agent.close() }
+    override fun onCleared() { warming?.cancel(); agent.close() }
 }

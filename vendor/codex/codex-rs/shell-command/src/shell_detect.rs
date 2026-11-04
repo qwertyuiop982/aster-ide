@@ -60,6 +60,16 @@ pub fn detect_shell_type(shell_path: impl AsRef<std::path::Path>) -> Option<Shel
 
 #[cfg(unix)]
 fn get_user_shell_path() -> Option<PathBuf> {
+    // Bionic passwd entries describe the Android system shell, not the embedded
+    // Termux runtime. Preserve its explicitly configured shell on Android.
+    #[cfg(target_os = "android")]
+    if let Some(path) = std::env::var_os("SHELL").map(PathBuf::from)
+        && path.is_absolute()
+        && detect_shell_type(&path).is_some()
+        && file_exists(&path).is_some()
+    {
+        return Some(path);
+    }
     get_user_path(|passwd| passwd.pw_shell)
         .map(|path| PathBuf::from(path.to_string_lossy().into_owned()))
 }
@@ -250,6 +260,9 @@ fn get_bash_shell() -> Option<DetectedShell> {
     })
 }
 
+#[cfg(target_os = "android")]
+const SH_FALLBACK_PATHS: &[&str] = &["/system/bin/sh"];
+#[cfg(not(target_os = "android"))]
 const SH_FALLBACK_PATHS: &[&str] = &["/bin/sh"];
 
 fn get_sh_shell() -> Option<DetectedShell> {
@@ -334,7 +347,11 @@ pub fn ultimate_fallback_shell() -> DetectedShell {
     } else {
         DetectedShell {
             shell_type: ShellType::Sh,
-            shell_path: PathBuf::from("/bin/sh"),
+            shell_path: PathBuf::from(if cfg!(target_os = "android") {
+                "/system/bin/sh"
+            } else {
+                "/bin/sh"
+            }),
         }
     }
 }

@@ -148,11 +148,287 @@ body .agent-layout .message.user,body .agent-layout .tool-event,body .agent-layo
 body .utility-dialog,body .codex .utility-dialog{border-radius:20px}
 body .agent-layout .composer{border-radius:22px 22px 0 0;border:1px solid var(--line);border-bottom:0}
 body .agent-layout .send-button{border-radius:16px}
-.composer-controls .context-picker{grid-area:attach}.composer-controls .mode-picker{grid-area:mode}.composer-controls .model-selector{grid-area:model}.composer-controls .thinking-picker{grid-area:thinking}
-.codex .composer-controls{grid-template-areas:'attach mode model thinking';grid-template-columns:36px max-content minmax(0,1fr) max-content}
-.gemini .composer-controls{grid-template-areas:'model thinking mode attach';grid-template-columns:minmax(0,1fr) max-content max-content 36px}
-.openclaude .composer-controls{grid-template-areas:'attach model thinking mode';grid-template-columns:36px minmax(0,1fr) max-content max-content}
-.pi .composer-controls{grid-template-areas:'mode thinking model attach';grid-template-columns:max-content max-content minmax(0,1fr) 36px}
+.composer-controls .context-picker{grid-area:attach}.composer-controls .mode-picker{grid-area:mode}.composer-controls .model-selector{grid-area:model}.composer-controls .thinking-picker{grid-area:thinking}.composer-controls .long-task-toggle{grid-area:longtask;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;color:var(--muted);border:1px solid transparent}.long-task-toggle[aria-pressed=true]{color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}.long-task-toggle[aria-disabled=true]{opacity:.55}
+.codex .composer-controls{grid-template-areas:'attach mode model thinking longtask';grid-template-columns:36px max-content minmax(0,1fr) max-content 36px}
+.gemini .composer-controls{grid-template-areas:'model thinking mode longtask attach';grid-template-columns:minmax(0,1fr) max-content max-content 36px 36px}
+.openclaude .composer-controls{grid-template-areas:'attach model thinking mode longtask';grid-template-columns:36px minmax(0,1fr) max-content max-content 36px}
+.pi .composer-controls{grid-template-areas:'mode thinking model longtask attach';grid-template-columns:max-content max-content minmax(0,1fr) 36px 36px}
 .gemini .composer-input-row{flex-direction:row-reverse}body .gemini .send-button{border-radius:50%}
 .openclaude .mode-picker{border:1px solid var(--line)}.pi .mode-picker{border:1px solid var(--line);font-family:monospace}
-@media(max-width:599px){.codex .composer-controls{grid-template-columns:34px max-content minmax(0,1fr) max-content}.gemini .composer-controls{grid-template-columns:minmax(0,1fr) max-content max-content 34px}.openclaude .composer-controls{grid-template-columns:34px minmax(0,1fr) max-content max-content}.pi .composer-controls{grid-template-columns:max-content max-content minmax(0,1fr) 34px}body .utility-dialog:not([data-kind=history]){border-radius:20px}}
+@media(max-width:599px){.codex .composer-controls{grid-template-columns:34px max-content minmax(0,1fr) max-content 34px}.gemini .composer-controls{grid-template-columns:minmax(0,1fr) max-content max-content 34px 34px}.openclaude .composer-controls{grid-template-columns:34px minmax(0,1fr) max-content max-content 34px}.pi .composer-controls{grid-template-columns:max-content max-content minmax(0,1fr) 34px 34px}body .utility-dialog:not([data-kind=history]){border-radius:20px}}
+
+/* Roomier composer controls; narrow screens use two deliberate rows. */
+body .agent-layout .composer-input-row{padding:18px 24px 8px;gap:12px}
+body .agent-layout .task-input{min-height:76px;font-size:15px;line-height:1.75;padding:4px 0 10px}
+body .agent-layout .composer-controls{gap:10px;padding:4px 20px 16px;min-height:64px}
+body .agent-layout .composer-controls>.icon-button{width:44px;height:44px;min-height:44px;padding:12px}
+body .agent-layout .mode-picker,body .agent-layout .model-selector,body .agent-layout .thinking-picker{min-height:44px;height:auto;font-size:13px;padding:10px 12px;gap:8px}
+body .codex .composer-controls{grid-template-columns:44px max-content minmax(0,1fr) max-content 44px}
+body .gemini .composer-controls{grid-template-columns:minmax(0,1fr) max-content max-content 44px 44px}
+body .openclaude .composer-controls{grid-template-columns:44px minmax(0,1fr) max-content max-content 44px}
+body .pi .composer-controls{grid-template-columns:max-content max-content minmax(0,1fr) 44px 44px}
+@media(max-width:599px) and (min-height:451px){
+ body .agent-layout .composer-input-row{padding:18px 18px 8px}
+ body .agent-layout .task-input{min-height:72px;max-height:132px}
+ body .agent-layout .composer-controls{grid-template-columns:44px minmax(0,1fr) max-content 44px;column-gap:8px;row-gap:10px;padding:4px 16px 16px}
+ body .codex .composer-controls,body .openclaude .composer-controls{grid-template-areas:'model model thinking thinking' 'attach mode . longtask'}
+ body .gemini .composer-controls{grid-template-areas:'model model thinking thinking' 'longtask mode . attach'}
+ body .pi .composer-controls{grid-template-areas:'model model thinking thinking' 'mode mode longtask attach'}
+ body .agent-layout .model-selector{width:100%;padding-left:8px;font-size:13px}
+ body .agent-layout .thinking-picker{justify-self:end}
+ body .agent-layout .mode-picker{justify-self:start}
+}
+@media(max-height:450px){
+ body .agent-layout .composer-input-row{padding:8px 16px 2px;gap:8px}
+ body .agent-layout .task-input{min-height:40px;max-height:64px;padding-bottom:4px}
+ body .agent-layout .composer-controls{padding:2px 12px 6px;gap:6px;min-height:46px}
+ body .agent-layout .mode-picker,body .agent-layout .model-selector,body .agent-layout .thinking-picker{min-height:40px;padding:8px}
+ body .agent-layout .composer-controls>.icon-button{min-height:40px;height:40px;width:40px;padding:10px}
+ body .codex .composer-controls{grid-template-columns:40px max-content minmax(0,1fr) max-content 40px}
+ body .gemini .composer-controls{grid-template-columns:minmax(0,1fr) max-content max-content 40px 40px}
+ body .openclaude .composer-controls{grid-template-columns:40px minmax(0,1fr) max-content max-content 40px}
+ body .pi .composer-controls{grid-template-columns:max-content max-content minmax(0,1fr) 40px 40px}
+}
+
+/* Rounded surfaces and short, consistent interaction feedback. */
+body .agent-layout button,body .agent-layout .history-row{border-radius:20px;transition:background-color .16s ease,color .16s ease,box-shadow .16s ease,opacity .16s ease,scale .14s ease}
+body .agent-layout button:active:enabled{scale:.97}
+body .agent-layout :is(input,textarea){transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease}
+body .agent-layout .message.user,body .agent-layout .tool-event,body .agent-layout .code-block{border-radius:24px}
+body .agent-layout .composer{border-radius:30px 30px 0 0}
+body .agent-layout .send-button{border-radius:22px}
+body .utility-dialog,body .codex .utility-dialog,body .utility-dialog:not([data-kind=history]){border-radius:28px}
+.agent-layout details summary .icon{transition:transform .18s ease}
+.agent-layout details[open]>.message-body,.agent-layout .info-tab-content:not([hidden]),.agent-layout .context-chips:not([hidden]){animation:bubble-enter .18s ease both}
+.agent-layout .message{animation:bubble-enter .2s ease both}
+@keyframes bubble-enter{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes bubble-leave{to{opacity:0;transform:translateY(5px) scale(.98)}}
+.bubble-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.bubble-heading h2{font-size:16px;font-weight:600;margin:0}
+.bubble-heading .icon-button{height:36px;min-height:36px;width:36px;padding:8px}
+.thinking-bubble{position:fixed;margin:0;padding:20px;width:min(352px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:28px;box-shadow:0 14px 50px #0002;z-index:50;animation:bubble-enter .18s ease both}
+.thinking-bubble::backdrop{background:rgb(0 0 0 / .08);animation:backdrop-in .16s ease}
+@keyframes backdrop-in{from{opacity:0}to{opacity:1}}
+.thinking-bubble[data-closing=true]{animation:bubble-leave .12s ease both;pointer-events:none}
+.thinking-value{display:block;text-align:center;font-size:22px;font-weight:600;color:var(--accent);padding:4px 0 12px}
+.thinking-slider{display:block;width:100%;height:36px;margin:0;accent-color:var(--accent);cursor:pointer;touch-action:pan-y}
+.thinking-ticks{display:flex;justify-content:space-between;gap:0;margin:4px -8px 12px}
+body .agent-layout .thinking-tick{font-size:11px;min-height:32px;padding:4px;flex:1;white-space:nowrap;border-radius:12px}
+.thinking-content .selection-note{font-size:12px;line-height:1.7;padding:0;margin:8px 0 0;color:var(--muted)}
+.thinking-budget{border-top:1px solid var(--line);padding-top:16px;margin-top:16px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.thinking-budget label,.thinking-budget .small-text,.budget-error{grid-column:1 / -1;font-size:12px}
+.budget-input{width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--input);border-radius:16px;min-height:42px}
+.budget-apply{background:var(--accent-soft);color:var(--accent);font-size:12px}
+.budget-error{color:#c43e43;margin:0}
+.agent-dock{position:absolute;right:12px;top:clamp(110px,30%,240px);z-index:8}
+body .agent-layout .agent-bubble{flex-direction:column;gap:3px;width:56px;min-height:68px;padding:10px 5px;background:var(--bg);border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);font-size:11px;color:var(--accent)}
+.agent-bubble .icon{width:21px;height:21px}.agent-count{position:absolute;right:-3px;top:-4px;min-width:20px;height:20px;padding:1px 5px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-size:10px}
+.agent-bubble[data-running=true] .icon{animation:breathe 1.6s ease-in-out infinite}
+.agent-list-panel{position:absolute;right:66px;top:0;width:min(310px,calc(100vw - 92px));max-height:min(460px,65dvh);overflow:auto;border:1px solid var(--line);border-radius:28px;padding:16px;background:var(--bg);box-shadow:0 12px 38px #0002;animation:bubble-enter .18s ease both}
+.agent-list{display:flex;flex-direction:column;gap:8px}
+body .agent-layout .agent-row{width:100%;min-height:60px;padding:12px;justify-content:flex-start;gap:10px;text-align:left;border-radius:20px;background:var(--soft)}
+.agent-row[aria-current=true]{background:var(--accent-soft);color:var(--accent)}
+.child-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}.child-dot[data-running=true]{background:var(--accent);animation:breathe 1.6s ease-in-out infinite}
+.child-detail{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}.child-detail strong{font-size:12px;overflow-wrap:anywhere}.child-detail .small-text{font-size:11px;overflow-wrap:anywhere}.agent-row>.icon{width:16px;flex:none}
+.subagent-banner{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);flex:none;background:var(--soft);animation:bubble-enter .18s ease both}
+.subagent-title{min-width:0;display:flex;flex-direction:column;gap:5px}.subagent-title strong{font-size:13px;overflow-wrap:anywhere}.subagent-title .small-text{font-size:11px}
+body .agent-layout .subagent-back{font-size:12px;white-space:nowrap;flex:none;background:var(--bg)}
+.subagent-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:20px 24px 24px;border-top:1px solid var(--line);flex:none}.subagent-footer p{width:100%;text-align:center;margin:0}.subagent-return{color:var(--accent);background:var(--accent-soft)}.subagent-stop{border:1px solid var(--line)}
+.agent-layout[data-child-view=true] .jump-latest{bottom:136px!important}
+@media(max-width:599px){.subagent-banner{padding:12px;gap:10px}.subagent-footer{padding:16px}.agent-list-panel{padding:12px}.thinking-bubble{padding:18px}}
+@media(max-height:450px){.agent-dock{top:86px}.agent-list-panel{max-height:calc(100dvh - 100px);top:-60px}.subagent-banner{padding:6px 12px}.subagent-footer{padding:8px}.subagent-footer p{display:none}}
+@media(prefers-reduced-motion:reduce){.agent-layout *,.agent-layout *::before,.agent-layout *::after,.agent-layout *::backdrop{animation:none!important;transition:none!important;scroll-behavior:auto!important}.agent-layout button:active:enabled{scale:1!important}}
+.agent-layout[data-reduced-motion=true] button:active:enabled{scale:1!important}
+
+/* Compact composer and a small thinking bubble; other surfaces keep their space. */
+.thinking-bubble{width:min(280px,calc(100vw - 24px));padding:14px;border-radius:24px}
+.thinking-bubble .bubble-heading{margin-bottom:2px}.thinking-bubble .bubble-heading h2{font-size:13px}
+.thinking-bubble .bubble-heading .icon-button{height:30px;min-height:30px;width:30px;padding:6px}
+.thinking-value{display:none}.thinking-slider{height:30px}
+.thinking-ticks{margin:0 -4px 4px}.thinking-tick[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+body .agent-layout .thinking-tick{font-size:10px;min-height:28px;padding:3px}
+.thinking-content .selection-note{font-size:10px;margin-top:4px}
+.thinking-budget{display:block;padding-top:10px;margin-top:8px}.thinking-budget>summary{font-size:12px;cursor:pointer;padding:4px 0}
+.thinking-budget-body{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding-top:8px}
+.thinking-budget-body label,.thinking-budget-body .small-text{font-size:11px;margin:0}
+.budget-input{min-height:36px;padding:6px 10px}.budget-apply{min-height:36px;padding:6px 10px}
+body .agent-layout .composer-input-row{padding:10px 16px 2px;gap:8px}
+body .agent-layout .task-input{min-height:38px;max-height:126px;line-height:1.55;padding:4px 0 6px}
+body .agent-layout .composer-controls{gap:6px;padding:2px 12px 8px;min-height:44px}
+body .agent-layout .composer-controls>.icon-button{width:40px;height:40px;min-height:40px;padding:10px}
+body .agent-layout .mode-picker,body .agent-layout .model-selector,body .agent-layout .thinking-picker{min-height:36px;font-size:12px;padding:6px 9px;gap:6px}
+body .codex .composer-controls{grid-template-columns:40px max-content minmax(0,1fr) max-content 40px}
+body .gemini .composer-controls{grid-template-columns:minmax(0,1fr) max-content max-content 40px 40px}
+body .openclaude .composer-controls{grid-template-columns:40px minmax(0,1fr) max-content max-content 40px}
+body .pi .composer-controls{grid-template-columns:max-content max-content minmax(0,1fr) 40px 40px}
+@media(max-width:599px) and (min-height:451px){body .agent-layout .composer-controls{grid-template-columns:40px minmax(0,1fr) max-content 40px;column-gap:6px;row-gap:2px;padding:0 12px 8px}body .agent-layout .composer-input-row{padding:10px 16px 2px}}
+@media(max-height:450px){body .agent-layout .task-input{min-height:30px;max-height:58px}body .agent-layout .composer-input-row{padding:6px 14px 0}body .agent-layout .composer-controls{padding:0 10px 4px}.thinking-bubble{padding:12px}}
+
+/* Two user-selected endpoints. Highlights and shadows are neutral, never a third hue. */
+.thinking-bubble[data-engine=codex]{--thought:#337bea;--thought-glow:#8cbaff;--thought-rail:#a8c6ed;--thought-thumb:#fff;--thought-rest:rgba(70,126,192,.18);background:#f1f6ff;border-color:#c7daf5;color:#19395c;box-shadow:inset 0 1px 0 #ffffffb3,0 10px 28px #1f438b18;isolation:isolate;overflow:hidden;transition:background-color .25s ease,border-color .25s ease,box-shadow .25s ease}
+.thinking-bubble[data-engine=codex] .thinking-content,.thinking-bubble[data-engine=codex] .bubble-heading{position:relative;z-index:1}
+.thinking-bubble[data-engine=codex] .thinking-slider{-webkit-appearance:none;appearance:none;height:26px;background:transparent;outline-offset:3px}
+.thinking-bubble[data-engine=codex] .thinking-slider::-webkit-slider-runnable-track{height:3px;border-radius:3px;background:linear-gradient(90deg,var(--thought) 0 var(--progress),var(--thought-rest) var(--progress) 100%);box-shadow:inset 0 1px 1px #00000014,0 1px 0 #ffffff30}
+.thinking-bubble[data-engine=codex] .thinking-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;margin-top:-5.5px;background:var(--thought-thumb);border:1.5px solid var(--thought);box-shadow:0 0 0 3px #ffffff12,0 1px 5px #00000040;transition:transform .16s ease,box-shadow .16s ease}
+.thinking-bubble[data-engine=codex] .thinking-slider:active::-webkit-slider-thumb{transform:scale(1.12);box-shadow:0 0 0 4px #ffffff20,0 0 10px var(--thought-glow)}
+.thinking-bubble[data-engine=codex] .thinking-slider::-moz-range-track{height:3px;background:var(--thought-rest);border-radius:3px}.thinking-bubble[data-engine=codex] .thinking-slider::-moz-range-progress{height:3px;background:var(--thought);border-radius:3px}.thinking-bubble[data-engine=codex] .thinking-slider::-moz-range-thumb{height:11px;width:11px;border:1.5px solid var(--thought);background:var(--thought-thumb);border-radius:50%}
+.thinking-bubble[data-engine=codex] .thinking-ticks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:4px;row-gap:2px;margin:0 0 4px}
+body .agent-layout .thinking-bubble[data-engine=codex] .thinking-tick{font-size:10px;font-weight:400;line-height:1.4;min-width:0;min-height:26px;padding:4px 0;gap:0;border-radius:8px;letter-spacing:0;text-transform:none}
+.thinking-bubble[data-engine=codex] .thinking-tick .button-label{overflow:visible;text-overflow:clip;white-space:nowrap}
+body .agent-layout .thinking-bubble[data-engine=codex] .thinking-tick[aria-pressed=true]{color:var(--thought);background:#d9e9ff;box-shadow:inset 0 0 0 1px #337bea16}
+.thinking-bubble[data-engine=codex][data-ultra=true],.agent-layout.codex[data-nebula-all=true] .thinking-bubble[data-engine=codex]{--thought:var(--nebula-ink,#f7f3ff);--thought-glow:var(--nebula-highlight,rgba(255,255,255,.28));--thought-rest:var(--nebula-highlight,rgba(255,255,255,.28));--thought-thumb:var(--nebula-ink,#f7f3ff);color:var(--nebula-ink,#f7f3ff);background-color:var(--nebula-from,#713BC4);background-image:linear-gradient(90deg,var(--nebula-from,#713BC4),var(--nebula-to,#365DB7));border-color:var(--nebula-line,#9283b6);box-shadow:inset 0 1px 0 #ffffff24,0 12px 34px #00000030}
+.thinking-bubble[data-engine=codex][data-ultra=true]::before,.agent-layout.codex[data-nebula-all=true] .thinking-bubble[data-engine=codex]::before{content:'';position:absolute;z-index:0;inset:-30% -45%;pointer-events:none;background:linear-gradient(90deg,transparent 0%,rgba(var(--nebula-from-rgb,113,59,196),.18) 20%,rgba(var(--nebula-to-rgb,54,93,183),.32) 48%,rgba(var(--nebula-from-rgb,113,59,196),.15) 76%,transparent 100%);filter:blur(12px);animation:nebula-flow 18s linear infinite}
+.thinking-bubble[data-engine=codex][data-ultra=true]::after,.agent-layout.codex[data-nebula-all=true] .thinking-bubble[data-engine=codex]::after{content:'';position:absolute;pointer-events:none;inset:0;z-index:0;opacity:.32;background-image:radial-gradient(circle,var(--nebula-ink,#f7f3ff) 0 .45px,transparent .9px),radial-gradient(circle,var(--nebula-ink,#f7f3ff) 0 .3px,transparent .8px);background-size:73px 59px,113px 83px;background-position:0 0,37px 23px;animation:star-flow 28s linear infinite}
+@keyframes nebula-flow{from{transform:translateX(-12%)}to{transform:translateX(12%)}}
+@keyframes star-flow{from{background-position:0 0,37px 23px}to{background-position:146px 0,263px 23px}}
+body .agent-layout .thinking-bubble[data-engine=codex][data-ultra=true] .thinking-tick[aria-pressed=true],body .agent-layout.codex[data-nebula-all=true] .thinking-tick[aria-pressed=true]{color:var(--nebula-ink,#f7f3ff);background:var(--nebula-highlight,#ffffff20);box-shadow:inset 0 0 0 1px var(--nebula-highlight,#ffffff20)}
+.thinking-bubble[data-engine=codex][data-ultra=true] .selection-note,.agent-layout.codex[data-nebula-all=true] .thinking-bubble .selection-note{color:var(--nebula-muted,#dbd2eb)}
+.thinking-bubble[data-engine=codex][data-ultra=true] .icon-button,.agent-layout.codex[data-nebula-all=true] .thinking-bubble .icon-button{color:var(--nebula-ink,#f7f3ff)}
+body .agent-layout .thinking-picker[data-engine=codex]{color:#286ac8;background:#edf5ff;min-width:max-content}
+body .agent-layout .thinking-picker[data-engine=codex] .button-label{overflow:visible;text-overflow:clip;text-transform:none}
+body .agent-layout .thinking-picker[data-engine=codex][data-ultra=true]{color:var(--nebula-ink,#f7f3ff);background:linear-gradient(90deg,var(--nebula-from,#713BC4),var(--nebula-to,#365DB7));box-shadow:inset 0 0 0 1px #ffffff24}
+/* Optional complete Codex skin; other engines never inherit these tokens. */
+.agent-layout.codex[data-nebula-all=true]{--bg:var(--nebula-bg);--fg:var(--nebula-ink);--muted:var(--nebula-muted);--line:var(--nebula-line);--soft:var(--nebula-soft);--hover:var(--nebula-hover);--accent:var(--nebula-ink);--accent-soft:var(--nebula-control);--on-accent:var(--nebula-accent-ink);--sidebar:var(--nebula-soft);--user:var(--nebula-soft);--input:var(--nebula-soft);color:var(--fg);color-scheme:var(--nebula-scheme);background:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));position:relative;isolation:isolate}
+.agent-layout.codex[data-nebula-all=true] .main-column{background:transparent}
+.agent-layout.codex[data-nebula-all=true] :is(.topbar,.composer,.sidebar-host,.info-host,.navigation-rail,.agent-list-panel,.agent-bubble,.utility-dialog){background:linear-gradient(90deg,var(--nebula-panel-from),var(--nebula-panel-to));box-shadow:inset 0 1px 0 var(--nebula-highlight)}
+.agent-layout.codex[data-nebula-all=true] .composer-area{background:transparent}
+.agent-layout.codex[data-nebula-all=true] .send-button,.agent-layout.codex[data-nebula-all=true] .primary-button,.agent-layout.codex[data-nebula-all=true] .agent-count,.agent-layout.codex[data-nebula-all=true] .thinking-picker[data-engine=codex]{color:var(--nebula-ink);background:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));box-shadow:inset 0 0 0 1px var(--nebula-highlight)}
+.agent-layout.codex[data-nebula-all=true] .message.user,.agent-layout.codex[data-nebula-all=true] .starter,.agent-layout.codex[data-nebula-all=true] .agent-row{background:linear-gradient(90deg,var(--nebula-panel-from),var(--nebula-panel-to))}
+.agent-layout.codex[data-nebula-all=true] .thinking-bubble .bubble-heading,.agent-layout.codex[data-nebula-all=true] .thinking-bubble .thinking-content{color:var(--nebula-ink)}
+/* Keep selected endpoints at full strength; neutral shading only separates controls. */
+.agent-layout.codex[data-nebula-all=true]::before{content:'';position:absolute;inset:-30% -45%;z-index:0;pointer-events:none;background:linear-gradient(90deg,transparent 0%,rgba(var(--nebula-from-rgb),.22) 24%,rgba(var(--nebula-to-rgb),.34) 54%,transparent 100%);filter:blur(24px);animation:nebula-flow 18s linear infinite}
+.agent-layout.codex[data-nebula-all=true]>:is(.navigation-rail,.sidebar-host,.main-column,.info-host){position:relative;z-index:1}
+.agent-layout.codex[data-nebula-all=true]::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.4;background-image:radial-gradient(circle,var(--nebula-ink) 0 .5px,transparent 1px),radial-gradient(circle,var(--nebula-ink) 0 .3px,transparent .8px);background-size:73px 59px,113px 83px;background-position:0 0,37px 23px;animation:star-flow 28s linear infinite}
+@media(prefers-reduced-motion:reduce){.thinking-bubble::before,.thinking-bubble::after,.agent-layout::before,.agent-layout::after{animation:none!important}}
+.agent-layout[data-reduced-motion=true] .thinking-bubble::before,.agent-layout[data-reduced-motion=true] .thinking-bubble::after,.agent-layout[data-reduced-motion=true]::before,.agent-layout[data-reduced-motion=true]::after{animation:none!important}
+
+
+/* One screen-wide nebula canvas. Panels sample their on-screen position. */
+.agent-layout.codex[data-nebula-all=true]{--line:var(--nebula-line)}
+.agent-layout.codex[data-nebula-all=true] :is(.topbar,.composer,.composer-area,.sidebar-host,.info-host,.navigation-rail,.agent-bubble,.send-button,.primary-button,.agent-count,.thinking-picker,.message.user,.starter,.agent-row,.engine-picker,.mode-picker,.history-search,.choice-mark,.file-chip,.subagent-banner,.subagent-footer,.subagent-back,.subagent-return,.budget-input,.prompt-input,.code-block,.inline-code,.outline-button,.new-conversation){background:transparent;box-shadow:none}
+.agent-layout.codex[data-nebula-all=true] :is(.utility-dialog,.thinking-bubble[data-engine=codex],.agent-list-panel){background-color:var(--nebula-bg);background-image:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));background-size:var(--nebula-canvas-width,100vw) var(--nebula-canvas-height,100vh);background-position:var(--nebula-canvas-x,0px) var(--nebula-canvas-y,0px);background-origin:border-box;background-clip:border-box;background-repeat:no-repeat;border-color:var(--nebula-line);box-shadow:0 12px 34px #00000030}
+.agent-layout.codex[data-nebula-all=true] .thinking-bubble::before,.agent-layout.codex[data-nebula-all=true] .thinking-bubble::after{content:none}
+.agent-layout.codex[data-nebula-all=true] .composer:focus-within{border-color:var(--nebula-line);box-shadow:none}
+.agent-layout.codex[data-nebula-all=true] .composer::after,.agent-layout.codex[data-nebula-all=true] .info-tab::after{background:var(--nebula-line)}
+.agent-layout.codex[data-nebula-all=true] .starter:hover{border-color:var(--nebula-line)}
+.agent-layout.codex[data-nebula-all=true] :is(.long-task-toggle[aria-pressed=true],.thinking-picker){border-color:var(--nebula-line)}
+.agent-layout.codex[data-nebula-all=true] :is(.history-link[aria-current=true],.choice-option[aria-selected=true],.info-tab[aria-selected=true]){background:var(--nebula-hover)}
+.agent-layout.codex[data-nebula-all=true] :is(.send-button,.primary-button,.agent-count){background:rgba(0,0,0,.18);color:var(--nebula-ink);box-shadow:inset 0 0 0 1px var(--nebula-line)}
+.agent-layout.codex[data-nebula-all=true] .task-input{background:transparent}
+.thinking-bubble[data-engine=codex][data-ultra=true],.agent-layout.codex[data-nebula-all=true] .thinking-bubble[data-engine=codex]{--thought:var(--nebula-line);--thought-rest:var(--nebula-line-from);--thought-glow:var(--nebula-line);border-color:var(--nebula-line);box-shadow:0 12px 34px #00000030}
+.thinking-bubble[data-engine=codex][data-ultra=true] .thinking-slider::-webkit-slider-runnable-track,.agent-layout.codex[data-nebula-all=true] .thinking-slider::-webkit-slider-runnable-track{background:linear-gradient(90deg,var(--nebula-rail-from),var(--nebula-rail-to));box-shadow:none}
+.thinking-bubble[data-engine=codex][data-ultra=true] .thinking-slider::-webkit-slider-thumb,.agent-layout.codex[data-nebula-all=true] .thinking-slider::-webkit-slider-thumb{border-color:var(--nebula-line);box-shadow:0 1px 4px #00000040}
+.thinking-bubble[data-engine=codex][data-ultra=true] .thinking-slider::-moz-range-track,.agent-layout.codex[data-nebula-all=true] .thinking-slider::-moz-range-track{background:var(--nebula-line)}
+.thinking-bubble[data-engine=codex][data-ultra=true] .thinking-slider::-moz-range-progress,.agent-layout.codex[data-nebula-all=true] .thinking-slider::-moz-range-progress{background:var(--nebula-line)}
+body .agent-layout .thinking-bubble[data-engine=codex][data-ultra=true] .thinking-tick[aria-pressed=true],body .agent-layout.codex[data-nebula-all=true] .thinking-tick[aria-pressed=true]{color:var(--nebula-ink);background:rgba(0,0,0,.12);box-shadow:inset 0 0 0 1px var(--nebula-line)}
+body .agent-layout .thinking-picker[data-engine=codex][data-ultra=true]{box-shadow:inset 0 0 0 1px var(--nebula-line)}
+/* Default conversational layout. Existing controls and request handlers are moved, not replaced. */
+body .agent-layout[data-ui-layout=chat]{--chat-accent:#a443ee;--chat-user:#f0e2fc;--chat-user-ink:#51415e}
+body .agent-layout.pi[data-ui-layout=chat]{--chat-user:#261c31;--chat-user-ink:#eee3f6}
+body .agent-layout[data-ui-layout=chat]>.navigation-rail,body .agent-layout[data-ui-layout=chat]>.sidebar-host,body .agent-layout[data-ui-layout=chat]>.info-host{display:none}
+body .agent-layout[data-ui-layout=chat] .topbar{display:flex;gap:8px;height:auto;min-height:66px;padding:10px 16px 6px;background:transparent;border:0;box-shadow:none;flex-wrap:wrap}
+body .agent-layout[data-ui-layout=chat] .topbar>button:first-child{display:inline-flex}
+body .agent-layout[data-ui-layout=chat] .topbar>.icon-button{height:40px;width:40px;min-height:40px;border-radius:50%;flex:none;box-shadow:0 3px 18px #00000007;background:rgba(255,255,255,.04);color:var(--fg)}
+body .agent-layout[data-ui-layout=chat] .topbar .model-selector{flex:1;min-width:60px;max-width:none;font-size:14px;color:var(--fg);background:transparent;padding:7px 10px;min-height:40px;border-radius:24px;box-shadow:0 3px 18px #00000007}
+body .agent-layout[data-ui-layout=chat] .topbar .model-selector>.button-label{overflow:hidden;text-overflow:ellipsis}
+body .agent-layout[data-ui-layout=chat] .topbar .thinking-picker{font-size:11px;min-height:34px;max-height:40px;min-width:max-content;padding:6px 8px;background:transparent;border:0;color:var(--muted);box-shadow:none}
+body .agent-layout[data-ui-layout=chat] .topbar .thinking-picker>.icon{height:14px;width:14px}
+body .agent-layout[data-ui-layout=chat] .workspace-bar,body .agent-layout[data-ui-layout=chat] .composer-controls,body .agent-layout[data-ui-layout=chat] .project-strip{display:none!important}
+body .agent-layout[data-ui-layout=chat] .conversation-viewport{padding:28px 20px 14px}
+body .agent-layout[data-ui-layout=chat] .messages{max-width:780px}
+body .agent-layout[data-ui-layout=chat] .message{line-height:1.7;font-size:15px;margin-bottom:24px;animation:none}
+body .agent-layout[data-ui-layout=chat] .assistant-label{display:none}
+body .agent-layout[data-ui-layout=chat] .message.user{max-width:94%;padding:14px 18px;border:0;border-radius:24px;background:var(--chat-user);color:var(--chat-user-ink);margin-bottom:26px}
+body .agent-layout[data-ui-layout=chat] .tool-event{border:0;border-radius:18px;background:var(--soft);margin-bottom:18px}
+body .agent-layout[data-ui-layout=chat] .tool-event summary{padding:10px 13px;min-height:42px}
+body .agent-layout[data-ui-layout=chat] .tool-event .message-body{font-size:12px;padding:12px 14px}
+body .agent-layout[data-ui-layout=chat] .composer-area{width:100%;max-width:860px;padding:6px 18px max(16px,env(safe-area-inset-bottom));margin:0 auto;background:transparent}
+body .agent-layout[data-ui-layout=chat] .composer{border:0;border-radius:32px;box-shadow:0 3px 22px #00000009;background:var(--input);overflow:hidden}
+body .agent-layout[data-ui-layout=chat] .composer::after{display:none}
+body .agent-layout[data-ui-layout=chat] .composer-input-row{flex-direction:row;align-items:flex-end;padding:7px 8px;gap:6px}
+body .agent-layout[data-ui-layout=chat] .composer-input-row>.context-picker{flex:none;width:38px;height:42px;min-height:42px;padding:10px;color:var(--fg)}
+body .agent-layout[data-ui-layout=chat] .task-input{min-height:42px;max-height:136px;padding:9px 2px 7px;font-size:15px;line-height:1.6}
+body .agent-layout[data-ui-layout=chat] .send-lane{width:42px;min-height:42px;padding:0}
+body .agent-layout[data-ui-layout=chat] .send-button{width:42px;height:42px;min-height:42px;border-radius:50%;background:var(--chat-accent);color:#fff}
+body .agent-layout[data-ui-layout=chat] .stop-button .icon{width:15px;height:15px}
+body .agent-layout[data-ui-layout=chat] .status-line{padding:0 8px 7px;font-size:11px;min-height:22px}
+body .agent-layout[data-ui-layout=chat] .context-chips{padding:7px 14px 0}
+body .agent-layout[data-ui-layout=chat] .agent-dock{right:18px;top:76px}
+body .agent-layout[data-ui-layout=chat][data-child-view=true] .composer-area{display:none}
+body .agent-layout[data-ui-layout=chat] .utility-dialog[data-side=true]{width:min(340px,calc(100vw - 28px));max-width:calc(100vw - 28px);height:100%;max-height:100%;margin:0 auto 0 0;border-radius:0 24px 24px 0;animation:drawer-left .22s var(--ease-out)}
+body .agent-layout[data-ui-layout=chat] .utility-dialog[data-side=true] .dialog-body{display:flex;flex-direction:column;overflow:auto}
+body .agent-layout[data-ui-layout=chat] .dialog-bar{min-height:58px;gap:6px;padding:8px 10px 8px 16px}
+body .agent-layout[data-ui-layout=chat] .dialog-bar h2{flex:1;font-weight:500}
+body .agent-layout[data-ui-layout=chat] .sidebar-content{flex:none;height:auto;min-height:100%;padding:12px 16px 20px;overflow:visible}
+body .agent-layout[data-ui-layout=chat] .history-list{flex:none;min-height:76px;max-height:38vh;overflow:auto}
+body .agent-layout[data-ui-layout=chat] .sidebar-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px}
+body .agent-layout[data-ui-layout=chat] .sidebar-controls>.engine-picker{max-width:none;margin:0;min-height:40px;font-size:14px;flex:1}
+body .agent-layout[data-ui-layout=chat] .sidebar-controls>.engine-picker>.icon:first-child{display:block}
+body .agent-layout[data-ui-layout=chat] .sidebar-controls .mode-picker{min-height:40px}
+body .agent-layout[data-ui-layout=chat] .sidebar-controls .long-task-toggle{width:40px;min-height:40px}
+body .agent-layout[data-ui-layout=chat] .action-menu{display:flex;flex-direction:column;padding:10px 0 0;border-top:1px solid var(--line);margin-top:16px}
+body .agent-layout[data-ui-layout=chat] .sidebar-footer{flex:none}
+body .agent-layout[data-ui-layout=chat] .sidebar-brand{display:none}
+body .agent-layout[data-ui-layout=chat] .welcome{gap:20px}
+body .agent-layout[data-ui-layout=chat] .welcome h1{font-size:25px;font-weight:500}
+body .agent-layout.codex[data-nebula-all=true][data-ui-layout=chat] :is(.composer,.message.user,.tool-event,.topbar .model-selector,.topbar>.icon-button,.topbar .thinking-picker){background:transparent;color:var(--nebula-ink);box-shadow:none}
+body .agent-layout.codex[data-nebula-all=true][data-ui-layout=chat] .message.user{border:1px solid var(--nebula-line)}
+body .agent-layout.codex[data-nebula-all=true][data-ui-layout=chat] .composer{box-shadow:inset 0 0 0 1px var(--nebula-line)}
+body .agent-layout.codex[data-nebula-all=true][data-ui-layout=chat] .send-button{background:rgba(0,0,0,.18);color:var(--nebula-ink);box-shadow:inset 0 0 0 1px var(--nebula-line)}
+@media(max-height:450px){body .agent-layout[data-ui-layout=chat] .topbar{min-height:48px;padding:4px 10px;gap:4px}body .agent-layout[data-ui-layout=chat] .conversation-viewport{padding:12px 20px}body .agent-layout[data-ui-layout=chat] .composer-area{padding:3px 14px 8px}body .agent-layout[data-ui-layout=chat] .task-input{max-height:70px}body .agent-layout[data-ui-layout=chat] .agent-dock{top:52px}}
+@media(max-width:340px){body .agent-layout[data-ui-layout=chat] .topbar{gap:3px;padding-left:8px;padding-right:8px}body .agent-layout[data-ui-layout=chat] .topbar>.icon-button{width:36px;height:36px;min-height:36px}body .agent-layout[data-ui-layout=chat] .topbar .thinking-picker{padding:5px 6px}body .agent-layout[data-ui-layout=chat] .topbar .model-selector{font-size:12px;padding-left:7px;padding-right:7px}}
+
+
+/* Non-modal edge navigation and regular, full-page settings routes. */
+body .agent-layout{position:relative}
+body .agent-layout[data-ui-layout] > aside.utility-dialog[data-kind][data-side]{position:absolute;inset:0 auto 0 0;z-index:30;display:flex;flex-direction:column;width:320px;max-width:100%;height:100%;max-height:100%;margin:0;padding:0;border:0;border-right:1px solid var(--line);border-radius:0;box-shadow:none;background:var(--sidebar);animation:drawer-left .18s var(--ease-out);transform:none}
+body .agent-layout .utility-dialog .dialog-bar{min-height:58px;padding:6px 10px 6px 20px;gap:8px;background:transparent}
+body .agent-layout .utility-dialog .dialog-bar h2{flex:1;font-weight:500}
+body .agent-layout .utility-dialog .dialog-body{display:flex;flex-direction:column;min-height:0;overflow:auto}
+body .agent-layout .utility-dialog .sidebar-content{height:auto;min-height:100%;padding:14px 16px 20px;overflow:visible}
+body .agent-layout .utility-dialog .sidebar-brand{display:none}
+body .agent-layout .utility-dialog .history-list{flex:1;min-height:76px;max-height:36vh;overflow:auto}
+body .agent-layout .utility-dialog .sidebar-footer{flex:none}
+body .agent-layout .utility-dialog :is(.nav-link,.menu-action,.new-conversation){min-height:44px;font-size:13px;border-radius:6px}
+body .agent-layout .utility-dialog .new-conversation{border:0;background:transparent;margin-bottom:4px}
+body .agent-layout .utility-dialog .action-menu{border-top:1px solid var(--line);padding:8px 0 0;margin-top:12px}
+body .agent-layout .utility-dialog .sidebar-controls{padding-bottom:10px;border-bottom:1px solid var(--line)}
+body .agent-layout .route-page{position:absolute;inset:0;z-index:32;display:flex;flex-direction:column;min-width:0;background:var(--bg);color:var(--fg);overflow:hidden;animation:surface-enter .16s var(--ease-out)}
+.route-bar{display:flex;align-items:center;gap:10px;min-height:60px;flex:none;padding:6px 20px;border-bottom:1px solid var(--line)}
+.route-bar h1{font-size:18px;font-weight:500;line-height:1.4;overflow-wrap:anywhere}
+.route-body{flex:1;min-height:0;width:100%;max-width:800px;margin:0 auto;overflow:auto;overscroll-behavior:contain;padding:20px 24px 32px;scrollbar-width:thin}
+body .agent-layout .route-body .selection-content{padding:0}
+body .agent-layout .route-body .choice-list{gap:0}
+body .agent-layout .route-body .choice-option{min-height:72px;border-radius:0;border-bottom:1px solid var(--line);padding:14px 8px;background:transparent}
+body .agent-layout .route-body .choice-option[aria-selected=true]{background:var(--accent-soft)}
+body .agent-layout .route-body .choice-title{font-size:14px}
+body .agent-layout .route-body .choice-detail{font-size:12px}
+.route-body .inspector-header{display:none}
+.route-body .inspector-content{height:auto;min-height:100%;overflow:visible}
+.route-body .info-tabs{padding:0 0 12px;flex:none}
+.route-body .info-tab-content{padding:0}
+.route-body .info-section{padding:20px 0}
+body .agent-layout.codex[data-nebula-all=true] :is(.route-page,aside.utility-dialog){background-color:var(--nebula-from);background-image:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));background-size:var(--nebula-canvas-width) var(--nebula-canvas-height);background-position:left top;color:var(--nebula-ink);border-color:var(--nebula-line)}
+body .agent-layout.codex[data-nebula-all=true] :is(.route-bar,.utility-dialog .dialog-bar){border-color:var(--nebula-line);background:transparent}
+@media(min-width:960px){body .agent-layout[data-ui-layout=chat]:has(>aside.utility-dialog:not([hidden]))>.main-column{margin-left:320px}}
+@media(max-width:599px){.route-bar{padding:6px 12px;min-height:56px}.route-body{padding:12px 20px 28px}}
+@media(max-height:450px){.route-bar{min-height:48px;padding-top:2px;padding-bottom:2px}.route-body{padding-top:12px}}
+
+/* Chat already has a dedicated footer for these native settings. */
+body .agent-layout[data-ui-layout=chat] .action-menu>.menu-action:nth-child(3),body .agent-layout[data-ui-layout=chat] .action-menu>.menu-action:nth-child(n+6){display:none}
+body .agent-layout[data-route-open=true]>.agent-dock{display:none}
+body .agent-layout[data-route-open=true]>.main-column{visibility:hidden}
+
+/* Quick session choices stay beside their trigger; full screens are for real configuration. */
+body .agent-layout .quick-picker{position:fixed;inset:auto;z-index:45;display:flex;flex-direction:column;width:min(320px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);margin:0;padding:0;overflow:hidden;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 36px #0002;animation:surface-enter .14s var(--ease-out)}
+.quick-picker-bar{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 6px 16px;border-bottom:1px solid var(--line);min-height:44px}
+.quick-picker-bar h2{margin:0;font-size:13px;font-weight:550}
+body .agent-layout .quick-picker-bar .icon-button{min-height:32px;height:32px;width:32px;padding:7px}
+.quick-picker-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+body .agent-layout .quick-picker .selection-content{padding:6px}
+body .agent-layout .quick-picker .choice-list{gap:2px}
+body .agent-layout .quick-picker .choice-option{min-height:54px;padding:8px 10px;border-radius:12px;gap:10px}
+body .agent-layout .quick-picker .choice-title{font-size:13px}
+body .agent-layout .quick-picker .choice-detail{font-size:11px}
+body .agent-layout.codex[data-nebula-all=true] .quick-picker{background-color:var(--nebula-bg);background-image:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));background-size:var(--nebula-canvas-width,100vw) var(--nebula-canvas-height,100vh);background-position:var(--nebula-canvas-x,0px) var(--nebula-canvas-y,0px);background-repeat:no-repeat;color:var(--nebula-ink);border-color:var(--nebula-line)}
+@media(max-height:450px){body .agent-layout .quick-picker .choice-option{min-height:46px;padding-top:5px;padding-bottom:5px}.quick-picker-bar{min-height:38px;padding-top:3px;padding-bottom:3px}}

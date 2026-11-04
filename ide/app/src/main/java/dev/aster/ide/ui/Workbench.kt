@@ -375,7 +375,7 @@ import dev.aster.ide.lsp.LspPosition
     Row(Modifier.fillMaxWidth().height(28.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clickable { vm.settingsPage = "runtime" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Terminal, null, Modifier.size(13.dp), tint = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(5.dp)); Text(if (vm.connecting) "环境准备中" else if (vm.connected) "Termux" else "本地", style = MaterialTheme.typography.labelSmall, color = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(5.dp)); Text(if (vm.connected) "Termux" else "本地", style = MaterialTheme.typography.labelSmall, color = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(14.dp))
         Row(Modifier.clickable { vm.panel = "problems"; vm.showPanel = true }, verticalAlignment = Alignment.CenterVertically) {

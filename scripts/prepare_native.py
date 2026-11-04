@@ -97,7 +97,13 @@ def prepare_v8():
 
 def prepare_codex(force=False):
     dest=ROOT/'build/native/codex/arm64-v8a'
-    if not force and all((dest/name).is_file() for name in ['libaster_codex.so','libaster_codex_host.so']): return
+    outputs = [dest/name for name in ['libaster_codex.so', 'libaster_codex_host.so']]
+    if not force and all(path.is_file() for path in outputs):
+        source = ROOT/'vendor/codex/codex-rs'
+        inputs = [path for path in source.rglob('*') if path.is_file() and path.suffix in {'.rs', '.toml', '.lock'} and not {'target', '.git'} & set(path.relative_to(source).parts)]
+        inputs += [ROOT/'scripts'/name for name in ['build_codex_agent.py', 'build_codex_host.py', 'termux_agent_sysroot.py']]
+        if max(path.stat().st_mtime_ns for path in inputs) <= min(path.stat().st_mtime_ns for path in outputs):
+            return
     for name in ['build_codex_agent.py','build_codex_host.py']:
         subprocess.run([sys.executable,'-B',str(ROOT/'scripts'/name)],cwd=ROOT,check=True)
 

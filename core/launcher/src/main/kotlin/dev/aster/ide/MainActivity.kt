@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         val core = CoreRuntime.get(this)
+        dev.aster.agent.preloadAgentInterface(this, core.scope)
         setContent {
             val settings by core.settings.flow.collectAsStateWithLifecycle()
             val mode by core.modes.flow.collectAsStateWithLifecycle()

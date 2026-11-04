@@ -1,0 +1,37 @@
+{
+  "repository": "https://github.com/google-gemini/gemini-cli",
+  "commit": "4a0749aceac5643e6f85a36d7420314d85e13b52",
+  "tag": "v0.64.0",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/LICENSE"
+    },
+    {
+      "path": "packages/core/src/tools/tool-names.ts",
+      "sha256": "200e9a585face540955fdd4c50b2388eaa1fb7f3d0344f531166eb9060f9bf37",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/tools/tool-names.ts"
+    },
+    {
+      "path": "packages/core/src/tools/definitions/coreTools.ts",
+      "sha256": "65219d7a04a38f5d757ba97e20392c7fe034a1300884973ecc3f55bcfad6529b",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/tools/definitions/coreTools.ts"
+    },
+    {
+      "path": "packages/core/src/tools/shell.ts",
+      "sha256": "981d96965fbc84fab420f30f1b265cee15c7b4b0486fdde42324021a95f22be4",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/tools/shell.ts"
+    },
+    {
+      "path": "packages/core/src/tools/edit.ts",
+      "sha256": "3260c968d9d559db9451d72e41330322b82e6c2ae866495d594a5df0924eff55",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/tools/edit.ts"
+    },
+    {
+      "path": "packages/core/src/tools/read-file.ts",
+      "sha256": "5377927463fa737d276852097ad63a20357b19b51f3458c4252028b6019033de",
+      "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/4a0749aceac5643e6f85a36d7420314d85e13b52/packages/core/src/tools/read-file.ts"
+    }
+  ]
+}

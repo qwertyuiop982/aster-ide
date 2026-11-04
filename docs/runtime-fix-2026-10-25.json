@@ -1,0 +1,577 @@
+{
+  "status": "implementation-built-and-locally-verified",
+  "source": "/root/work/aster-ide-account",
+  "version": "1.0.2-runtime-fix",
+  "version_code": 13,
+  "application_id": "dev.aster.account",
+  "goals": {
+    "proot": "Keep routine warnings and expired proot-* cleanup races in raw logs; retain fatal errors in UI. Apply -v -1 on all supported Android versions.",
+    "pi": "Retry at most two additional connections before HTTP request bytes are sent. Preserve completed messages/tool calls if optional streaming trailers abort. Interrupt incomplete replies and never replay commands.",
+    "agent_environment": "Use the IDE shared build environment screen, settings, private Termux runtime and bridge installer from Agent mode."
+  },
+  "apk": {
+    "path": "/sdcard/Download/Aster-v1.0.2-runtime-fix.apk",
+    "bytes": 163529387,
+    "sha256": "fcf0b01f921df0c54d59885041f230a8c8bf8f75d7862d45b97e61e7fb1d6ffb",
+    "source_matches": true
+  },
+  "tests": {
+    "pi_transport": {
+      "passed": 12,
+      "log": "/tmp/aster-runtime-test_pi_transport.log"
+    },
+    "pi_tool_loop": {
+      "passed": 1,
+      "supplier_labels": [
+        "lunara",
+        "OpenRouter",
+        "OpenAI"
+      ],
+      "method": "real Pi agent with local injected errno 103, no live provider calls",
+      "log": "/tmp/aster-runtime-test_pi_connection_loop.log"
+    },
+    "build_installer": {
+      "passed": 5,
+      "method": "mocked downloads and package manager",
+      "log": "/tmp/aster-runtime-test_build_environment_install.log"
+    },
+    "existing_regressions": {
+      "passed": 16,
+      "log": "/tmp/aster-runtime-free64-tests.log"
+    },
+    "proot_classifier": {
+      "routine": 3,
+      "fatal_or_child_outputs": 8,
+      "passed": true,
+      "method": "execute compiled Kotlin class",
+      "log": "/tmp/aster-runtime-test_runtime_diagnostics.log"
+    },
+    "agent_ui": {
+      "method": "local browser fixture",
+      "engine_labels": [
+        "pi",
+        "codex",
+        "gemini",
+        "openclaude"
+      ],
+      "sidebar_and_session_menu_command": "environment",
+      "passed": true,
+      "bundle_inputs_verified": 10
+    },
+    "python_total_passed": 34
+  },
+  "asset_verification": {
+    "total": 53,
+    "matches": 53,
+    "details": [
+      {
+        "asset": "assets/bridge/IDESetup-SOURCE.json",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent-runtime.sh",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_codex.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_engines.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_mcp.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_mcp_stdio.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_runner.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_skills.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_thinking.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vision.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/android_platform.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/bridge.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/idesetup.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/setup_android.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/start.sh",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/toolchain_native.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/LICENSES.txt",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/PI-LICENSE.txt",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/PI-SOURCE.json",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/SOURCE.json",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/aster_model.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/aster_tools.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/gemini-agent.mjs",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/openclaude-agent.mjs",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/pi-agent.mjs",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/aster_free.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/aster_transport.py",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/gemini-assets/tree-sitter-RBDJN3XW.wasm",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/gemini-assets/tree-sitter-bash-DXPP2GMV.wasm",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/agents.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/conseca.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/discovered.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/non-interactive.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/plan.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/read-only.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/sandbox-default.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/write.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/bridge/agent_vendor/policies/yolo.toml",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/LUCIDE-LICENSE.txt",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/app.bundle.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/app.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/base.css",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/boot.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/choices.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/components.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/dom.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/icons.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/index.html",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/patterns.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/engines/codex.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/engines/gemini.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/engines/openclaude.js",
+        "present": true,
+        "matches": true
+      },
+      {
+        "asset": "assets/agent/engines/pi.js",
+        "present": true,
+        "matches": true
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "command": [
+        "/root/Android/build-tools/35.0.0/aapt2",
+        "dump",
+        "badging",
+        "/root/work/aster-ide-account/core/build/application/outputs/apk/debug/app-debug.apk"
+      ],
+      "exit": 0,
+      "out": "package: name='dev.aster.account' versionCode='13' versionName='1.0.2-runtime-fix' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'\ntargetSdkVersion:'28'\nnative-code: 'arm64-v8a'",
+      "err": ""
+    },
+    {
+      "command": [
+        "/root/Android/build-tools/35.0.0/aapt2",
+        "dump",
+        "badging",
+        "/sdcard/Download/.aster-installed-before-runtime-fix.apk"
+      ],
+      "exit": 0,
+      "out": "package: name='dev.aster.account' versionCode='12' versionName='1.0.1-agent-fix2' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'\ntargetSdkVersion:'28'\nnative-code: 'arm64-v8a'",
+      "err": ""
+    },
+    {
+      "command": [
+        "/root/Android/build-tools/35.0.0/apksigner",
+        "verify",
+        "--print-certs",
+        "/root/work/aster-ide-account/core/build/application/outputs/apk/debug/app-debug.apk"
+      ],
+      "exit": 0,
+      "out": "Signer #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: 786fdc014aa516d0e96ee13aa028b07371ced388b0af9e145bc868be98f6864b",
+      "err": ""
+    },
+    {
+      "command": [
+        "/root/Android/build-tools/35.0.0/apksigner",
+        "verify",
+        "--print-certs",
+        "/sdcard/Download/.aster-installed-before-runtime-fix.apk"
+      ],
+      "exit": 0,
+      "out": "Signer #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: 786fdc014aa516d0e96ee13aa028b07371ced388b0af9e145bc868be98f6864b",
+      "err": ""
+    }
+  ],
+  "build": {
+    "command": "./gradlew :app:assembleDebug :app:lintDebug -x :app:prepareCodexNative -Pandroid.aapt2FromMavenOverride=/root/Android/build-tools/35.0.0/aapt2 --offline --console=plain",
+    "assemble_debug": "passed",
+    "lint_debug": "passed",
+    "log": "/sdcard/Download/Aster-v1.0.2-runtime-fix-build.log",
+    "native": "This build reuses the existing packaged Codex native artifacts; the changed scope is Kotlin, Python transport/bridge and Agent UI.",
+    "aapt2": "ARM host requires explicit local aapt2 override.",
+    "exit_code": 0,
+    "lint_counts": {
+      "errors": 0,
+      "warnings": 13
+    },
+    "full_result": "BUILD SUCCESSFUL in 20m 5s",
+    "lint_html": "/sdcard/Download/Aster-v1.0.2-runtime-fix-lint.html",
+    "lint_issues": [
+      {
+        "id": "GradleDependency",
+        "severity": "Warning",
+        "message": "A newer version of `compileSdkVersion` than 35 is available: 36",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "8",
+            "column": "5"
+          }
+        ]
+      },
+      {
+        "id": "GradleDependency",
+        "severity": "Warning",
+        "message": "A newer version of androidx.core:core-ktx than 1.13.1 is available: 1.17.0",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "52",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "GradleDependency",
+        "severity": "Warning",
+        "message": "A newer version of androidx.activity:activity-compose than 1.8.2 is available: 1.9.3",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/gradle/libs.versions.toml",
+            "line": "5",
+            "column": "12"
+          }
+        ]
+      },
+      {
+        "id": "ChromeOsAbiSupport",
+        "severity": "Warning",
+        "message": "Missing x86_64 ABI support for ChromeOS",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "17",
+            "column": "29"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `String.toUri` instead?",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/src/main/kotlin/dev/aster/ide/account/AccountActivity.kt",
+            "line": "85",
+            "column": "163"
+          }
+        ]
+      },
+      {
+        "id": "UseKtx",
+        "severity": "Warning",
+        "message": "Use the KTX extension function `SharedPreferences.edit` instead?",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/src/main/kotlin/dev/aster/ide/MainActivity.kt",
+            "line": "120",
+            "column": "13"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "48",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "49",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "50",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "51",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "52",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "53",
+            "column": "20"
+          }
+        ]
+      },
+      {
+        "id": "UseTomlInstead",
+        "severity": "Warning",
+        "message": "Use version catalog instead",
+        "location": [
+          {
+            "file": "/root/work/aster-ide-account/core/launcher/build.gradle.kts",
+            "line": "54",
+            "column": "27"
+          }
+        ]
+      }
+    ]
+  },
+  "device": {
+    "installed_version_before": "1.0.1-agent-fix2",
+    "signer_matches": true,
+    "automatic_install": "blocked",
+    "reason": "Current Android process has no package installation/system shell privileges; pm install cannot read sdcard context and /data/local/tmp is not writable. Existing installation remains intact.",
+    "new_native_screen_execution": "not_verified"
+  },
+  "not_verified": [
+    "Live model requests to lunara, OpenRouter or OpenAI",
+    "Real apt/SDK/NDK download and installation through the new Agent screen",
+    "New PRoot UI filtering on a physical device",
+    "APK install and new native screen interaction on this device",
+    "Fresh checkout or normal CI build without local aapt2 override"
+  ],
+  "source_changes": {
+    "path": "/sdcard/Download/Aster-v1.0.2-runtime-fix-source-changes.zip",
+    "bytes": 136663,
+    "sha256": "1273aeb4785f46245a29168d4ad711897143dd097336708ede0fae996a780110",
+    "selected_source_files": 25,
+    "archive_and_hashes_verified": true
+  },
+  "evidence": "The source-changes ZIP includes the selected source files, their SHA-256 manifest, and test logs. The final build log and lint report are saved beside the APK.",
+  "success": true,
+  "completed_at_utc": "2026-10-25T04:03:13.010387+00:00"
+}

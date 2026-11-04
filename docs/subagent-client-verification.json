@@ -1,0 +1,17 @@
+{
+  "models": 2,
+  "cancellation": true,
+  "success": true,
+  "parallel_tasks": 4,
+  "redacted_provider_failure": true,
+  "all_tasks_validated_before_start": true,
+  "tool_events": true,
+  "independent_sessions": true,
+  "real_python_runtime": true,
+  "real_shipped_pi_loop": true,
+  "max_observed_children": 2,
+  "child_sessions": 6,
+  "provider_requests": 14,
+  "provider": "local HTTP protocol fixture",
+  "native_android_ui_tested": false
+}

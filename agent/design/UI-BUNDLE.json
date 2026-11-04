@@ -3,17 +3,19 @@
   "version": "0.28.2",
   "target": "chrome61",
   "format": "iife",
-  "sha256": "310c59c0e5b450ac6c2ae03438e71adb22be35950187eccb16d49657962450fd",
+  "sha256": "df4ca5748b4bd4035f113209c87cbdb1087a3c3660969c312de906239952e1b1",
   "inputs": {
-    "agent/app/src/main/assets/agent/icons.js": "39678580f20d3ec576039f8dac0d2bacffcc3854c3435c284c79402963e26070",
+    "agent/app/src/main/assets/agent/appearance.js": "7ac61e960d8a402ed08713fb63cdb7cc0267bcf8906df5df1a7dbfd6f8eacf43",
+    "agent/app/src/main/assets/agent/icons.js": "5d761bd1e9f184bb71943340e4b9874059b3098a95e07fd9e3b9dd19da42fe70",
     "agent/app/src/main/assets/agent/dom.js": "f59b2cca11956fd60f2afb7f1bacbe0ca38324e853d25e835b73b96bca8ff164",
+    "agent/app/src/main/assets/agent/bubbles.js": "87a0a2a22c96726a5fe034cc83b691518e7beb9e4fb5806f842862aaff7001be",
     "agent/app/src/main/assets/agent/choices.js": "8027f1470f11f0cbcb0b3826c492ff1a40316032e26bdfdbbf835b33b5a34f5c",
     "agent/app/src/main/assets/agent/patterns.js": "04e1246d25885a7e0398f88fcbac8fe12374ac3c812f2c6f0aeecc8bf45561f2",
-    "agent/app/src/main/assets/agent/components.js": "b3da52a60031767b7e3520b9a912b4724a17549785fd759dcc763de2a2b2a19b",
-    "agent/app/src/main/assets/agent/engines/codex.js": "abc2dcbd892830cde803b4454733c880512d66bf8e7ff7b7daa3aca371180944",
+    "agent/app/src/main/assets/agent/components.js": "82767a03345a52c607e5ea172fbb2f96f7fdafb00cf83d68e11f4a4bccb1246b",
+    "agent/app/src/main/assets/agent/engines/codex.js": "177b99d9b358c7bb7ea99daa76983765cb239dc08e793a4c5549a71ceccb81c5",
     "agent/app/src/main/assets/agent/engines/openclaude.js": "1c2ff9a81326f5f1e9c1a8848a068d944ecece01f53180571a34986908159cec",
     "agent/app/src/main/assets/agent/engines/gemini.js": "ed3cb7f38a8f40648dd5f238216f77e6fd28e707587a3982856faf3df10501e6",
     "agent/app/src/main/assets/agent/engines/pi.js": "47725c7eed7c2e2b06aafcb4152133d7438910b0d4e9b1cf926d14fc2ce12cfd",
-    "agent/app/src/main/assets/agent/app.js": "b68d61b502dd3487920d23bb1d798517fa0cd1d3750a01f3d7a5d15cf4557c0f"
+    "agent/app/src/main/assets/agent/app.js": "2bfa96d55a64e96a57d77b822c70d3e4c5c703fed2b24afbe9b83dbed24418a8"
   }
 }

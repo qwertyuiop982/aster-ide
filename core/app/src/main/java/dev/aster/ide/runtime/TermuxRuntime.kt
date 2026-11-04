@@ -32,6 +32,9 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
     val state = mutableState.asStateFlow()
     @Volatile private var process: Process? = null
     private var processPort = 0
+    private var processBindings = ""
+    @Volatile private var readyInfo: JSONObject? = null
+    fun isReady(): Boolean = process?.let { alive(it) && processPort == settings.value.port && processBindings == PathRedirect.workspaceBindings(context) && readyInfo != null } == true
     val directory get() = PathRedirect.layout(context).root.absolutePath
     fun installed() = RuntimeInstaller.installed(context)
     private fun alive(child: Process) = runCatching { child.exitValue(); false }.getOrDefault(true)
@@ -40,6 +43,8 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
         starting.withLock {
             var child: Process? = null
             try {
+                if (isReady()) return@withLock JSONObject(checkNotNull(readyInfo).toString())
+                readyInfo = null
                 mutableState.value = RuntimeState(RuntimePhase.UNPACKING, "准备内置 Termux…", installed())
                 RuntimeInstaller.install(context, settings.value.termuxMirror) { text ->
                     mutableState.value = mutableState.value.copy(message = text.trim())
@@ -49,7 +54,7 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
                 val paths = PathRedirect.layout(context)
                 val base = File(paths.home, ".aster").apply { mkdirs() }
                 process?.let { existing ->
-                    if (alive(existing) && processPort == settings.value.port) {
+                    if (alive(existing) && processPort == settings.value.port && processBindings == PathRedirect.workspaceBindings(context)) {
                         val info = runCatching { bridge.info(1500) }.getOrNull()
                         if (info != null) {
                             mutableState.value = RuntimeState(RuntimePhase.READY, "内置环境已就绪", true)
@@ -59,10 +64,12 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
                     process = null
                     existing.destroy()
                 }
-                for ((asset, name) in listOf("bridge/bridge.py" to "bridge.py", "bridge/agent_runner.py" to "agent_runner.py", "bridge/agent_engines.py" to "agent_engines.py", "bridge/agent_codex.py" to "agent_codex.py", "bridge/agent_thinking.py" to "agent_thinking.py", "bridge/agent_skills.py" to "agent_skills.py", "bridge/agent_mcp.py" to "agent_mcp.py", "bridge/agent_mcp_stdio.py" to "agent_mcp_stdio.py", "bridge/agent_vision.py" to "agent_vision.py", "servers.json" to "servers.json", "bridge/setup_android.py" to "setup_android.py", "bridge/idesetup.py" to "idesetup.py", "bridge/toolchain_native.py" to "toolchain_native.py", "bridge/android_platform.py" to "android_platform.py", "bridge/start.sh" to "start.sh")) {
-                    context.assets.open(asset).use { input -> File(base, name).outputStream().use { input.copyTo(it) } }
+                // Install the complete bridge tree so newly added Python modules
+                // cannot be omitted by a separate hand-maintained filename list.
+                copyAssetTree("bridge", base)
+                context.assets.open("servers.json").use { input ->
+                    File(base, "servers.json").outputStream().use { input.copyTo(it) }
                 }
-                copyAssetTree("bridge/agent_vendor", File(base, "agent_vendor"))
                 File(base, "token").writeText(bridge.token)
                 val guest = "/data/data/com.termux/files/home/.aster"
                 val command = PathRedirect.command(context, paths.home, "/data/data/com.termux/files/usr/bin/bash", "--noprofile", "--norc", "$guest/start.sh", guest, settings.value.port.toString())
@@ -74,6 +81,7 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
                 child = launched
                 process = launched
                 processPort = settings.value.port
+                processBindings = PathRedirect.workspaceBindings(context)
                 val ready = CompletableDeferred<Unit>()
                 val logFile = File(base, "logs/runtime.log").apply { parentFile?.mkdirs() }
                 Thread({
@@ -82,6 +90,7 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
                             launched.inputStream.bufferedReader().use { reader ->
                                 while (true) {
                                     val line = reader.readLine() ?: break
+                                    if (RuntimeDiagnostics.isIgnored(line)) continue
                                     log.appendLine(line)
                                     if (process === launched) {
                                         if (line.startsWith("ASTER_STAGE:")) {
@@ -108,6 +117,7 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
                 withTimeout(420000) { ready.await() }
                 val info = bridge.info(1500)
                 check(alive(launched)) { "桥接进程已退出" }
+                readyInfo = info
                 mutableState.value = RuntimeState(RuntimePhase.READY, "内置环境已就绪", true)
                 info
             } catch (e: TimeoutCancellationException) {
@@ -127,7 +137,7 @@ class TermuxRuntime(private val context: Context, private val settings: Settings
         }
     }
     private fun copyAssetTree(asset: String, destination: File) {
-        val children = context.assets.list(asset).orEmpty()
+        val children = context.assets.list(asset).orEmpty().filterNot { it == "__pycache__" || it.endsWith(".pyc") }
         if (children.isEmpty()) {
             destination.parentFile?.mkdirs()
             context.assets.open(asset).use { input -> destination.outputStream().use { input.copyTo(it) } }

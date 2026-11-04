@@ -2,6 +2,7 @@ from __future__ import annotations
 from aster_free import PUBLIC_ENDPOINT, PUBLIC_MODEL, GO_ENDPOINT, GO_MODEL, FreeProtocolError, build_request as build_free_request, decode_response as decode_free_response, repair_request as repair_free_request
 """Bounded OpenAI-compatible HTTP adapter for Aster's Pi coding agent."""
 import json
+import http.client
 import queue
 import ssl
 import threading
@@ -12,9 +13,29 @@ import urllib.request
 import uuid
 
 from agent_thinking import resolve_thinking
-
+from aster_transport import open_response
 MAX_TEXT = 1024 * 1024
+MODEL_ATTEMPTS = 3
+MODEL_RETRY_DELAYS = (0.35, 1.0)
+RETRYABLE_HTTP_CODES = frozenset((408, 409, 425, 429, 500, 502, 503, 504))
 HTTP_LIMIT = threading.BoundedSemaphore(2)
+
+
+class ModelRequestError(RuntimeError):
+    """A provider request failed before a complete model response was returned."""
+
+    def __init__(self, message, retryable=False):
+        super().__init__(message)
+        self.retryable = bool(retryable)
+
+
+class ModelProtocolError(ValueError):
+    """A complete provider response contains an invalid tool call."""
+
+
+def retry_delay(attempt):
+    return MODEL_RETRY_DELAYS[min(attempt, len(MODEL_RETRY_DELAYS) - 1)]
+
 
 
 def compact_messages(messages, budget=100000):
@@ -64,6 +85,19 @@ def compact_messages(messages, budget=100000):
     return prefix + [item for group in reversed(chosen) for item in group]
 
 
+def repair_model_request(payload, reason):
+    messages = list(payload.get("messages") or [])
+    messages.append({"role": "user", "content": (
+        "上一条模型工具调用未通过客户端校验（" + str(reason)[:500] + "），工具尚未执行。"
+        "请重新生成完整的工具调用：tool_calls 必须是数组，每个调用必须包含真实工具名，"
+        "arguments 必须是 JSON 对象并补齐工具 Schema 的 required 参数。"
+        "不要重复已经执行的工具。"
+    )})
+    repaired = dict(payload)
+    repaired["messages"] = messages
+    return repaired
+
+
 class OpenAIModel:
     def __init__(self, configuration, session):
         self.session = session
@@ -89,34 +123,13 @@ class OpenAIModel:
         self._tls_checked_at = 0.0
 
     def select_tls_context(self):
-        """Probe both versions on the configured proxy route without a model POST."""
+        """Use normal verified TLS negotiation without per-turn HEAD/version probes."""
         if urllib.parse.urlsplit(self.endpoint).scheme != 'https':
             return None
-        if self._tls_choice is not None and time.monotonic() - self._tls_checked_at < 300:
-            return self._tls_choice
-        reachable, failures = [], []
-        for version in (ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3):
-            self.session.check_cancelled()
-            context = ssl.create_default_context()
-            context.minimum_version = context.maximum_version = version
-            probe = urllib.request.Request(self.endpoint, method='HEAD', headers={'User-Agent': 'Aster/TLS-probe'})
-            try:
-                with urllib.request.urlopen(probe, context=context, timeout=5):
-                    pass
-                reachable.append(context)
-            except urllib.error.HTTPError as error:
-                error.close()
-                reachable.append(context)
-            except (urllib.error.URLError, ssl.SSLError, OSError) as error:
-                failures.append(version.name + ': ' + str(getattr(error, 'reason', error))[:240])
-        self.session.check_cancelled()
-        if not reachable:
-            detail = '; '.join(failures)
-            if self.key:
-                detail = detail.replace(self.key, '[hidden]')
-            raise RuntimeError('Pi TLS 1.2/1.3 探测均失败：' + detail)
-        self._tls_choice = reachable[-1]
-        self._tls_checked_at = time.monotonic()
+        if self._tls_choice is None:
+            self._tls_choice = ssl.create_default_context()
+            self._tls_choice.minimum_version = ssl.TLSVersion.TLSv1_2
+            self._tls_choice.set_alpn_protocols(["http/1.1"])
         return self._tls_choice
 
     def request(self, payload):
@@ -124,21 +137,12 @@ class OpenAIModel:
         if self.key:
             headers["Authorization"] = "Bearer " + self.key
         context = self.select_tls_context()
-        tls12 = context is not None and context.maximum_version == ssl.TLSVersion.TLSv1_2
         for attempt in range(3):
             self.session.check_cancelled()
             request = urllib.request.Request(self.endpoint, data=json.dumps(payload, ensure_ascii=False).encode(), headers=headers, method="POST")
             response_opened = False
             try:
-                options = {"timeout": 195 if self.free_mode else 45}
-                if context is not None:
-                    options["context"] = context
-                if tls12:
-                    context = ssl.create_default_context()
-                    context.minimum_version = ssl.TLSVersion.TLSv1_2
-                    context.maximum_version = ssl.TLSVersion.TLSv1_2
-                    options["context"] = context
-                with urllib.request.urlopen(request, **options) as response:
+                with open_response(request, self.session, context, timeout=195 if self.free_mode else 90) as response:
                     response_opened = True
                     if "text/event-stream" in response.headers.get("Content-Type", "").lower():
                         return self.read_stream(response)
@@ -149,6 +153,8 @@ class OpenAIModel:
                 if not isinstance(value, dict):
                     raise ValueError("模型响应格式无效")
                 return value
+            except json.JSONDecodeError:
+                raise ModelRequestError("模型响应不是有效 JSON", retryable=True) from None
             except urllib.error.HTTPError as error:
                 detail = error.read(8192).decode(errors="replace")
                 if attempt < 2 and error.code == 400 and "max_completion_tokens" in detail and "max_tokens" in payload:
@@ -160,24 +166,19 @@ class OpenAIModel:
                     continue
                 if self.key:
                     detail = detail.replace(self.key, "[hidden]")
-                raise RuntimeError(f"模型请求失败（HTTP {error.code}）：{detail[:1200]}") from None
-            except (urllib.error.URLError, ssl.SSLError) as error:
+                retryable = error.code in RETRYABLE_HTTP_CODES
+                raise ModelRequestError(f"模型请求失败（HTTP {error.code}）：{detail[:1200]}", retryable=retryable) from None
+            except (urllib.error.URLError, OSError, http.client.HTTPException) as error:
                 reason = getattr(error, "reason", error)
-                # A handshake alert occurs before HTTP is sent; retry once with verified TLS 1.2.
-                alert = isinstance(reason, ssl.SSLError) and "TLSV1_ALERT_INTERNAL_ERROR" in str(reason)
-                if alert and not response_opened and not tls12 and attempt < 2:
-                    self._tls_choice = None
-                    self._tls_checked_at = 0.0
-                    tls12 = True
-                    continue
                 host = urllib.parse.urlsplit(self.endpoint).hostname
-                if isinstance(reason, ssl.SSLError):
-                    raise RuntimeError(f"Pi TLS 握手失败（{host}）：{reason}。请检查服务端 TLS、代理与证书链；证书校验保持开启。") from None
+                if isinstance(reason, ssl.SSLCertVerificationError):
+                    raise ModelRequestError(f"Pi TLS 证书校验失败（{host}），请检查服务端证书链与设备时间。") from None
                 detail = str(reason)
                 if self.key:
                     detail = detail.replace(self.key, "[hidden]")
-                raise RuntimeError(f"Pi 网络连接失败（{host}）：{detail[:1000]}") from None
-        raise ValueError("模型请求失败")
+                stage = "接收模型回复时连接中断" if response_opened else "模型连接中断"
+                raise ModelRequestError(f"Pi {stage}（{host}）：{detail[:800]}。本轮未完成的工具调用不会执行；客户端将自动重试，已有命令不会自动重跑。", retryable=True) from None
+        raise ModelRequestError("模型请求失败", retryable=True)
 
     def read_stream(self, response):
         content, calls, usage = [], {}, {}
@@ -196,7 +197,18 @@ class OpenAIModel:
 
         while True:
             self.session.check_cancelled()
-            line = response.readline(MAX_TEXT + 1)
+            try:
+                line = response.readline(MAX_TEXT + 1)
+            except (OSError, http.client.HTTPException):
+                # finish_reason commits the complete message. Optional trailers
+                # may be lost after completion without invalidating tool results.
+                if completed:
+                    break
+                flush()
+                if started:
+                    self.session.emit("message_end", messageId=identifier,
+                                      text=("".join(content)[:23000] + "\n\n[连接中断，回复未完成；本轮工具调用未执行。]"))
+                raise
             if not line:
                 break
             total += len(line)
@@ -243,12 +255,48 @@ class OpenAIModel:
                 for key in ("name", "arguments"):
                     value["function"][key] += str((call.get("function") or {}).get(key) or "")
         if not completed:
-            raise ValueError("模型流式响应中断，请重试")
+            raise ModelRequestError("模型流式响应中断，请重试", retryable=True)
         flush()
         text = "".join(content)
         if started:
             self.session.emit("message_end", messageId=identifier, text=text[:24000])
         return {"choices": [{"message": {"role": "assistant", "content": text, "tool_calls": [calls[index] for index in sorted(calls)]}, "finish_reason": finish_reason}], "usage": usage, "_streamed": started}
+
+    def validate_tool_response(self, response, selected):
+        choices = response.get("choices") or []
+        message = (choices[0].get("message") or {}) if choices else {}
+        calls = message.get("tool_calls") or []
+        if len(calls) > 16:
+            raise ModelProtocolError("单轮工具调用超过 16 个")
+        allowed = {
+            item["function"]["name"]: item["function"]
+            for item in selected
+            if isinstance(item, dict) and isinstance(item.get("function"), dict) and item["function"].get("name")
+        }
+        for call in calls:
+            function = call.get("function") if isinstance(call, dict) else None
+            if not isinstance(function, dict):
+                raise ModelProtocolError("工具调用缺少 function 对象")
+            name = str(function.get("name", ""))
+            if name not in allowed:
+                raise ModelProtocolError("模型请求了当前模式不允许的工具：" + name)
+            arguments = function.get("arguments", {})
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except (ValueError, TypeError):
+                    raise ModelProtocolError("工具参数不是有效 JSON 对象") from None
+            if not isinstance(arguments, dict):
+                raise ModelProtocolError("工具参数不是 JSON 对象")
+            required = ((allowed[name].get("parameters") or {}).get("required") or [])
+            missing = [key for key in required if key not in arguments]
+            if missing:
+                raise ModelProtocolError("工具参数缺少：" + ", ".join(map(str, missing)))
+        content = message.get("content") or ""
+        if isinstance(content, list):
+            content = "".join(str(item.get("text", "")) for item in content if isinstance(item, dict))
+        if not calls and not str(content).strip():
+            raise ModelProtocolError("模型返回空消息")
 
     def query(self, messages, **kwargs):
         self.session.check_cancelled()
@@ -275,21 +323,39 @@ class OpenAIModel:
         def fetch():
             try:
                 active_payload = payload
-                for attempt in range(3):
-                    raw = self.request(active_payload)
+                for attempt in range(MODEL_ATTEMPTS):
+                    try:
+                        raw = self.request(active_payload)
+                    except ModelRequestError as error:
+                        if not error.retryable or attempt >= MODEL_ATTEMPTS - 1:
+                            raise
+                        self.session.emit("status", text=f"模型请求失败，客户端自动重试（{attempt + 2}/{MODEL_ATTEMPTS}）", step=getattr(self.session, "steps", 0))
+                        time.sleep(retry_delay(attempt))
+                        self.session.check_cancelled()
+                        continue
                     if not self.free_mode:
+                        try:
+                            self.validate_tool_response(raw, selected)
+                        except ModelProtocolError as error:
+                            if attempt >= MODEL_ATTEMPTS - 1:
+                                raise ModelProtocolError(f"工具回复连续三次无效：{error}") from None
+                            self.session.tokens += max(0, int((raw.get("usage") or {}).get("total_tokens", 0)))
+                            self.session.emit("status", text=f"工具参数无效，客户端自动重试（{attempt + 2}/{MODEL_ATTEMPTS}）", step=getattr(self.session, "steps", 0))
+                            active_payload = repair_model_request(active_payload, error)
+                            continue
                         incoming.put((True, raw))
                         break
                     try:
                         result = decode_free_response(raw, {item["function"]["name"] for item in selected}, purpose,
-                                                      require_finish=any(item.get("role") == "tool" for item in messages))
+                                                      require_finish=any(item.get("role") == "tool" for item in messages),
+                                                      tool_schemas=selected)
                     except FreeProtocolError:
                         # Each malformed completion still incurred real gateway usage.
                         # Keep the task's token display aligned with its wallet ledger.
                         self.session.tokens += max(0, int((raw.get("usage") or {}).get("total_tokens", 0)))
-                        if attempt == 2:
-                            raise FreeProtocolError("Aster 的工具回复格式连续三次无效；未执行其中描述的工具，请重试当前任务") from None
-                        self.session.emit("status", text="正在恢复工具调用", step=getattr(self.session, "steps", 0))
+                        if attempt >= MODEL_ATTEMPTS - 1:
+                            raise FreeProtocolError("Aster 的工具回复连续三次无效；未执行其中描述的工具，请重试当前任务") from None
+                        self.session.emit("status", text=f"正在恢复工具调用（{attempt + 2}/{MODEL_ATTEMPTS}）", step=getattr(self.session, "steps", 0))
                         active_payload = repair_free_request(active_payload, raw)
                         continue
                     incoming.put((True, result))

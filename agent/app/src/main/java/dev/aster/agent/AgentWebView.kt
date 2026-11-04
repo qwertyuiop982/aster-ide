@@ -42,7 +42,11 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
     private var failed = false
     private val resources = AtomicInteger()
     private val timeout = Runnable {
-        if (attached && !painted) fail(if (!scriptsReady) "界面启动超时：网页脚本未就绪。已读取 ${resources.get()} 个本地资源；WebView ${width}×${height}。" else "界面启动超时：脚本就绪但未收到非空首屏布局。WebView ${width}×${height}。")
+        if (attached && !painted && !failed) {
+            val message = if (!scriptsReady) "界面正在准备，可从顶部查看日志或重新加载" else "正在等待工作区与会话就绪…"
+            diagnostic("UI startup still pending: scriptsReady=$scriptsReady; assets=${resources.get()}; native ${width}×${height}")
+            onState(AgentWebState(AgentWebPhase.LOADING, message))
+        }
     }
     init {
         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -72,6 +76,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
                     if (request.optString("command") == "web_boot" && request.optInt("version") == 1) {
                         when (request.optString("phase")) {
                             "ready" -> if (!failed) { scriptsReady = true; diagnostic("UI scripts ready; awaiting authenticated snapshot pull") }
+                            "loading" -> if (!failed && !painted) onState(AgentWebState(AgentWebPhase.LOADING, "界面仍在准备，可从顶部查看日志"))
                             "rendered" -> if (scriptsReady && !failed && width > 0 && height > 0 &&
                                 mailbox.wasRead(request.optLong("revision", 0)) &&
                                 request.optJSONObject("layout")?.let { layout ->
@@ -97,7 +102,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
                 if (asset == null) return response(403, "Blocked")
                 val mime = when { asset.endsWith(".js") -> "text/javascript"; asset.endsWith(".css") -> "text/css"; else -> "text/html" }
                 return try {
-                    val input = context.assets.open("agent/$asset")
+                    val input = ByteArrayInputStream(AgentInterfaceResources.read(context, asset))
                     resources.incrementAndGet()
                     main.post { if (attached) diagnostic("Local UI resource: $asset") }
                     WebResourceResponse(mime, "UTF-8", 200, "OK", AgentWebAssets.headers, input)
@@ -158,7 +163,12 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
     fun display(value: String, dark: Boolean) {
         if (!attached) return
         setBackgroundColor(if (dark) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-        if (!mailbox.offer(value) && value != "{}" && !failed) fail("页面状态缺少有效工作区、会话或底层引擎，或超过界面容量；请复制启动诊断。")
+        if (value == "{}") return
+        val snapshot = runCatching { JSONObject(value) }.getOrNull()
+        // Workspace discovery can finish after the WebView. Keep the last valid
+        // snapshot through startup and conversation switches instead of latching failure.
+        if (snapshot != null && (snapshot.optString("workspace").isBlank() || snapshot.optString("session").isBlank())) return
+        if (!mailbox.offer(value) && !failed) fail("页面状态无效或超过界面容量；请从顶部日志复制诊断。")
     }
     fun release() {
         if (!attached) return

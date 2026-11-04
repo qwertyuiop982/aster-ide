@@ -13,6 +13,6 @@ enum class AgentEngine(val id: String, val label: String, val version: String, v
     }
 }
 
-data class AgentProfile(val endpoint: String, val model: String = "", val contextWindow: Int = 32768, val maxTokens: Int = 4096, val thinkingLevel: String = "auto", val thinkingMode: String = "legacy", val thinkingBudget: Int = 1024, val protocol: String = "gemini", val reviewEnabled: Boolean = false, val reviewModel: String = "", val enabledSkills: String = "", val mcpServers: String = "")
+data class AgentProfile(val endpoint: String, val model: String = "", val contextWindow: Int = 32768, val maxTokens: Int = 4096, val thinkingLevel: String = "auto", val thinkingMode: String = "legacy", val thinkingBudget: Int = 1024, val protocol: String = "gemini", val reviewEnabled: Boolean = false, val reviewModel: String = "", val enabledSkills: String = "", val mcpServers: String = "", val subagentModels: String = "", val mcpDefinitions: String = "{}")
 
 data class AgentEngineAvailability(val id: String, val available: Boolean, val reason: String, val version: String)

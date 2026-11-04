@@ -14,8 +14,22 @@ import java.util.UUID
 /** Uses the existing shared Termux; Python RPC and model configuration are not prerequisites. */
 object AgentRuntimePreparation {
     private val preparing = Mutex()
+    private var readyFingerprint = ""
+    private var readyReport: String? = null
+    private fun fingerprint(context: Context, mirror: String): String {
+        val paths = PathRedirect.layout(context)
+        val files = listOf("bin/bash", "bin/node", "bin/git", "bin/rg", "bin/python", "lib/libc++_shared.so", "lib/libssl.so.3", "lib/libcrypto.so.3", "etc/tls/cert.pem", "var/lib/dpkg/status")
+        return context.applicationInfo.sourceDir + ":" + mirror + ":" + files.joinToString(";") { name ->
+            val file = File(paths.usr, name)
+            val stat = runCatching { android.system.Os.stat(file.path) }.getOrNull()
+            name + ":" + file.lastModified() + ":" + file.length() + ":" + (stat?.st_ino ?: -1)
+        }
+    }
     suspend fun run(context: Context, mirror: String, install: Boolean, output: (String) -> Unit): JSONObject = withContext(Dispatchers.IO) {
         preparing.withLock {
+            val currentFingerprint = fingerprint(context, mirror)
+            if (!install && readyReport != null && readyFingerprint == currentFingerprint) return@withLock JSONObject(checkNotNull(readyReport))
+            readyReport = null
             RuntimeInstaller.install(context, mirror, output)
             val paths = PathRedirect.layout(context)
             val base = File(paths.home, ".aster").apply { mkdirs() }
@@ -29,6 +43,7 @@ object AgentRuntimePreparation {
             val builder = ProcessBuilder(command.toList()).directory(paths.home).redirectErrorStream(true)
             builder.environment().putAll(PathRedirect.environment(context))
             builder.environment().remove("LD_PRELOAD")
+            val rawLog = File(base, "logs/agent-environment.log").apply { parentFile?.mkdirs() }
             val child = builder.start()
             val fields = Collections.synchronizedMap(mutableMapOf<String, String>())
             val result = CompletableDeferred<Int>()
@@ -37,6 +52,8 @@ object AgentRuntimePreparation {
                     child.inputStream.bufferedReader().use { reader ->
                         while (true) {
                             val line = reader.readLine() ?: break
+                            if (RuntimeDiagnostics.isIgnored(line)) continue
+                            rawLog.appendText(line + "\n")
                             if (line.startsWith("ASTER_AGENT_FIELD:")) {
                                 val parts = line.removePrefix("ASTER_AGENT_FIELD:").split('=', limit = 2)
                                 if (parts.size == 2) fields[parts[0]] = parts[1]
@@ -55,6 +72,10 @@ object AgentRuntimePreparation {
                 output("Agent 环境实际检查：Node ${values["nodeVersion"].orEmpty().ifBlank { "缺失或不可执行" }}；Git ${values["gitReady"]}；ripgrep ${values["rgReady"]}；OpenSSL ${values["opensslReady"]}；CA ${values["caReady"]}\n")
                 if (install) check(report.getBoolean("ready")) { "Agent 工具未安装完整（退出码 $code）。请查看 Node.js、Git、ripgrep、OpenSSL 与 CA 的检查和安装日志。" }
                 else check(code in 0..1) { "Agent 工具探测无法运行（退出码 $code），请查看日志。" }
+                if (report.optBoolean("ready")) {
+                    readyFingerprint = fingerprint(context, mirror)
+                    readyReport = report.toString()
+                }
                 report
             } finally {
                 // The shell cancels the active timeout process group, including apt/dpkg children.

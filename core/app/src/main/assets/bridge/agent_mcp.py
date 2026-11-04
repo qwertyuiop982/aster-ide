@@ -15,6 +15,7 @@ class McpClient:
             raise ValueError('MCP URL 无效')
         self.endpoint, self.headers, self.session = endpoint, headers, session
         self.session_id = None
+        self.conversation_scope = None
 
     def request(self, method, params=None, notification=False):
         self.session.check_cancelled()
@@ -24,7 +25,12 @@ class McpClient:
         headers = {**self.headers, 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-03-26'}
         if self.session_id: headers['Mcp-Session-Id'] = self.session_id
         request = urllib.request.Request(self.endpoint, data=json.dumps(body).encode(), headers=headers, method='POST')
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=15) as response:
+        timeout = 15
+        if method == 'tools/call':
+            wait = ((params or {}).get('arguments') or {}).get('wait_ms', 0)
+            if isinstance(wait, int) and not isinstance(wait, bool) and 0 <= wait <= 30000:
+                timeout = max(timeout, wait / 1000 + 10)
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as response:
             self.session_id = response.headers.get('Mcp-Session-Id') or self.session_id
             if notification: return {}
             raw = response.read(1024 * 1024 + 1)
@@ -66,12 +72,28 @@ def configured_client(session, server):
         from agent_mcp_stdio import StdioMcpClient
         return StdioMcpClient(config, session)
     if transport != 'http': raise ValueError('不支持的 MCP 传输类型')
-    headers = {}
+    headers = config.get('headers', {})
+    if not isinstance(headers, dict) or len(headers) > 16:
+        raise ValueError('MCP 请求头配置无效')
+    headers = dict(headers)
+    for name, value in headers.items():
+        if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9-]{1,80}', name) or not isinstance(value, str) or len(value) > 8192 or '\r' in value or '\n' in value:
+            raise ValueError('MCP 请求头无效')
     for name, variable in config.get('headerEnv', {}).items():
         value = session.environment.get(variable)
         if not value: raise ValueError('缺少 MCP 请求头环境变量：' + str(variable))
         headers[str(name)] = value
-    return McpClient(str(config.get('url', '')), headers, session)
+    endpoint = str(config.get('url', ''))
+    parsed = urllib.parse.urlsplit(endpoint)
+    if headers and parsed.scheme != 'https' and parsed.hostname not in ('localhost', '127.0.0.1', '::1'):
+        raise ValueError('含凭据的 MCP 连接需要 HTTPS')
+    session.mcp_secret_values = [str(value) for value in headers.values() if len(str(value)) >= 8]
+    client = McpClient(endpoint, headers, session)
+    if config.get('conversationScoped'):
+        import hashlib
+        raw = str(session.workspace) + ':' + getattr(session, 'terminal_engine_id', session.engine_id) + ':' + getattr(session, 'terminal_conversation_id', session.session_id)
+        client.conversation_scope = hashlib.sha256(raw.encode()).hexdigest()[:32]
+    return client
 
 
 def execute_mcp(session, arguments):
@@ -100,6 +122,9 @@ def execute_mcp(session, arguments):
             raise ValueError('MCP 服务器没有该工具')
         params = arguments.get('arguments', {})
         if not isinstance(params, dict): raise ValueError('MCP 参数必须为 JSON 对象')
+        params = dict(params)
+        if getattr(client, 'conversation_scope', None):
+            params['conversation_id'] = client.conversation_scope
         result = client.request('tools/call', {'name': name, 'arguments': params})
         if result.get('isError'): return {**result, 'ok': False}
         return result

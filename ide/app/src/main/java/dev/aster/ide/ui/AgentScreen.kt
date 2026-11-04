@@ -59,6 +59,9 @@ private data class AgentContentBlock(val message: AgentMessage, val text: String
     val conversation by vm.agent.conversation.collectAsStateWithLifecycle()
     val conversations by vm.agent.conversations.collectAsStateWithLifecycle()
     val saveError by vm.agent.saveError.collectAsStateWithLifecycle()
+    state.userInput?.let { input ->
+        AgentQuestionDialog(input) { id, answers, dismissed -> vm.agent.answerQuestions(id, answers, dismissed) }
+    }
     val page = AgentPageState(messages, state, mode, tasks, changes, usage, conversation, conversations, saveError,
         state.running || vm.agentPreparing || vm.agentStopping)
     var destination by rememberSaveable(conversation?.id) { mutableIntStateOf(0) }
@@ -444,7 +447,7 @@ private fun conversationBlocks(messages: List<AgentMessage>): List<AgentContentB
     val approval = page.state.approval ?: return
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), shape = RoundedCornerShape(if (acs) 20.dp else 8.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
         Column(Modifier.padding(14.dp)) {
-            Text("运行命令 · ${approval.timeout} 秒", style = MaterialTheme.typography.titleSmall)
+            Text(if (approval.timeout == 0) "持久交互终端" else "运行命令 · ${approval.timeout} 秒", style = MaterialTheme.typography.titleSmall)
             Text(approval.command.take(1200), fontFamily = Mono, style = MaterialTheme.typography.bodySmall, maxLines = if (compact) 2 else 5, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { vm.decideAgentCommand(true) }) { Text("允许本次") }

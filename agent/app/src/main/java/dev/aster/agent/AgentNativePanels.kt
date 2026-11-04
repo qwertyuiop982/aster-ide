@@ -2,6 +2,7 @@ package dev.aster.agent
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -14,22 +15,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import dev.aster.ide.agent.AgentChange
 
 @Composable internal fun ContextFilePicker(vm: AgentViewModel) {
     var search by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = { vm.showContextFiles = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { vm.showContextFiles = false }) { Icon(Icons.Outlined.Close, "关闭") }
-                    Text("上下文文件", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { vm.showContextFiles = false }) { Text("完成（${vm.contextFiles.size}/8）") }
-                }
+    AgentConfigurationPage("上下文文件", { vm.showContextFiles = false }, actions = {
+        TextButton(onClick = { vm.showContextFiles = false }) { Text("完成（${vm.contextFiles.size}/8）") }
+    }) {
                 OutlinedTextField(search, { search = it }, placeholder = { Text("搜索工作区文件") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp))
                 Text("选择的文本会随任务发送。单文件最多 64 KiB；指令和文件摘要共 12,000 字符，剩余内容可由 Agent 读取。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(20.dp, 12.dp))
                 HorizontalDivider()
@@ -46,8 +41,6 @@ import dev.aster.ide.agent.AgentChange
                     }
                     if (entries.isEmpty()) item { Text("没有匹配的文件", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-            }
-        }
     }
 }
 
@@ -57,18 +50,9 @@ import dev.aster.ide.agent.AgentChange
     var confirm by remember { mutableStateOf(false) }
     var discard by remember { mutableStateOf(false) }
     val change = changes.firstOrNull { it.path == selected }
-    Dialog(onDismissRequest = { if (!vm.locked) vm.reviewChanges = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().systemBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { vm.reviewChanges = false }, enabled = !vm.locked) { Icon(Icons.Outlined.Close, "返回对话") }
-                    Column(Modifier.weight(1f)) {
-                        Text("修改审阅", style = MaterialTheme.typography.titleMedium)
-                        Text(vm.workspace?.name.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("${changes.size} 个文件", style = MaterialTheme.typography.labelMedium)
-                }
-                HorizontalDivider()
+    AgentConfigurationPage("修改审阅", { if (!vm.locked) vm.reviewChanges = false }, actions = {
+        Text("${changes.size} 个文件", Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelMedium)
+    }) {
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val wide = maxWidth >= 840.dp
                     @Composable fun FileList(modifier: Modifier) {
@@ -107,8 +91,6 @@ import dev.aster.ide.agent.AgentChange
                     Spacer(Modifier.weight(1f))
                     Button(onClick = { confirm = true }, enabled = !vm.locked && changes.isNotEmpty()) { Text(if (vm.busy) "正在应用…" else "应用 ${changes.size} 个文件") }
                 }
-            }
-        }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text("应用这些修改？") }, text = { Text("将写入 ${vm.workspace?.name} 中的 ${changes.size} 个文件。应用前会检查文件是否已经变化。") }, confirmButton = { Button(onClick = { confirm = false; vm.applyChanges() }) { Text("确认应用") } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text("返回审阅") } })
     if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("丢弃待应用修改？") }, text = { Text("工作区现有文件不会改变。") }, confirmButton = { TextButton(onClick = { discard = false; vm.discardChanges() }) { Text("丢弃") } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("取消") } })

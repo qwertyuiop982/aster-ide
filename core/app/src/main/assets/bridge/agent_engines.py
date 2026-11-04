@@ -5,9 +5,13 @@ import platform
 import shutil
 import re
 import subprocess
+import threading
+
+_NODE_CACHE = {}
+_NODE_LOCK = threading.RLock()
 
 
-def node_runtime(environment):
+def _probe_node_runtime(environment):
     """Report an executable and its actual version; file presence is not readiness."""
     binary = shutil.which('node', path=environment.get('PATH'))
     result = {'path': binary or '', 'version': '', 'minimum': '22.19.0', 'ready': False, 'reason': ''}
@@ -29,6 +33,27 @@ def node_runtime(environment):
     except (OSError, subprocess.TimeoutExpired) as error:
         result['reason'] = 'Node.js 无法启动或检查超时：' + str(error)[:240]
     return result
+
+
+def node_runtime(environment):
+    binary = shutil.which('node', path=environment.get('PATH'))
+    if not binary:
+        return _probe_node_runtime(environment)
+    try:
+        info = Path(binary).stat()
+        key = (binary, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, environment.get('LD_LIBRARY_PATH'), environment.get('PREFIX'))
+    except OSError:
+        return _probe_node_runtime(environment)
+    with _NODE_LOCK:
+        cached = _NODE_CACHE.get(key)
+        if cached is not None:
+            return dict(cached)
+        result = _probe_node_runtime(environment)
+        if result['ready']:
+            if len(_NODE_CACHE) >= 8:
+                _NODE_CACHE.clear()
+            _NODE_CACHE[key] = dict(result)
+        return result
 
 
 ENGINES = {

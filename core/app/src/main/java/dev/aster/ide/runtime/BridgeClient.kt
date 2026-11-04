@@ -8,6 +8,8 @@ import dev.aster.ide.data.WorkspaceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -42,12 +44,13 @@ fun readLine(input: java.io.InputStream, limit: Int = 8192): String {
     error("响应超过允许的大小")
 }
 
-class BridgeClient(context: Context, private val settings: SettingsStore) : Closeable {
+class BridgeClient(private val context: Context, private val settings: SettingsStore) : Closeable {
     private val prefs = context.getSharedPreferences("runtime", Context.MODE_PRIVATE)
     val token: String = prefs.getString("token", null) ?: ByteArray(32).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }.also { prefs.edit().putString("token", it).apply() }
     private val sockets = ConcurrentHashMap.newKeySet<Socket>()
     private data class Signature(val modified: Long, val length: Long, val hash: String)
     private val signatures = ConcurrentHashMap<String, Signature>()
+    private val synchronizing = Mutex()
     @Volatile var remoteRoot: String = "/data/data/com.termux/files/home/.aster/workspaces"
 
     suspend fun open(op: String, workspace: String? = null, extra: JSONObject = JSONObject(), timeoutMillis: Int = settings.value.requestTimeout * 1000): BridgeConnection = withContext(Dispatchers.IO) {
@@ -77,7 +80,9 @@ class BridgeClient(context: Context, private val settings: SettingsStore) : Clos
     fun invalidate(workspace: String, path: String) { signatures.remove("$workspace:$path") }
 
     suspend fun sync(workspace: Workspace, repo: WorkspaceRepository): Int = withContext(Dispatchers.IO) {
-        val files = repo.files(workspace).filter { !it.directory && it.name != "local.properties" }
+        synchronizing.withLock {
+        if (dev.aster.termux.PathRedirect.workspaceBound(context, workspace.id, workspace.directory)) return@withLock 0
+        val files = repo.files(workspace).filter { !it.directory && it.name != "local.properties" && dev.aster.ide.data.WorkspaceTransferPolicy.shouldCopy(it.path) }
         var updated = 0
         val seen = HashSet<String>()
         for (node in files) {
@@ -96,11 +101,12 @@ class BridgeClient(context: Context, private val settings: SettingsStore) : Clos
             }
             signatures[key] = Signature(file.lastModified(), file.length(), hash)
         }
-        signatures.keys.filter { it.startsWith(workspace.id + ":") && it !in seen }.forEach { key ->
+        signatures.keys.filter { it.startsWith(workspace.id + ":") && it !in seen && dev.aster.ide.data.WorkspaceTransferPolicy.shouldCopy(it.substringAfter(':')) }.forEach { key ->
             rpc("remove", workspace.id, JSONObject().put("path", key.substringAfter(':')))
             signatures.remove(key)
         }
         updated
+        }
     }
 
     fun options(): JSONObject = settings.value.let { s -> JSONObject().put("registry", s.npmRegistry).put("mirror", s.termuxMirror)

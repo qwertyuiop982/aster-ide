@@ -48,6 +48,8 @@ class AccountActivity : ComponentActivity() {
             var code by remember { mutableStateOf("") }
             var challenge by remember { mutableStateOf("") }
             var ledger by remember { mutableStateOf<JSONArray?>(null) }
+            var accountNotice by remember { mutableStateOf<String?>(null) }
+            var modelSettingsExpanded by remember { mutableStateOf(false) }
             val scope = rememberCoroutineScope()
             fun run(action: () -> JSONObject, accept: (JSONObject) -> Unit = { account = it }) {
                 scope.launch {
@@ -76,20 +78,32 @@ class AccountActivity : ComponentActivity() {
                         HorizontalDivider()
                         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text("Aster", style = MaterialTheme.typography.headlineLarge)
                             val capabilities = account.optJSONObject("capabilities") ?: JSONObject()
                             val loggedIn = account.optBoolean("logged_in")
                             if (!loggedIn) {
-                                Text("登录后使用 Aster-free", style = MaterialTheme.typography.titleLarge)
-                                Text("注册赠送 1000 积分，每日签到增加 100 积分。项目编辑、自定义 API 与原有 Agent 功能都可继续使用。")
-                                Button(onClick = { run({ JSONObject().put("url", repository.githubStart()) }, { reply -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(reply.getString("url")))) }) }, enabled = !busy && capabilities.optBoolean("github_login"), modifier = Modifier.fillMaxWidth()) { Text("使用 GitHub 登录") }
-                                if (capabilities.optBoolean("email_login")) {
-                                    OutlinedTextField(email, { email = it }, label = { Text("邮箱地址") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-                                    OutlinedButton(onClick = { run({ repository.emailStart(email) }, { challenge = it.getString("challenge_id"); error = "验证码已发送，5 分钟内有效" }) }, enabled = !busy && email.isNotBlank()) { Text("发送验证码") }
-                                    OutlinedTextField(code, { code = it }, label = { Text("6 位验证码") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                                    Button(onClick = { run({ repository.emailVerify(challenge, code); repository.state() }) }, enabled = !busy && challenge.isNotBlank() && code.length == 6) { Text("邮箱登录") }
-                                } else Text("邮箱登录尚未启用，可先使用 GitHub 登录。", style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = { finish() }) { Text("返回工作空间") }
+                                Card(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Aster", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+                                            Text("登录账户", style = MaterialTheme.typography.titleLarge)
+                                            Text("同步积分与账户状态", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Button(onClick = { run({ JSONObject().put("url", repository.githubStart()) }, { reply -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(reply.getString("url")))) }) }, enabled = !busy && capabilities.optBoolean("github_login"), modifier = Modifier.fillMaxWidth()) { Text("使用 GitHub 登录") }
+                                        if (capabilities.optBoolean("email_login")) {
+                                            HorizontalDivider()
+                                            OutlinedTextField(email, { email = it; accountNotice = null }, label = { Text("邮箱地址") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy && challenge.isBlank(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+                                            if (challenge.isBlank()) {
+                                                OutlinedButton(onClick = { run({ repository.emailStart(email) }, { reply -> challenge = reply.getString("challenge_id"); accountNotice = "验证码已发送，请查收邮件" }) }, enabled = !busy && email.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("发送验证码") }
+                                            } else {
+                                                OutlinedTextField(code, { code = it }, label = { Text("6 位验证码") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                                Button(onClick = { run({ repository.emailVerify(challenge, code); repository.state() }) }, enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth()) { Text("邮箱登录") }
+                                                TextButton(onClick = { challenge = ""; code = ""; accountNotice = null }, enabled = !busy) { Text("更换邮箱") }
+                                            }
+                                            accountNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+                                        }
+                                    }
+                                }
+                                TextButton(onClick = { finish() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("返回工作空间") }
                             } else {
                                 val wallet = account.optJSONObject("wallet") ?: JSONObject()
                                 Text(account.optJSONObject("identity")?.optString("display_name") ?: "已登录", style = MaterialTheme.typography.titleLarge)
@@ -98,7 +112,7 @@ class AccountActivity : ComponentActivity() {
                                         Text("可用积分", style = MaterialTheme.typography.labelLarge)
                                         Text(wallet.optString("available", "—"), style = MaterialTheme.typography.displaySmall)
                                         Text("总积分 ${wallet.optString("balance", "—")} · 预占 ${wallet.optString("reserved", "0.000")}", style = MaterialTheme.typography.bodySmall)
-                                        Text("北京时间 ${wallet.optString("beijing_date")}，每日 00:00 更新", style = MaterialTheme.typography.bodySmall)
+                                        Text("${wallet.optString("beijing_date")} · 每日更新", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                                 Button(onClick = { run({ repository.checkin(); repository.state() }) }, enabled = !busy && !wallet.optBoolean("checked_in"), modifier = Modifier.fillMaxWidth()) { Text(if (wallet.optBoolean("checked_in")) "今日已签到" else "签到 +100 积分") }
@@ -108,25 +122,35 @@ class AccountActivity : ComponentActivity() {
                                 }
                                 TextButton(onClick = { run({ repository.logout(); repository.state() }) }, enabled = !busy) { Text("退出登录") }
                             }
-                            HorizontalDivider()
-                            Text("Pi Agent 模型来源", style = MaterialTheme.typography.titleMedium)
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("账户模型")
-                                    Text("free 无思考 · Go 固定推理，仅显示最终内容\n128000 token 上下文上限 · 每轮任务最多 64 次工具调用", style = MaterialTheme.typography.bodySmall)
+                            Card(Modifier.fillMaxWidth()) {
+                                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text("Pi 模型设置", style = MaterialTheme.typography.titleMedium)
+                                            Text(if (settings.agentUseFree) "Aster-free · ${if (settings.agentFreeTier == "go") "Go" else "Free"}" else "自定义 API", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        TextButton(onClick = { modelSettingsExpanded = !modelSettingsExpanded }) { Text(if (modelSettingsExpanded) "收起" else "设置") }
+                                    }
+                                    if (modelSettingsExpanded) {
+                                        HorizontalDivider()
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                                Text("使用账户模型")
+                                                Text("Free 或 Go", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            Switch(settings.agentUseFree, { enabled -> core.settings.update { it.copy(agentUseFree = enabled) } })
+                                        }
+                                        if (settings.agentUseFree) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                FilterChip(selected = settings.agentFreeTier == "free", onClick = { core.settings.update { it.copy(agentFreeTier = "free") } }, label = { Text("Free") })
+                                                FilterChip(selected = settings.agentFreeTier == "go", onClick = { core.settings.update { it.copy(agentFreeTier = "go") } }, label = { Text("Go") })
+                                            }
+                                            Text("Free：1000 tokens / 1 积分（${if (capabilities.optBoolean("free")) "可用" else "暂不可用"}）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("Go：1000 tokens / 50 积分（${if (capabilities.optBoolean("free_go")) "可用" else "暂不可用"}）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
-                                Switch(settings.agentUseFree, { enabled -> core.settings.update { it.copy(agentUseFree = enabled) } })
                             }
-                            if (settings.agentUseFree) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilterChip(selected = settings.agentFreeTier == "free", onClick = { core.settings.update { it.copy(agentFreeTier = "free") } }, label = { Text("free") })
-                                    FilterChip(selected = settings.agentFreeTier == "go", onClick = { core.settings.update { it.copy(agentFreeTier = "go") } }, label = { Text("free go") })
-                                }
-                            }
-                            Text(if (settings.agentUseFree) "Pi 使用 ${if (settings.agentFreeTier == "go") "Aster-free go" else "Aster-free"}；真实模型与上游 Key 仅保存在服务端。" else "Pi 使用原来的自定义 API 配置。", style = MaterialTheme.typography.bodySmall)
-                            Text("Aster-free · 算力正常 · 1000 token = 1 积分 · ${if (capabilities.optBoolean("free")) "可用" else "暂不可用"}", style = MaterialTheme.typography.bodySmall)
-                            Text("Aster-free go · 算力充足 · 1000 token = 50 积分（含推理输出） · ${if (capabilities.optBoolean("free_go")) "可用" else "暂不可用"}", style = MaterialTheme.typography.bodySmall)
-                            Text("余额、签到和扣费均由服务端维护；刷新可同步到其他设备。", style = MaterialTheme.typography.bodySmall)
                             if (account.length() == 0) OutlinedButton(onClick = { run({ repository.state() }) }, enabled = !busy) { Text("重新连接账户服务") }
                         }
                     }

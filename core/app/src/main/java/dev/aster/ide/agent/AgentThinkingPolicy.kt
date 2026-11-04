@@ -30,16 +30,21 @@ object AgentThinkingPolicy {
         "legacy" -> label(profile.thinkingLevel)
         else -> "自动"
     }
-    val levels = setOf("auto", "off", "minimal", "low", "medium", "high", "xhigh")
+    val levels = setOf("auto", "off", "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
     fun normalize(value: String) = value.takeIf { it in levels } ?: "auto"
     fun label(value: String) = when (value) {
-        "off" -> "关闭"; "minimal" -> "极低"; "low" -> "低"; "medium" -> "中"; "high" -> "高"; "xhigh" -> "极高"; else -> "自动"
+        "off" -> "关闭"; "none" -> "none"; "minimal" -> "极低"; "low" -> "低"; "medium" -> "中"; "high" -> "高"; "xhigh" -> "极高"; "max" -> "max"; "ultra" -> "Ultra"; else -> "auto"
     }
+    fun label(engine: AgentEngine, value: String): String = if (engine == AgentEngine.CODEX) when (value) {
+        "ultra" -> "Ultra"; else -> value
+    } else label(value)
+
     fun available(engine: AgentEngine, profile: AgentProfile): List<String> {
         val model = profile.model.lowercase(Locale.ROOT)
         if (engine == AgentEngine.GEMINI && profile.protocol == "openai") return listOf("auto", "off", "minimal", "low", "medium", "high", "xhigh")
         return when (engine) {
-            AgentEngine.PI, AgentEngine.CODEX -> listOf("auto", "off", "minimal", "low", "medium", "high", "xhigh")
+            AgentEngine.PI -> listOf("auto", "off", "minimal", "low", "medium", "high", "xhigh")
+            AgentEngine.CODEX -> listOf("auto", "none", "low", "medium", "high", "xhigh", "max", "ultra")
             AgentEngine.OPENCLAUDE -> listOf("auto", "off") + if (profile.maxTokens >= 2048 && !model.contains("claude-3-")) listOf("low", "medium", "high") else emptyList()
             AgentEngine.GEMINI -> when {
                 Regex("gemini-3(?:[.][0-9]+)?-pro").containsMatchIn(model) -> listOf("auto", "low", "high")
@@ -51,6 +56,7 @@ object AgentThinkingPolicy {
         }
     }
     fun validate(engine: AgentEngine, profile: AgentProfile) {
+        require(profile.thinkingLevel !in setOf("ultra", "max", "none") || engine == AgentEngine.CODEX) { "max、none 与 Ultra 仅适用于 Codex" }
         require(profile.thinkingMode in modes) { "未知思考模式" }
         when (profile.thinkingMode) {
             "auto" -> Unit
@@ -77,7 +83,10 @@ object AgentThinkingPolicy {
     }
     fun detail(engine: AgentEngine, profile: AgentProfile, level: String): String = when (level) {
         "auto" -> "引擎默认"
-        "off" -> "请求关闭思考"
+        "off" -> "关闭思考"
+        "none" -> "Codex none 思考强度"
+        "max" -> "Codex Max 思考强度"
+        "ultra" -> "Max 思考 · 子代理数量不限"
         else -> budget(engine, profile, level)?.let { if (engine == AgentEngine.OPENCLAUDE) label(level) + "强度 · 固定预算模型：$it tokens" else "思考预算 $it tokens" } ?: (label(level) + "强度")
     }
     fun note(engine: AgentEngine, profile: AgentProfile): String = when {

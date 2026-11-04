@@ -1,15 +1,18 @@
 use codex_protocol::config_types::Personality;
 use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ModelMessages;
 use codex_protocol::openai_models::ModelVisibility;
+use codex_protocol::openai_models::ToolMode;
 use codex_protocol::openai_models::TruncationMode;
 use codex_protocol::openai_models::TruncationPolicyConfig;
 use codex_protocol::openai_models::WebSearchToolType;
 use codex_protocol::openai_models::default_input_modalities;
 
 use crate::config::ModelsManagerConfig;
+use codex_protocol::protocol::MultiAgentVersion;
 use codex_utils_output_truncation::approx_bytes_for_tokens;
 use tracing::warn;
 
@@ -114,14 +117,14 @@ pub fn model_info_from_slug(slug: &str) -> ModelInfo {
         availability_nux: None,
         upgrade: None,
         model_messages: Some(local_model_messages()),
-        include_skills_usage_instructions: false,
-        include_plugin_usage_instructions: false,
-        include_apps_usage_instructions: false,
+        include_skills_usage_instructions: true,
+        include_plugin_usage_instructions: true,
+        include_apps_usage_instructions: true,
         supports_reasoning_summary_parameter: true,
         default_reasoning_summary: ReasoningSummary::Auto,
         support_verbosity: false,
         default_verbosity: None,
-        apply_patch_tool_type: None,
+        apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
         web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(/*limit*/ 10_000),
         supports_image_detail_original: false,
@@ -130,11 +133,15 @@ pub fn model_info_from_slug(slug: &str) -> ModelInfo {
         auto_compact_token_limit: None,
         comp_hash: None,
         effective_context_window_percent: 95,
-        experimental_supported_tools: Vec::new(),
+        experimental_supported_tools: vec![
+            "request_user_input".to_string(),
+            "request_user_input_async".to_string(),
+            "send_user_message_async".to_string(),
+        ],
         input_modalities: default_input_modalities(),
         used_fallback_model_metadata: true, // this is the fallback model metadata
-        supports_search_tool: false,
-        supports_experimental_context: false,
+        supports_search_tool: true,
+        supports_experimental_context: true,
         use_responses_lite: false,
         supports_reasoning_effort_updates: false,
         guardian: None,
@@ -142,8 +149,8 @@ pub fn model_info_from_slug(slug: &str) -> ModelInfo {
         node_repl_disabled: false,
         auto_review_model_override: None,
         model_specialty: None,
-        tool_mode: None,
-        multi_agent_version: None,
+        tool_mode: Some(ToolMode::CodeMode),
+        multi_agent_version: Some(MultiAgentVersion::V2),
         multi_agent_reasoning_effort: None,
     }
 }

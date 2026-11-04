@@ -1,0 +1,16 @@
+<h2 id="agent-tools">1.0.4 快速开始</h2>
+<p>首页提供 <a href="/downloads/Aster-v1.0.4-agent-tools.apk">1.0.4-agent-tools 预览 APK</a>。安装前建议备份项目，进入 Aster 后先准备运行环境，再配置模型和工具。以下介绍新能力，后文保留原有安装、账户与项目指南。</p>
+<h3>子代理模型</h3><p>在 Agent 模型设置或 IDE 的 Agent 设置中填写“子代理候选模型”，以逗号或换行分隔。候选沿用对应引擎的接口地址和 API Key。主模型可以通过 <code>subagent</code> 的 <code>models</code> 操作查看候选，选择模型、思考强度或预算、system 提示词与 Prompt。</p><p>每批最多 4 个任务，同时运行 2 个。子代理共享项目与环境、使用独立上下文，不能继续创建子代理；主任务停止时会一起取消。单任务时限为 15–900 秒。</p>
+<h3>持久交互终端</h3><p>使用 <code>terminal</code> 的 <code>open</code> 创建终端，保留返回的 <code>terminal_id</code>。<code>exec</code> 提交命令，<code>read</code> 继续查看输出，<code>write</code> 输入文本或快捷键。可以打开多个独立会话，每次返回近期历史。等待结束不会杀掉命令。</p><pre><code>{"action":"write","terminal_id":"返回的终端ID","text":"yes","key":"enter"}
+{"action":"write","terminal_id":"返回的终端ID","key":"c","modifiers":["ctrl"]}</code></pre><p>终端跨工具调用和对话轮次保留状态。运行时重启后保留历史，旧进程不会恢复，输入不会重放。原命令工具 <code>run_command</code> 支持 1–3600 秒 timeout。</p>
+<h3>读取图片</h3><pre><code>{"path":"screenshots/home.png","intent":"检查按钮布局，并读出清晰可见的文字。"}</code></pre><p>支持 PNG、JPEG、WEBP 与 GIF，每张最多 5 MiB。图片会发送给当前配置的供应商图片接口，需要所选模型支持视觉输入；当前免费接口不支持图片输入。</p>
+<h2 id="terminal-mcp">远端 Terminal MCP</h2><p>Aster 支持通过项目的 <code>.aster/mcp.json</code> 配置 MCP 服务，并在模型设置中启用对应服务器名称。终端 MCP 使用稳定的对话标识保存会话，命令在远端服务器上执行。</p><pre><code>{
+  "mcpServers": {
+    "terminal": {
+      "type": "http",
+      "url": "https://asteride.cn/terminal-mcp",
+      "headers": {"Authorization": "Bearer YOUR_PRIVATE_TOKEN"},
+      "conversationScoped": true
+    }
+  }
+}</code></pre><p>将 <code>YOUR_PRIVATE_TOKEN</code> 替换为服务管理员提供的访问凭据。访问凭据不会在官网公开提供。启用 <code>conversationScoped</code> 后，Aster 注入稳定的工作区与对话范围；子代理共享主任务范围。</p><p>服务提供 <code>terminal_open</code>、<code>terminal_exec</code>、<code>terminal_write</code>、<code>terminal_read</code>、<code>terminal_list</code>、<code>terminal_resize</code> 与 <code>terminal_close</code>。发送 Ctrl+C 可中断前台命令。<code>wait_ms</code> 仅决定等待多久，不会终止命令。</p>

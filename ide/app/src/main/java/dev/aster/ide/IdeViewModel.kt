@@ -133,7 +133,8 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 workspace?.let { agent.selectWorkspace(it.id) }
                 workspaceLoaded = true
                 settings.flow.first { it.uiStyleChosen }
-                if (settings.value.autoRuntime) connectRuntime() else prepareEditor()
+                prepareEditor()
+                if (settings.value.autoRuntime) connectRuntime(quiet = true)
             } catch (e: Exception) { startupError = e.message ?: "项目准备失败"; throw e }
         }
         viewModelScope.launch {
@@ -226,9 +227,18 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         try { saveAll(); val (project, skipped) = repo.importTree(uri); switchInternal(project); if (skipped > 0) notify("已跳过 $skipped 个超出大小限制的文件") }
         finally { busy = false }
     }
+    fun openNativeProject(uri: Uri) = task {
+        check(!agent.running && !agentPreparing && !buildRunning) { "请先结束当前任务或构建" }
+        saveAll()
+        val project = repo.nativeWorkspace(repo.openDirectTree(uri))
+        settings.update { it.copy(agentPermissionMode = "native") }
+        termux.start()
+        switchInternal(project)
+    }
     fun newProject(name: String) = task { saveAll(); switchInternal(repo.create(name)) }
     fun switchProject(project: Workspace) = task { saveAll(); switchInternal(project) }
     private suspend fun switchInternal(project: Workspace) {
+        agentWarmup?.join()
         stopAgentInternal()
         agentDraft = ""; editPreview = null
         agent.selectWorkspace(project.id)
@@ -269,14 +279,14 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         installed = state.getJSONObject("installed").let { j -> j.keys().asSequence().associateWith { j.optBoolean(it) } }
         tools = state.getJSONObject("tools").let { j -> j.keys().asSequence().associateWith { j.optString(it).takeUnless { v -> v == "null" } ?: "" } }
     }
-    fun connectRuntime(start: Boolean = true): Job {
+    fun connectRuntime(start: Boolean = true, quiet: Boolean = false): Job {
         runtimeJob?.takeIf { it.isActive }?.let { return it }
         return task {
             connecting = true
             startupError = null
             try {
                 if (start) {
-                    if (editorReady) { panel = "build"; showPanel = true }
+                    if (editorReady && !quiet) { panel = "build"; showPanel = true }
                     output.clear()
                     BuildKeepAliveService.start(getApplication())
                 }
@@ -284,7 +294,8 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 applyRuntimeInfo(if (start) termux.start() else bridge.info(1500))
                 syncWorkspace()
                 if (!editorReady) prepareEditor()
-                notify("内置环境已就绪")
+                if (!quiet) notify("内置环境已就绪")
+                if (connected) warmAgentWorkspace()
             } catch (e: CancellationException) { connected = false; throw e }
             catch (e: Exception) {
                 connected = false
@@ -407,7 +418,22 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     private fun releaseForegroundIfIdle() {
         if (!buildRunning && !connecting && !agentPreparing && !agent.running) BuildKeepAliveService.stop(getApplication())
     }
-    fun openAgent() { showAgent = true }
+    private var agentWarmup: Job? = null
+    private fun warmAgentWorkspace() {
+        if (!connected || agentPreparing || agent.running || agentWarmup?.isActive == true) return
+        val current = workspace ?: return
+        agentWarmup = viewModelScope.launch {
+            try {
+                val prepared = if (settings.value.agentPermissionMode == "native" || current.direct) repo.nativeWorkspace(current) else current
+                workspace = prepared
+                if (prepared != current || settings.value.agentPermissionMode == "native") termux.start()
+                syncWorkspace(); if (workspace?.id == prepared.id && !agent.running) agent.prewarm(prepared)
+            }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { log("后台工具预加载：${e.message}") }
+        }
+    }
+    fun openAgent() { showAgent = true; warmAgentWorkspace() }
     fun compactAgentContext() = sendAgent(compactOnly = true)
     fun sendAgent(compactOnly: Boolean = false) {
         if (agentPreparing || agentStopping || agent.running || agentJob?.isActive == true) return
@@ -416,7 +442,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         if (agent.profile.model.isBlank() || agent.profile.endpoint.isBlank()) {
             settingsPage = "agent"; notify("请先配置 Agent 模型"); return
         }
-        val current = workspace ?: return
+        var current = workspace ?: return
         if (!connected) { notify("请先连接内置编译环境"); return }
         if (prompt.length > 12000) { notify("任务描述请控制在 12000 字符以内"); return }
         val editorContext = buildString {
@@ -443,15 +469,23 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                         refreshRuntime(); openAgent()
                     } finally { agentRuntimeInstalling = false }
                 }
+                val native = settings.value.agentPermissionMode == "native"
+                if (native) {
+                    saveAll()
+                    current = repo.nativeWorkspace(current)
+                    workspace = current; repo.select(current)
+                    termux.start()
+                }
                 val overlays = JSONArray()
                 var bytes = 0L
-                for (doc in dirtyDocuments) {
+                for (doc in if (native) emptyList() else dirtyDocuments) {
                     val text = snapshot(doc)
                     val data = withContext(Dispatchers.Default) { text.toByteArray(Charsets.UTF_8) }
                     bytes += data.size
                     check(bytes <= 12L * 1024 * 1024) { "未保存文件超过 Agent 的 12 MiB 上限，请先保存部分文件" }
                     overlays.put(JSONObject().put("path", doc.path).put("data", Base64.encodeToString(data, Base64.NO_WRAP)))
                 }
+                agentWarmup?.join()
                 syncWorkspace()
                 check(workspace?.id == current.id) { "项目已切换" }
                 if (!compactOnly) agentDraft = ""

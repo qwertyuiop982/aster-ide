@@ -57496,7 +57496,7 @@ var init_openai_content_generator = __esm({
             reader.releaseLock();
           }
           const raw = Buffer.concat(chunks).toString("utf8");
-          if (!response.ok) throw new Error("Gemini OpenAI HTTP " + response.status + ": " + raw.slice(0, 1200).split(this.options.apiKey || "\0").join("[hidden]"));
+          if (!response.ok) throw Object.assign(new Error("Gemini OpenAI HTTP " + response.status + ": " + raw.slice(0, 1200).split(this.options.apiKey || "\0").join("[hidden]")), { status: response.status });
           const value = JSON.parse(raw);
           const choice2 = value.choices?.[0];
           if (!choice2?.message) throw new Error("OpenAI response has no message");
@@ -136999,7 +136999,7 @@ var require_util8 = __commonJS({
     function getFilesInPath(source) {
       const lstatSync3 = fs79.lstatSync;
       const readdirSync3 = fs79.readdirSync;
-      const join34 = path93.join;
+      const join35 = path93.join;
       function isDirectory(source2) {
         return lstatSync3(source2).isDirectory();
       }
@@ -137008,12 +137008,12 @@ var require_util8 = __commonJS({
       }
       function getDirectories(source2) {
         return readdirSync3(source2).map(function(name3) {
-          return join34(source2, name3);
+          return join35(source2, name3);
         }).filter(isDirectory);
       }
       function getFiles(source2) {
         return readdirSync3(source2).map(function(name3) {
-          return join34(source2, name3);
+          return join35(source2, name3);
         }).filter(isFile);
       }
       function getFilesRecursively(source2) {
@@ -197958,7 +197958,7 @@ var require_buffer_list = __commonJS({
         }
       }, {
         key: "join",
-        value: function join34(s3) {
+        value: function join35(s3) {
           if (this.length === 0) return "";
           var p = this.head;
           var ret = "" + p.data;
@@ -381817,8 +381817,8 @@ function many(p) {
 function many1(p) {
   return ab(p, many(p), (head, tail) => [head, ...tail]);
 }
-function ab(pa, pb, join34) {
-  return (data, i4) => mapOuter(pa(data, i4), (ma) => mapInner(pb(data, ma.position), (vb, j2) => join34(ma.value, vb, data, i4, j2)));
+function ab(pa, pb, join35) {
+  return (data, i4) => mapOuter(pa(data, i4), (ma) => mapInner(pb(data, ma.position), (vb, j2) => join35(ma.value, vb, data, i4, j2)));
 }
 function left(pa, pb) {
   return ab(pa, pb, (va) => va);
@@ -381826,8 +381826,8 @@ function left(pa, pb) {
 function right(pa, pb) {
   return ab(pa, pb, (va, vb) => vb);
 }
-function abc(pa, pb, pc, join34) {
-  return (data, i4) => mapOuter(pa(data, i4), (ma) => mapOuter(pb(data, ma.position), (mb) => mapInner(pc(data, mb.position), (vc, j2) => join34(ma.value, mb.value, vc, data, i4, j2))));
+function abc(pa, pb, pc, join35) {
+  return (data, i4) => mapOuter(pa(data, i4), (ma) => mapOuter(pb(data, ma.position), (mb) => mapInner(pc(data, mb.position), (vc, j2) => join35(ma.value, mb.value, vc, data, i4, j2))));
 }
 function middle(pa, pb, pc) {
   return abc(pa, pb, pc, (ra, rb) => rb);
@@ -388518,6 +388518,65 @@ ${REFERENCE_CONTENT_END}`;
   }
 });
 
+// research/agent-engines/transport.mjs
+import { createInterface as createInterface3 } from "node:readline";
+function output(value) {
+  process.stdout.write(JSON.stringify(value) + String.fromCharCode(10));
+}
+function emit(kind, values = {}) {
+  output({ type: "event", kind, ...values });
+}
+function rpc(method, payload) {
+  const id = ++sequence;
+  return new Promise((resolve21, reject) => {
+    pending.set(id, { resolve: resolve21, reject });
+    output({ type: "request", id, method, payload });
+  });
+}
+async function run2(main) {
+  try {
+    await main(await started);
+  } catch (error2) {
+    output({ type: "error", error: String(error2.message || error2) });
+    process.exitCode = 1;
+  } finally {
+    input.close();
+    process.stdout.write("", () => process.exit(process.exitCode || 0));
+  }
+}
+var pending, sequence, begin, started, input;
+var init_transport2 = __esm({
+  "research/agent-engines/transport.mjs"() {
+    pending = /* @__PURE__ */ new Map();
+    sequence = 0;
+    started = new Promise((resolve21) => {
+      begin = resolve21;
+    });
+    input = createInterface3({ input: process.stdin, crlfDelay: Infinity });
+    input.on("line", (line) => {
+      try {
+        const value = JSON.parse(line);
+        if (value.type === "start") {
+          begin(value);
+          return;
+        }
+        const waiter = pending.get(value.id);
+        if (!waiter) return;
+        pending.delete(value.id);
+        if (value.error) waiter.reject(new Error(value.error));
+        else waiter.resolve(value.result);
+      } catch (error2) {
+        for (const waiter of pending.values()) waiter.reject(error2);
+        pending.clear();
+      }
+    });
+    input.on("close", () => {
+      for (const waiter of pending.values()) waiter.reject(new Error("Aster transport closed"));
+      pending.clear();
+    });
+  }
+});
+
 // research/gemini-agent/node_modules/eventsource/dist/index.js
 function syntaxError(message) {
   const DomException = globalThis.DOMException;
@@ -390403,6 +390462,11 @@ async function connectToMcpServer(clientVersion, mcpServerName, mcpServerConfig,
       jsonSchemaValidator: new LenientJsonSchemaValidator()
     }
   );
+  mcpClient.registerCapabilities({ elicitation: { form: {}, url: {} } });
+  mcpClient.setRequestHandler(ElicitRequestSchema, async (request) => {
+    const result2 = await rpc("native_tool", { ...request.params, phase: "mcp_elicitation", serverName: mcpServerName });
+    return result2.content == null ? { action: result2.action } : result2;
+  });
   mcpClient.registerCapabilities({
     roots: {
       listChanged: true
@@ -390841,6 +390905,8 @@ var import_undici2, import_shell_quote8, MCP_DEFAULT_TIMEOUT_MSEC, McpClient, se
 var init_mcp_client = __esm({
   "vendor/gemini-cli/packages/core/src/tools/mcp-client.ts"() {
     "use strict";
+    init_transport2();
+    init_types12();
     init_client();
     init_ajv_provider();
     init_sse();
@@ -394763,9 +394829,9 @@ var require_command_exists = __commonJS({
       cleanInput = function(s3) {
         var isPathName = /[\\]/.test(s3);
         if (isPathName) {
-          var dirname22 = '"' + path93.dirname(s3) + '"';
+          var dirname23 = '"' + path93.dirname(s3) + '"';
           var basename9 = '"' + path93.basename(s3) + '"';
-          return dirname22 + ":" + basename9;
+          return dirname23 + ":" + basename9;
         }
         return '"' + s3 + '"';
       };
@@ -405595,6 +405661,8 @@ init_config4();
 init_contentGenerator();
 init_legacy_agent_session();
 init_tools();
+init_activate_skill();
+init_skillLoader();
 init_tool_error();
 init_types2();
 init_chatRecordingService();
@@ -405602,65 +405670,10 @@ init_sessionUtils();
 init_tokenLimits();
 init_turn();
 init_tokenCalculation();
+init_transport2();
 import { readFileSync as readFileSync9, writeFileSync as writeFileSync6, renameSync as renameSync3, existsSync as existsSync19 } from "node:fs";
 import { randomUUID as randomUUID24 } from "node:crypto";
-
-// research/agent-engines/transport.mjs
-import { createInterface as createInterface3 } from "node:readline";
-var pending = /* @__PURE__ */ new Map();
-var sequence = 0;
-var begin;
-var started = new Promise((resolve21) => {
-  begin = resolve21;
-});
-var input = createInterface3({ input: process.stdin, crlfDelay: Infinity });
-function output(value) {
-  process.stdout.write(JSON.stringify(value) + String.fromCharCode(10));
-}
-function emit(kind, values = {}) {
-  output({ type: "event", kind, ...values });
-}
-function rpc(method, payload) {
-  const id = ++sequence;
-  return new Promise((resolve21, reject) => {
-    pending.set(id, { resolve: resolve21, reject });
-    output({ type: "request", id, method, payload });
-  });
-}
-input.on("line", (line) => {
-  try {
-    const value = JSON.parse(line);
-    if (value.type === "start") {
-      begin(value);
-      return;
-    }
-    const waiter = pending.get(value.id);
-    if (!waiter) return;
-    pending.delete(value.id);
-    if (value.error) waiter.reject(new Error(value.error));
-    else waiter.resolve(value.result);
-  } catch (error2) {
-    for (const waiter of pending.values()) waiter.reject(error2);
-    pending.clear();
-  }
-});
-input.on("close", () => {
-  for (const waiter of pending.values()) waiter.reject(new Error("Aster transport closed"));
-  pending.clear();
-});
-async function run2(main) {
-  try {
-    await main(await started);
-  } catch (error2) {
-    output({ type: "error", error: String(error2.message || error2) });
-    process.exitCode = 1;
-  } finally {
-    input.close();
-    process.stdout.write("", () => process.exit(process.exitCode || 0));
-  }
-}
-
-// research/gemini-agent/runner.ts
+import { join as join34 } from "node:path";
 var ENGINE = "Gemini CLI 0.64.0";
 await run2(async (start2) => {
   const options = start2.configuration;
@@ -405668,6 +405681,11 @@ await run2(async (start2) => {
   if (!["gemini", "openai"].includes(protocol)) throw new Error("Unknown Gemini API protocol");
   process.env.ASTER_GEMINI_PROTOCOL = protocol;
   process.env.GEMINI_CLI_HOME = start2.engineHome;
+  const termuxPrefix = process.env.PREFIX;
+  if (termuxPrefix) {
+    process.env.PATH = `${termuxPrefix}/bin:${process.env.PATH || ""}`;
+    process.env.SHELL = `${termuxPrefix}/bin/bash`;
+  }
   process.env.ASTER_GEMINI_CONTEXT_WINDOW = String(Math.max(8192, Math.min(Number(start2.contextWindow) || 32768, 1048576)));
   const contextWindow = tokenLimit(options.model);
   const maxOutputTokens = Math.max(64, Math.min(Number(start2.maxTokens) || 4096, 65536));
@@ -405679,31 +405697,45 @@ await run2(async (start2) => {
     maxOutputTokens,
     ...thinking ? { thinkingConfig: { thinkingBudget: void 0, thinkingLevel: void 0, ...thinking } } : {}
   } };
+  const nativePermissions = start2.nativePermissions === true;
+  const approvalMode = nativePermissions && start2.commandsUnchecked === true ? "yolo" /* YOLO */ : "default" /* DEFAULT */;
   const config2 = new Config({
+    approvalMode,
+    trustedFolder: nativePermissions ? true : void 0,
+    sandbox: nativePermissions ? { enabled: false } : void 0,
     sessionId: start2.sessionId,
     clientName: "aster",
-    targetDir: start2.workspace,
-    cwd: start2.workspace,
+    targetDir: start2.stage,
+    cwd: start2.stage,
     debugMode: false,
     model: options.model,
     userMemory: start2.system,
-    coreTools: [],
+    coreTools: start2.nativeTools,
+    useWriteTodos: true,
     enableHooks: false,
-    mcpEnabled: false,
+    mcpEnabled: true,
     extensionsEnabled: false,
-    enableAgents: false,
-    skillsSupport: false,
-    adminSkillsEnabled: false,
+    enableAgents: true,
+    mcpServers: Object.fromEntries(Object.entries(start2.nativeMcpServers || {}).map(([name3, entry]) => {
+      const { type: type2, ...server } = entry;
+      return [name3, type2 === "http" ? { ...server, type: "http" } : server];
+    })),
+    plan: true,
+    tracker: true,
+    planSettings: { directory: join34(start2.stage, ".aster/plans"), modelRouting: false },
+    skillsSupport: Boolean(options.enabledSkills?.length),
+    adminSkillsEnabled: Boolean(options.enabledSkills?.length),
     enableInteractiveShell: false,
     interactive: false,
     usageStatisticsEnabled: false,
     telemetry: { enabled: false },
     checkpointing: false,
-    includeDirectoryTree: false,
+    includeDirectoryTree: true,
     skipNextSpeakerCheck: true,
     disableModelRouterForAuth: ["gateway" /* GATEWAY */, "gemini-api-key" /* USE_GEMINI */],
     maxSessionTurns: start2.maxSteps,
-    maxAttempts: 2,
+    maxAttempts: 3,
+    retryFetchErrors: true,
     compressionThreshold: Math.min(0.8, 1 - reserve / contextWindow),
     contextManagement: { enabled: false },
     modelConfigServiceConfig: { customOverrides: [
@@ -405711,7 +405743,7 @@ await run2(async (start2) => {
       { match: { model: options.model }, modelConfig: generationBudget }
     ] },
     fileFiltering: { enableFileWatcher: false },
-    policyEngineConfig: { defaultDecision: "allow" /* ALLOW */ }
+    policyEngineConfig: { defaultDecision: "allow" /* ALLOW */, approvalMode }
   });
   const pointer = start2.sessionFile + ".native.json";
   const saved = existsSync19(pointer) ? JSON.parse(readFileSync9(pointer, "utf8")) : null;
@@ -405786,10 +405818,110 @@ await run2(async (start2) => {
     await config2.refreshAuth("gateway" /* GATEWAY */, options.apiKey || "", options.endpoint);
     await config2.initialize();
     const registry2 = config2.getToolRegistry();
-    for (const existing of registry2.getAllTools()) registry2.unregisterTool(existing.name);
-    for (const item of start2.tools) {
-      if (start2.allowedTools.includes(item.function.name)) registry2.registerTool(new BridgeTool(item.function));
+    if (options.enabledSkills?.length) {
+      const selected = new Set(options.enabledSkills);
+      const manager = config2.getSkillManager();
+      manager.addSkills(await loadSkillsFromDir(join34(start2.stage, ".aster/skills")));
+      manager.filterSkills((skill) => selected.has(skill.name));
+      if (manager.getSkills().length) registry2.registerTool(new ActivateSkillTool(config2, config2.messageBus));
     }
+    const allowedNative = new Set(start2.nativeTools || []);
+    const summarize = (result2) => JSON.stringify(result2?.returnDisplay ?? result2?.llmContent ?? "", (key, value) => key === "data" && typeof value === "string" && value.length > 2048 ? `[binary ${value.length} characters]` : value).slice(0, 12e3);
+    for (const nativeTool of registry2.getAllTools()) {
+      const server = nativeTool.serverName;
+      if (!allowedNative.has(nativeTool.name) && !(server && start2.nativeMcpServers?.[server])) {
+        registry2.unregisterTool(nativeTool.name);
+        continue;
+      }
+      const originalBuild = nativeTool.build;
+      nativeTool.build = function(params, ...rest) {
+        const invocation = originalBuild.call(this, params, ...rest);
+        const execute = invocation.execute.bind(invocation);
+        const confirm = invocation.shouldConfirmExecute.bind(invocation);
+        let ticket;
+        let admission;
+        let confirmation;
+        let confirmed = false;
+        let completed = false;
+        const admit = async () => {
+          if (!admission) admission = rpc("native_tool", { phase: "before", name: nativeTool.name, server, arguments: params });
+          ticket = await admission;
+          if (!ticket?.ok) throw new Error(ticket?.error || "Native tool was not approved");
+          return ticket;
+        };
+        const complete = async (result2) => {
+          if (completed || !ticket?.callId) return;
+          completed = true;
+          const tasks = nativeTool.name.startsWith("tracker_") ? await config2.getTrackerService().listTasks() : void 0;
+          await rpc("native_tool", { phase: "after", callId: ticket.callId, failed: Boolean(result2?.error), summary: summarize(result2), tasks });
+        };
+        const failure = (error2) => ({ llmContent: String(error2), returnDisplay: String(error2), error: { type: "execution_failed" /* EXECUTION_FAILED */, message: String(error2) } });
+        if (nativeTool.name === "exit_plan_mode") {
+          const policy = invocation.getMessageBusDecision.bind(invocation);
+          invocation.getMessageBusDecision = async (...args2) => {
+            const decision = await policy(...args2);
+            return decision === "allow" ? "ask_user" : decision;
+          };
+        }
+        const performConfirmation = async (signal) => {
+          await admit();
+          const details = await confirm(signal);
+          if (details && details.type === "ask_user") {
+            const answer = await rpc("native_tool", { phase: "ask_user", questions: details.questions.map((question, index) => ({ ...question, id: String(index) })) });
+            const answers = Object.fromEntries(Object.entries(answer.answers || {}).map(([id, values]) => [id, Array.isArray(values) ? values.join(", ") : String(values)]));
+            await details.onConfirm(answer.dismissed ? "cancel" /* Cancel */ : "proceed_once" /* ProceedOnce */, answer.dismissed ? void 0 : { answers });
+          } else if (details && details.type === "exit_plan_mode") {
+            const review = await rpc("native_tool", { phase: "plan_review", planPath: details.planPath });
+            await details.onConfirm(
+              review.dismissed ? "cancel" /* Cancel */ : "proceed_once" /* ProceedOnce */,
+              { approved: Boolean(review.approved), feedback: review.feedback || "" }
+            );
+          } else if (details) {
+            const alreadyApproved = ticket.approvalGranted && ["exec", "mcp"].includes(details.type);
+            const approval = alreadyApproved ? { ok: true } : await rpc("native_tool", {
+              phase: "confirm",
+              name: nativeTool.name,
+              server,
+              description: details.title || nativeTool.name,
+              systemMessage: details.systemMessage,
+              command: details.command,
+              fileDiff: details.fileDiff,
+              additionalPermissions: details.additionalPermissions,
+              prompt: details.prompt,
+              urls: details.urls
+            });
+            await details.onConfirm(approval.ok ? "proceed_once" /* ProceedOnce */ : "cancel" /* Cancel */);
+            if (!approval.ok) throw new Error("User declined the tool confirmation");
+          }
+          confirmed = true;
+          return false;
+        };
+        invocation.shouldConfirmExecute = async (signal) => {
+          if (!confirmation) confirmation = performConfirmation(signal).catch(async (error2) => {
+            await complete(failure(error2));
+            throw error2;
+          });
+          return confirmation;
+        };
+        invocation.execute = async (...executeArgs) => {
+          let result2;
+          try {
+            await admit();
+            if (!confirmed) await invocation.shouldConfirmExecute(executeArgs[0]?.abortSignal);
+            result2 = await execute(...executeArgs);
+          } catch (error2) {
+            result2 = failure(error2);
+          }
+          await complete(result2);
+          return result2;
+        };
+        return invocation;
+      };
+    }
+    for (const item of start2.tools) {
+      if (start2.allowedTools.includes(item.function.name) && !registry2.getAllTools().some((tool) => tool.name === item.function.name)) registry2.registerTool(new BridgeTool(item.function));
+    }
+    emit("status", { text: "Gemini CLI \u539F\u751F\u5DE5\u5177\u5DF2\u52A0\u8F7D\uFF1A" + registry2.getAllTools().filter((tool) => allowedNative.has(tool.name)).map((tool) => tool.name).join(", "), step: 0 });
     const client = config2.getGeminiClient();
     const compress = client.tryCompressChat.bind(client);
     client.tryCompressChat = async (...args2) => {

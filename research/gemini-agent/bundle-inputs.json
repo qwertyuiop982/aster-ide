@@ -5003,7 +5003,7 @@
     "format": "esm"
   },
   "research/gemini-agent/openai-content-generator.ts": {
-    "bytes": 6721,
+    "bytes": 6765,
     "imports": [
       {
         "path": "research/gemini-agent/node_modules/@google/genai/dist/node/index.mjs",
@@ -47432,6 +47432,17 @@
     ],
     "format": "esm"
   },
+  "research/agent-engines/transport.mjs": {
+    "bytes": 1523,
+    "imports": [
+      {
+        "path": "node:readline",
+        "kind": "import-statement",
+        "external": true
+      }
+    ],
+    "format": "esm"
+  },
   "research/gemini-agent/node_modules/eventsource/dist/index.js": {
     "bytes": 14842,
     "imports": [
@@ -47611,8 +47622,18 @@
     "format": "esm"
   },
   "vendor/gemini-cli/packages/core/src/tools/mcp-client.ts": {
-    "bytes": 78437,
+    "bytes": 79000,
     "imports": [
+      {
+        "path": "research/agent-engines/transport.mjs",
+        "kind": "import-statement",
+        "original": "/root/work/aster-ide-account/research/agent-engines/transport.mjs"
+      },
+      {
+        "path": "research/gemini-agent/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js",
+        "kind": "import-statement",
+        "original": "@modelcontextprotocol/sdk/types.js"
+      },
       {
         "path": "research/gemini-agent/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js",
         "kind": "import-statement",
@@ -52453,12 +52474,12 @@
     "format": "esm"
   },
   "vendor/gemini-cli/packages/core/src/core/contentGenerator.ts": {
-    "bytes": 14171,
+    "bytes": 14172,
     "imports": [
       {
         "path": "research/gemini-agent/openai-content-generator.ts",
         "kind": "import-statement",
-        "original": "/root/work/aster-ide-github/research/gemini-agent/openai-content-generator.ts"
+        "original": "/root/work/aster-ide-account/research/gemini-agent/openai-content-generator.ts"
       },
       {
         "path": "research/gemini-agent/node_modules/@google/genai/dist/node/index.mjs",
@@ -54345,19 +54366,8 @@
     ],
     "format": "esm"
   },
-  "research/agent-engines/transport.mjs": {
-    "bytes": 1523,
-    "imports": [
-      {
-        "path": "node:readline",
-        "kind": "import-statement",
-        "external": true
-      }
-    ],
-    "format": "esm"
-  },
   "research/gemini-agent/runner.ts": {
-    "bytes": 10251,
+    "bytes": 17330,
     "imports": [
       {
         "path": "vendor/gemini-cli/packages/core/src/config/config.ts",
@@ -54378,6 +54388,16 @@
         "path": "vendor/gemini-cli/packages/core/src/tools/tools.ts",
         "kind": "import-statement",
         "original": "../../vendor/gemini-cli/packages/core/src/tools/tools.js"
+      },
+      {
+        "path": "vendor/gemini-cli/packages/core/src/tools/activate-skill.ts",
+        "kind": "import-statement",
+        "original": "../../vendor/gemini-cli/packages/core/src/tools/activate-skill.js"
+      },
+      {
+        "path": "vendor/gemini-cli/packages/core/src/skills/skillLoader.ts",
+        "kind": "import-statement",
+        "original": "../../vendor/gemini-cli/packages/core/src/skills/skillLoader.js"
       },
       {
         "path": "vendor/gemini-cli/packages/core/src/tools/tool-error.ts",

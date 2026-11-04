@@ -13,7 +13,23 @@ const result = await build({
   alias: { '@google/gemini-cli-core': resolve(vendor, 'packages/core/index.ts') },
   define: { 'process.env.CLI_VERSION': JSON.stringify('0.64.0'), __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' },
   banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); console.log = console.error; console.info = console.error; console.debug = console.error;' },
-  plugins: [{ name: 'aster-openai-protocol', setup(builder) {
+  plugins: [{ name: 'aster-mcp-interaction-ui', setup(builder) {
+    builder.onLoad({ filter: /tools[/]mcp-client[.]ts$/ }, args => {
+      const source = readFileSync(args.path, 'utf8');
+      const anchor = '  mcpClient.registerCapabilities({';
+      if (!source.includes(anchor)) throw new Error('Pinned Gemini MCP registration boundary changed');
+      const imports = 'import { rpc as asterMcpRpc } from ' + JSON.stringify(resolve(root, 'research/agent-engines/transport.mjs')) + ';\n'
+        + 'import { ElicitRequestSchema as AsterElicitRequestSchema } from "@modelcontextprotocol/sdk/types.js";\n';
+      const bridge = `
+  mcpClient.registerCapabilities({ elicitation: { form: {}, url: {} } });
+  mcpClient.setRequestHandler(AsterElicitRequestSchema, async request => {
+    const result = await asterMcpRpc('native_tool', { ...request.params, phase: 'mcp_elicitation', serverName: mcpServerName });
+    return result.content == null ? { action: result.action } : result;
+  });
+`;
+      return { contents: imports + source.replace(anchor, bridge + anchor), loader: 'ts' };
+    });
+  } }, { name: 'aster-openai-protocol', setup(builder) {
     builder.onLoad({ filter: /core[/]contentGenerator[.]ts$/ }, args => {
       const source = readFileSync(args.path, 'utf8');
       const anchor = '  const generator = await (async () => {';

@@ -1,0 +1,158 @@
+{
+  "version": "1.0.4-agent-tools",
+  "versionCode": 15,
+  "applicationId": "dev.aster.account",
+  "created_utc": "2026-10-25T06:28:15.444005+00:00",
+  "apk": {
+    "path": "/sdcard/Download/Aster-v1.0.4-agent-tools.apk",
+    "size": 163580902,
+    "sha256": "916158787ff666ff394eb0649ab00b93155c563b9f964c8744a795d4fe5d2524",
+    "package": "package: name='dev.aster.account' versionCode='15' versionName='1.0.4-agent-tools' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
+    "signature": {
+      "valid": true,
+      "same_signer_as_runtime_fix": true,
+      "certificate_sha256": "786fdc014aa516d0e96ee13aa028b07371ced388b0af9e145bc868be98f6864b",
+      "verification": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): true\nVerified using v3 scheme (APK Signature Scheme v3): false\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: 786fdc014aa516d0e96ee13aa028b07371ced388b0af9e145bc868be98f6864b\nSigner #1 certificate SHA-1 digest: ef4ffd86fc0fbcfebf05901da03767be2bd84710\nSigner #1 certificate MD5 digest: db0c76257fbc6fa1dd645021d1f6052b\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 2048\nSigner #1 public key SHA-256 digest: f3f310a5feb81eb5184eb65a7fcae61e0a8800f9c35ecc60ba3d198e262acdff\nSigner #1 public key SHA-1 digest: edd8b42aa56fd4f9712f3b1e6884a5314032ee3f\nSigner #1 public key MD5 digest: 9c17e1a1ad3dac7bb5acbddad15aae3e"
+    }
+  },
+  "build": {
+    "assembleDebug": "passed",
+    "lintDebug": "passed",
+    "lint_errors": 0,
+    "lint_warnings": 13,
+    "native_codex_reused": true,
+    "local_arm_aapt2_override": true
+  },
+  "tests": {
+    "python": {
+      "run": 70,
+      "passed": 69,
+      "skipped": 1,
+      "skip_reason": "Optional 125-second wall-clock test was already run separately"
+    },
+    "noninteractive_long_command": {
+      "passed": true,
+      "timeout_seconds": 300,
+      "elapsed_seconds": 125.176
+    },
+    "client_subagent": {
+      "models": 2,
+      "cancellation": true,
+      "success": true,
+      "parallel_tasks": 4,
+      "redacted_provider_failure": true,
+      "all_tasks_validated_before_start": true,
+      "tool_events": true,
+      "independent_sessions": true,
+      "real_python_runtime": true,
+      "real_shipped_pi_loop": true,
+      "max_observed_children": 2,
+      "child_sessions": 6,
+      "provider_requests": 14,
+      "provider": "local HTTP protocol fixture",
+      "native_android_ui_tested": false
+    },
+    "remote_mcp": {
+      "success": true,
+      "protocol": "2025-03-26",
+      "checks": {
+        "unauthenticated_rejected": true,
+        "wrong_token_rejected": true,
+        "tool_count": 7,
+        "state_and_history_across_http_sessions": true,
+        "independent_terminal_sessions": true,
+        "text_and_enter": true,
+        "resize": true,
+        "real_ctrl_alt_combination": true,
+        "non_root_service_account": true,
+        "long_command_returned_without_waiting": true,
+        "long_command_elapsed_seconds": 126.754,
+        "long_command_survived_past_two_minutes": true,
+        "website_http_status": 200,
+        "public_endpoint": "https://asteride.cn/terminal-mcp"
+      },
+      "test_conversation": "verify-1792908462",
+      "credentials_included": false
+    }
+  },
+  "remote_deployment": {
+    "receipt": {
+      "success": true,
+      "endpoint": "https://asteride.cn/terminal-mcp",
+      "release": "/opt/aster-terminal-mcp/releases/20261025T060429Z",
+      "previous_release": "/opt/aster-terminal-mcp/releases/20261025T052440Z",
+      "service": "aster-terminal-mcp",
+      "user": "aster-terminal",
+      "bind": "127.0.0.1:8893",
+      "archive_sha256": "fb6de0f764ff6ff02036634402ceb0a2c3ca089bd1ca91cc12e2e18ea5502cf5",
+      "nginx_backup": "/var/backups/aster-terminal-mcp/20261025T060429Z/aster.conf"
+    },
+    "source_hashes_match": true,
+    "files": {
+      "server.py": "3d80ae9df1a6b1317336184869667051d66d348f6af397ed334921f77fb04c31",
+      "lib/aster_terminal.py": "aa9c4bdf810133d38f59936edb7a75b224acaace7fec16ec8eb58e9730b7d97f",
+      "lib/aster_diagnostics.py": "0f28359dcb36d405a8cac51b39c8aeb72e551dc783f3787846a600865cbd0e9a",
+      "lib/aster_tools.py": "8b84f895456d3c368ece63ccd803a458187b3e132026c22bf5d5a686ba043aaf"
+    }
+  },
+  "apk_assets": {
+    "matched": 46,
+    "files": {
+      "assets/NOTICE.txt": "8045da564d59702de67c54712ff29d6503de99522f00cc414ba1d462fd83bdca",
+      "assets/acs-ui/LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "assets/acs-ui/SOURCE.json": "62ff34a2cdeb9e05330705a75dfd9ac4438bc0e73a17d45c3338a01f45a52f89",
+      "assets/bridge/IDESetup-SOURCE.json": "b4a8cf48ca41ce474807a21e8b54772e93f6fc13c1938b55b2ec18ec7faa6e02",
+      "assets/bridge/agent-runtime.sh": "08f9aebc36b80a3dd7bc137e69aa6ea14cbc81544c78bfc4e9e385f7f68ecf7d",
+      "assets/bridge/agent_codex.py": "fde4782c3261a1d043f0c727c5b96eaaa1a690f7275b07570a98ca0f1a481674",
+      "assets/bridge/agent_engines.py": "3e4456fb982865696af871b5def9755e8e0f221ec5641ce0fde05e701038d2fd",
+      "assets/bridge/agent_mcp.py": "4b3f7ae81d7a8e83eac43041361b52786bcf8635607946a64b49f7167799460e",
+      "assets/bridge/agent_mcp_stdio.py": "00c613e618bcdb79d51afde80a165ffbf14809a4018c45cab6fe2000958dcfda",
+      "assets/bridge/agent_runner.py": "731cdeb6a5a4e0908b45d4495d65a45065c637e1f3eb5e148cb814734c4ee90a",
+      "assets/bridge/agent_skills.py": "90c2cbe9ffded34fc6aac8d04d0ccbe6bb04d28fbe1fe2a54769509ba368e8da",
+      "assets/bridge/agent_thinking.py": "f7aaf35295150a742f6656b7828dc56cff70108b3094febb27bd5efb19d739c5",
+      "assets/bridge/agent_vendor/LICENSES.txt": "b13ef7cde284dc93c54a4a94b586dd763604bf8f6952738495b6458a75d40e40",
+      "assets/bridge/agent_vendor/PI-LICENSE.txt": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48",
+      "assets/bridge/agent_vendor/PI-SOURCE.json": "c10256bec1cb265a2559cbf631b08f79ebe8adb73437a6cf971a07d1dbb622e4",
+      "assets/bridge/agent_vendor/SOURCE.json": "c10256bec1cb265a2559cbf631b08f79ebe8adb73437a6cf971a07d1dbb622e4",
+      "assets/bridge/agent_vendor/aster_diagnostics.py": "0f28359dcb36d405a8cac51b39c8aeb72e551dc783f3787846a600865cbd0e9a",
+      "assets/bridge/agent_vendor/aster_free.py": "94b3d4d15c801534e9fb8245a8f2e06b57581c26c55468a7460040000842a8f7",
+      "assets/bridge/agent_vendor/aster_model.py": "56b249c3755ab3766827f3605aa322e650144a71b1dec0214920f5fa9428c9d2",
+      "assets/bridge/agent_vendor/aster_terminal.py": "aa9c4bdf810133d38f59936edb7a75b224acaace7fec16ec8eb58e9730b7d97f",
+      "assets/bridge/agent_vendor/aster_tools.py": "8b84f895456d3c368ece63ccd803a458187b3e132026c22bf5d5a686ba043aaf",
+      "assets/bridge/agent_vendor/aster_transport.py": "5da33d99f4d9b191e6035d89678be36517dc2c7c56da586379dae44f8c85fb21",
+      "assets/bridge/agent_vendor/gemini-agent.mjs": "9f0d848434eb89ab81f9f93104e95835841bc69c88e50af4cabf0e49d34f00be",
+      "assets/bridge/agent_vendor/gemini-assets/tree-sitter-RBDJN3XW.wasm": "f38dcc4b43b818f9a0785bc1c6d5611a75ac4cdd428ff3f02757c34ca4e46d7f",
+      "assets/bridge/agent_vendor/gemini-assets/tree-sitter-bash-DXPP2GMV.wasm": "364f0a2cd385c792239423026ef442dbd073d34c396b7bc9e5932426b8e4aa5d",
+      "assets/bridge/agent_vendor/openclaude-agent.mjs": "8748fd9ec8d4f1a65c7b7826940a49ffbb6bd5dc6fac170e88d78d5a8c83fa7c",
+      "assets/bridge/agent_vendor/pi-agent.mjs": "33d66e8cce4fd313562e18531aa903433378177a865c71728266d70f260fa1d1",
+      "assets/bridge/agent_vendor/policies/agents.toml": "40952a0b352f3600ddbad6877227539819e6842cee962e0437de0c566a2020c7",
+      "assets/bridge/agent_vendor/policies/conseca.toml": "ce972fb6aed3fe52324885eab9ce0b78fcf9001cdb67048bfb53cc3d87251f87",
+      "assets/bridge/agent_vendor/policies/discovered.toml": "acea63eda3b5c450efc0a24798261b9ef308e985ae724e78031547b262929441",
+      "assets/bridge/agent_vendor/policies/non-interactive.toml": "721978c4f1153b7abb5ea24d647dd6acb7093b264ee8f5438b07ee014da369da",
+      "assets/bridge/agent_vendor/policies/plan.toml": "cbc98437f7a0c3df44465e853863c1016d66d725da2b9a223946e802ffd2b777",
+      "assets/bridge/agent_vendor/policies/read-only.toml": "4899746262c3beedce94ca90fdcbb50028e52232747288e5bff73c523db05bfb",
+      "assets/bridge/agent_vendor/policies/sandbox-default.toml": "c218da165691dcb94a1c2e871760b543090387b59df0966cb432b96193bd1bcf",
+      "assets/bridge/agent_vendor/policies/write.toml": "d04a7ab760f08068e020baa10fded591f0d54d502ae4d3955abbf0f323582a52",
+      "assets/bridge/agent_vendor/policies/yolo.toml": "f71e6d1d2df01608bb205ec22869c0f95107bbdf45b4f7c74063b7000e2e32a8",
+      "assets/bridge/agent_vision.py": "381739e65d85895f7b309d1e27ff9a0d4c341bee044bdb98495235b4e8942391",
+      "assets/bridge/android_platform.py": "acdacfd76d72a79602aa57a20129b45d68a5b0cb908142b6f5f5d1277fcaecbe",
+      "assets/bridge/bridge.py": "dfa7f39c3a5364029c144dd3a1d3d5cf252b43c5cbc12476e48de312bd651964",
+      "assets/bridge/idesetup.py": "f9e78976b3b4ef9d6a4e5d8b3339cb260b4f0c08dcbaa78d336d13315f7af0e6",
+      "assets/bridge/setup_android.py": "d56b9c97d953449ff5990431953434a8ecf7e9e25373051bf37a13d80919214d",
+      "assets/bridge/start.sh": "c2cd391994ad887638dede89400b840f1d33d57f68cdf29d9d6de84250dbc001",
+      "assets/bridge/toolchain_native.py": "be0c83b0250404b12af8da00b1a60905c4a0e3a4023b65e57c0c702f3679a822",
+      "assets/licenses/ACS-LICENSE.txt": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "assets/licenses/ACS-SOURCE.json": "62ff34a2cdeb9e05330705a75dfd9ac4438bc0e73a17d45c3338a01f45a52f89",
+      "assets/servers.json": "e97658fabd40600d9ac86f87c610d4bdd9a41f2c941fc1c705d5bb1370a15c2d"
+    },
+    "client_coordinator_in_dex": true,
+    "python_orchestrator_removed": true
+  },
+  "private_credentials_in_report_or_source_archive": false,
+  "unverified": [
+    "Automatic Android installation was blocked by process permissions in the prior attempt; this version has not been installed or exercised on-device.",
+    "Native settings and live PRoot UI behavior require on-device checks.",
+    "New subagent and image provider behavior was tested against local HTTP fixtures; real supplier API calls remain unverified.",
+    "Codex native resources were reused; no fresh full native/source build was performed."
+  ]
+}

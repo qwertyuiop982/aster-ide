@@ -1,11 +1,13 @@
 package dev.aster.ide.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import dev.aster.ide.agent.AgentPermissionControls
 import dev.aster.ide.agent.AgentMode
 import dev.aster.ide.agent.AgentEngine
 import androidx.compose.ui.Modifier
@@ -31,8 +33,25 @@ import kotlinx.coroutines.withContext
     var secret by remember(engine) { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        AgentEnginePicker(vm, Modifier.fillMaxWidth())
+        SectionLabel("底层引擎")
+        AgentEngine.entries.forEach { candidate ->
+            Row(Modifier.fillMaxWidth().clickable(enabled = !state.running && !vm.agentPreparing && !vm.agentStopping) { vm.selectAgentEngine(candidate) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = candidate == engine, onClick = null, modifier = Modifier.padding(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(candidate.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(candidate.apiLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        HorizontalDivider()
+        SectionLabel("账号与工具")
         dev.aster.ide.account.AccountSourceControls(engine)
+        AgentPermissionControls(settings, !state.running && !vm.agentPreparing && !vm.agentStopping,
+            { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
+            { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeProject)
+        dev.aster.ide.agent.AgentToolConfigurationControls(settings, profile, !state.running && !vm.agentPreparing && !vm.agentStopping,
+            { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
+            { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
         if (engine == AgentEngine.PI && settings.agentUseFree) {
             Text(if (settings.agentFreeTier == "go") "Aster-free go · 固定无思考" else "Aster-free · 固定无思考", style = MaterialTheme.typography.titleMedium)
             Text(if (settings.agentFreeTier == "go") "128000 token · 1000 token = 50 积分" else "128000 token · 1000 token = 1 积分", style = MaterialTheme.typography.bodySmall)
@@ -42,6 +61,7 @@ import kotlinx.coroutines.withContext
             TextButton(onClick = { vm.openAgent(); vm.settingsPage = null }) { Text("打开 Agent 工作空间") }
             return@Column
         }
+        SectionLabel("模型连接")
         Text(engine.apiLabel, style = MaterialTheme.typography.labelMedium)
         availability.firstOrNull { it.id == engine.id }?.let { runtime ->
             if (!runtime.available || runtime.reason.isNotBlank()) Text(runtime.reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -65,8 +85,8 @@ import kotlinx.coroutines.withContext
                 }
             } })
         if (hasKey) TextButton(onClick = { scope.launch { try { withContext(Dispatchers.IO) { vm.agent.secrets.save("", engine) }; vm.notify("API Key 已删除") } catch (_: Exception) { vm.notify("API Key 删除失败") } } }) { Text("删除已保存的 API Key") }
-        Text("Agent 使用你配置的模型服务；文件修改先预览后应用，验证命令逐次确认。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("当前工作模式", style = MaterialTheme.typography.labelLarge)
+        Text(if (settings.agentPermissionMode == "native") "原生权限：文件直接修改；命令按“命令无审查”开关执行。" else "Agent 使用你配置的模型服务；文件修改先预览后应用，验证命令逐次确认。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionLabel("任务运行")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AgentMode.entries.forEach { candidate -> FilterChip(mode == candidate, { vm.setAgentMode(candidate) }, enabled = !state.running && !vm.agentPreparing && !vm.agentStopping, label = { Text(candidate.label) }) }
         }
@@ -79,6 +99,11 @@ import kotlinx.coroutines.withContext
         TextButton(onClick = { if (engine == AgentEngine.CODEX) vm.refreshAgentEngines() else vm.installServer("agent") }, enabled = vm.connected && !vm.buildRunning && !state.running && !vm.agentPreparing && !vm.agentStopping) { Text(if (engine == AgentEngine.CODEX) "检查原生 Codex 运行环境" else "安装／更新 Node.js 运行环境") }
         if (engine != AgentEngine.CODEX && vm.tools["node"].isNullOrBlank()) Text("首次发送任务时会自动安装内置 Node LTS。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         SettingsSlider("最多步骤", settings.agentMaxSteps, 4, 64, 4, "步") { value -> vm.settings.update { it.copy(agentMaxSteps = value) } }
+        SectionLabel("协作与预算")
+        var subagentModels by remember(engine, profile.subagentModels) { mutableStateOf(profile.subagentModels) }
+        OutlinedTextField(subagentModels, { subagentModels = it }, label = { Text("子代理候选模型（逗号分隔）") }, modifier = Modifier.fillMaxWidth(),
+            supportingText = { Text("沿用当前供应商与 Key；主模型可自行选择模型、思考强度、system 提示词和 Prompt。") },
+            trailingIcon = { ToolButton(Icons.Outlined.Save, "保存子代理候选模型", enabled = subagentModels != profile.subagentModels, size = 30) { vm.settings.updateAgentProfile(engine) { it.copy(subagentModels = subagentModels.trim()) } } })
         SettingsSlider("回复上限", profile.maxTokens, 512, 8192, 512, "tokens") { value -> vm.settings.updateAgentProfile(engine) { it.copy(maxTokens = value) } }
         SettingsSlider("模型上下文窗口", profile.contextWindow / 1024, 8, 256, 8, "K tokens") { value -> vm.settings.updateAgentProfile(engine) { it.copy(contextWindow = value * 1024) } }
         Text("请按模型实际支持的窗口设置；接近上限时生成摘要并保留近期工具交换。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

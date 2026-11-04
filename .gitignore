@@ -68,3 +68,8 @@ signing.properties
 **/*.test.tsx
 **/*.test.js
 **/*.spec.ts
+
+# Private operational material
+/.backup/
+/services/
+/website/build-v5/

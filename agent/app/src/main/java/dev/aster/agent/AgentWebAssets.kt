@@ -5,7 +5,7 @@ import java.net.URI
 /** Exact local-asset routing, shared by WebView and plain JVM tests. No networking. */
 internal object AgentWebAssets {
     const val PAGE = "https://aster.local/agent/index.html"
-    private val files = setOf("index.html", "base.css", "boot.js", "app.bundle.js", "app.js", "components.js", "choices.js", "patterns.js", "dom.js", "icons.js",
+    val files = setOf("index.html", "base.css", "boot.js", "app.bundle.js", "app.js", "components.js", "choices.js", "patterns.js", "dom.js", "icons.js",
         "engines/pi.js", "engines/codex.js", "engines/gemini.js", "engines/openclaude.js")
     val headers = mapOf(
         "Content-Security-Policy" to "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",

@@ -1,6 +1,8 @@
 package dev.aster.ide.ui
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,41 +50,49 @@ private val Categories = listOf("editor" to "编辑器", "appearance" to "外观
     val scope = rememberCoroutineScope()
     val runtime by vm.termux.state.collectAsState()
     var reset by remember { mutableStateOf(false) }
+    var indexVisible by rememberSaveable { mutableStateOf(false) }
+    val categoryState = rememberSaveableStateHolder()
+    var selectedServer by remember(category) { mutableStateOf<String?>(null) }
+    var detail by remember { mutableStateOf<InfoSheet?>(null) }
     var install by remember { mutableStateOf<String?>(null) }
     val chooseWorkMode = dev.aster.core.LocalWorkModeChooser.current
     val motion = LocalMotion.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 600.dp
+        val wide = maxWidth >= 720.dp
+        val back = {
+            when {
+                detail != null -> detail = null
+                selectedServer != null -> selectedServer = null
+                !wide && !indexVisible -> indexVisible = true
+                else -> vm.settingsPage = null
+            }
+        }
+        BackHandler(onBack = back)
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().height(56.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                ToolButton(Icons.Outlined.ArrowBack, "返回编辑器") { vm.settingsPage = null }
-                Spacer(Modifier.width(10.dp)); Text("设置", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.weight(1f)); Text("Aster", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                dev.aster.ide.account.AccountEntryButton()
-                TextButton(onClick = chooseWorkMode) { Text("工作模式") }
+            Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                ToolButton(Icons.Outlined.ArrowBack, "返回") { back() }
+                Text(if (!wide && !indexVisible) Categories.firstOrNull { it.first == category }?.second ?: "设置" else "设置", Modifier.weight(1f).padding(horizontal = 10.dp), style = MaterialTheme.typography.titleMedium)
                 ToolButton(Icons.Outlined.Restore, "恢复默认设置") { reset = true }
             }
             Line()
-            if (!wide) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).background(MaterialTheme.colorScheme.surface)) {
-                Categories.forEach { (id, title) -> Column(Modifier.clickable { vm.settingsPage = id }.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(title, modifier = Modifier.padding(vertical = 13.dp), color = if (category == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
-                    Box(Modifier.height(2.dp).width(28.dp).background(if (category == id) MaterialTheme.colorScheme.primary else Color.Transparent))
-                } }
-            }
             Row(Modifier.weight(1f)) {
-                if (wide) {
-                    Column(Modifier.width(176.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState()).padding(vertical = 12.dp)) {
-                        Categories.forEach { (id, title) -> Row(Modifier.fillMaxWidth().background(if (category == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent).clickable { vm.settingsPage = id }.padding(horizontal = 22.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (wide || indexVisible) {
+                    Column((if (wide) Modifier.width(208.dp) else Modifier.fillMaxWidth()).fillMaxHeight().background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState())) {
+                        Categories.forEach { (id, title) -> Row(Modifier.fillMaxWidth().background(if (wide && category == id) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent).clickable { vm.settingsPage = id; indexVisible = false }.padding(horizontal = 22.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                             val icon = when (id) { "editor" -> Icons.Outlined.EditNote; "appearance" -> Icons.Outlined.Palette; "lsp" -> Icons.Outlined.DataObject; "agent" -> Icons.Outlined.SmartToy; "runtime" -> Icons.Outlined.Terminal; "build" -> Icons.Outlined.Build; "performance" -> Icons.Outlined.Speed; else -> Icons.Outlined.Info }
-                            Icon(icon, null, Modifier.size(18.dp), tint = if (category == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp)); Text(title, style = MaterialTheme.typography.bodyMedium, color = if (category == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            Icon(icon, null, Modifier.size(18.dp), tint = if (wide && category == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp)); Text(title, style = MaterialTheme.typography.bodyMedium, color = if (wide && category == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            if (!wide) Icon(Icons.Outlined.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         } }
+                        HorizontalDivider()
+                        TextButton(onClick = chooseWorkMode, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) { Text("切换工作模式") }
+                        dev.aster.ide.account.AccountEntryButton()
                     }
-                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (wide) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                    AnimatedContent(category, transitionSpec = { (fadeIn(tween(motion.standard)) + slideInHorizontally(tween(motion.standard)) { motion.offset(it / 32) }) togetherWith (fadeOut(tween(motion.quick)) + slideOutHorizontally(tween(motion.standard)) { motion.offset(-it / 32) }) }, label = "settingsCategory", modifier = Modifier.fillMaxSize()) { shownCategory -> LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize(), contentPadding = PaddingValues(horizontal = if (wide) 32.dp else 20.dp, vertical = 12.dp)) {
-                        item { Text(Categories.first { it.first == shownCategory }.second, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)) }
+                if (wide || !indexVisible) Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                    AnimatedContent(category, transitionSpec = { (fadeIn(tween(motion.standard)) + slideInHorizontally(tween(motion.standard)) { motion.offset(it / 32) }) togetherWith (fadeOut(tween(motion.quick)) + slideOutHorizontally(tween(motion.standard)) { motion.offset(-it / 32) }) }, label = "settingsCategory", modifier = Modifier.fillMaxSize()) { shownCategory -> categoryState.SaveableStateProvider(shownCategory) { LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize(), contentPadding = PaddingValues(horizontal = if (wide) 32.dp else 20.dp, vertical = 12.dp)) {
+                        if (wide) item { Text(Categories.first { it.first == shownCategory }.second, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 16.dp, bottom = 20.dp)) }
                         when (shownCategory) {
                             "editor" -> item {
                                 SectionLabel("文本")
@@ -122,45 +134,19 @@ private val Categories = listOf("editor" to "编辑器", "appearance" to "外观
                             }
                             "lsp" -> {
                                 item { AcsLspOptions(vm, settings) }
-                                vm.catalog.all.forEach { server -> item(key = server.id) { AcsServerSettings(vm, settings, server) { install = server.id } } }
+                                vm.catalog.all.forEach { server -> item(key = server.id) { AcsServerSettings(vm, settings, server, onConfigure = { selectedServer = server.id }) } }
                             }
                             "agent" -> item { AgentSettings(vm, settings) }
                             "runtime" -> item {
-                                SectionLabel("Termux")
-                                ValueRow("模块", "Termux 0.118.3 + PRoot 5.1.107.96")
-                                ValueRow("Bootstrap", if (runtime.bootstrapInstalled) "已解包" else "已内置 · 未检测")
-                                ValueRow("桥接状态", if (vm.connected && !vm.connecting) "已连接" else runtime.message)
-                                if (vm.connecting) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                                SettingSwitch("启动时先准备编译环境", settings.autoRuntime) { vm.settings.update { s -> s.copy(autoRuntime = it) } }
-                                ActionRow(Icons.Outlined.Description, "查看环境安装日志") { vm.info = InfoSheet("环境安装日志", vm.output.text.value.takeLast(18000).ifBlank { "暂无日志" }) }
-                                ActionRow(Icons.Outlined.PowerSettingsNew, if (vm.connected) "连接内置编译环境" else "初始化并启动内置环境", enabled = !vm.connecting) { vm.connectRuntime() }
-                                ActionRow(Icons.Outlined.ContentCopy, "复制私有运行目录") { clipboard.setText(AnnotatedString(vm.termux.directory)); vm.notify("运行目录已复制") }
-                                ActionRow(Icons.Outlined.Refresh, "检测本地连接", enabled = !vm.connecting) { vm.connectRuntime(false) }
-                                FieldSetting("本地端口", settings.port.toString()) { value ->
-                                    val port = value.toIntOrNull()
-                                    if (port == null || port !in 1024..65535) vm.notify("端口必须在 1024–65535 之间")
-                                    else vm.changeRuntimePort(port)
-                                }
-                                SectionLabel("工具链")
-                                ActionRow(Icons.Outlined.InstallMobile, "安装基础编译工具", enabled = vm.connected && !vm.buildRunning) { install = "base" }
-                                ValueRow("SDK / NDK 运行平台", "Android · Bionic · arm64")
-                                ValueRow("安装器", "内嵌 idesetup.py")
-                                ChoiceRow("Build Tools", settings.sdkBuildTools, listOf("35.0.1" to "35.0.1", "34.0.4" to "34.0.4")) { value -> vm.settings.update { it.copy(sdkBuildTools = value) } }
-                                ChoiceRow("JDK", settings.sdkJdk, listOf("17" to "17 · Android 开发推荐", "21" to "21")) { value -> vm.settings.update { it.copy(sdkJdk = value) } }
-                                ChoiceRow("Android 原生 NDK", settings.sdkNdk, listOf("29.0.14206865" to "r29", "28.2.13676358" to "r28c", "27.3.13750724" to "r27d", "0" to "跳过")) { value -> vm.settings.update { it.copy(sdkNdk = value) } }
-                                SettingSwitch("安装命令行工具", settings.sdkCmdlineTools) { value -> vm.settings.update { it.copy(sdkCmdlineTools = value) } }
-                                ActionRow(Icons.Outlined.Android, "安装 Android 原生 SDK / NDK", enabled = vm.connected && !vm.buildRunning) { install = "android" }
-                                FieldSetting("Termux 中的 Android SDK 路径", settings.sdkPath) { value -> if ('\n' in value || !value.startsWith('/')) vm.notify("需要绝对路径") else vm.settings.update { it.copy(sdkPath = value) } }
-                                vm.tools.forEach { (tool, path) -> ValueRow(tool, if (path.isBlank()) "未安装" else "已安装") }
-                                SectionLabel("软件源")
-                                ChoiceRow("Termux APT", settings.termuxMirror, listOf("ustc" to "中科大 USTC", "official" to "保留当前源")) { vm.settings.update { s -> s.copy(termuxMirror = it) } }
-                                FieldSetting("npm registry", settings.npmRegistry) { value -> if (value.startsWith("https://") && value.none(Char::isWhitespace)) vm.settings.update { it.copy(npmRegistry = value) } else vm.notify("请输入 HTTPS registry 地址") }
-                                SettingSwitch("GitHub 文件下载加速", settings.githubProxy) { vm.settings.update { s -> s.copy(githubProxy = it) } }
-                                ValueRow("代理", "gh-proxy.org")
-                                SectionLabel("路径映射")
-                                ValueRow("Guest files", "/data/data/com.termux/files")
-                                ValueRow("Private files", vm.termux.directory + "/files")
-                                ValueRow("独立 APK / Root", "不需要")
+                                dev.aster.ide.runtime.BuildEnvironmentSettings(
+                                    settings = settings, runtime = runtime, connected = vm.connected, connecting = vm.connecting,
+                                    installing = vm.buildRunning, directory = vm.termux.directory, tools = vm.tools,
+                                    updateSettings = { change -> vm.settings.update(change) },
+                                    onConnect = { initialize -> vm.connectRuntime(initialize) }, onInstall = { install = it },
+                                    onLogs = { detail = InfoSheet("环境安装日志", vm.output.text.value.takeLast(18000).ifBlank { "暂无日志" }) },
+                                    onCopyDirectory = { clipboard.setText(AnnotatedString(vm.termux.directory)); vm.notify("运行目录已复制") },
+                                    onPort = { vm.changeRuntimePort(it) }, onMessage = { vm.notify(it) }
+                                )
                             }
                             "build" -> item {
                                 SectionLabel("Gradle")
@@ -203,13 +189,28 @@ private val Categories = listOf("editor" to "编辑器", "appearance" to "外观
                                 ValueRow("Agent 引擎", vm.agent.engine)
                                 ValueRow("原生模块", "NDK r29 · C++17")
                                 SectionLabel("开源")
-                                ActionRow(Icons.Outlined.Description, "开源许可") { scope.launch { val text = withContext(Dispatchers.IO) { context.assets.open("NOTICE.txt").bufferedReader().use { it.readText() } }; vm.info = InfoSheet("开源许可", text) } }
+                                ActionRow(Icons.Outlined.Description, "开源许可") { scope.launch { val text = withContext(Dispatchers.IO) { context.assets.open("NOTICE.txt").bufferedReader().use { it.readText() } }; detail = InfoSheet("开源许可", text) } }
                                 ActionRow(Icons.Outlined.OpenInNew, "Termux 上游") { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/termux/termux-app"))) }
                                 ActionRow(Icons.Outlined.OpenInNew, "Sora Editor 上游") { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Rosemoe/sora-editor"))) }
                             }
                         }
                         item { Spacer(Modifier.height(40.dp)) }
-                    } }
+                    } } }
+                }
+            }
+        }
+        selectedServer?.let { id ->
+            vm.catalog.all.firstOrNull { it.id == id }?.let { server ->
+                SettingsDetailPage(server.name, { selectedServer = null }) {
+                    AcsServerConfiguration(vm, settings, server) { install = server.id }
+                }
+            }
+        }
+        detail?.let { page ->
+            SettingsDetailPage(page.title, { detail = null }) {
+                val output by vm.output.text.collectAsState()
+                SelectionContainer {
+                    Text(if (page.title == "环境安装日志") output.takeLast(60000).ifBlank { "暂无日志" } else page.content, fontFamily = Mono, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -246,18 +247,19 @@ private val Categories = listOf("editor" to "编辑器", "appearance" to "外观
     Line()
 }
 @Composable private fun ChoiceRow(label: String, value: String, options: List<Pair<String, String>>, change: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Box {
-            TextButton(onClick = { open = true }) { Text(options.firstOrNull { it.first == value }?.second ?: value); Spacer(Modifier.width(8.dp)); Icon(Icons.Outlined.ExpandMore, null, Modifier.size(16.dp)) }
-            DropdownMenu(open, { open = false }) { options.forEach { (id, name) -> DropdownMenuItem(text = { Text(name) }, onClick = { change(id); open = false }, trailingIcon = { if (value == id) Icon(Icons.Outlined.Check, null) }) } }
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 8.dp))
+        options.forEach { (id, name) ->
+            Row(Modifier.fillMaxWidth().clickable { change(id) }.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = value == id, onClick = null, modifier = Modifier.padding(10.dp))
+                Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 4.dp))
+            }
         }
     }
     Line()
 }
 @Composable internal fun FieldSetting(label: String, value: String, multiline: Boolean = false, change: (String) -> Unit) {
-    var draft by remember(value) { mutableStateOf(value) }
+    var draft by rememberSaveable(value) { mutableStateOf(value) }
     OutlinedTextField(draft, { draft = it }, label = { Text(label) }, singleLine = !multiline, minLines = if (multiline) 2 else 1, maxLines = if (multiline) 6 else 1,
         textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = Mono), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), shape = RoundedCornerShape(6.dp),
         trailingIcon = { ToolButton(Icons.Outlined.Save, "保存 $label", enabled = draft != value, size = 34) { change(draft.trim()) } })
@@ -267,5 +269,21 @@ private val Categories = listOf("editor" to "编辑器", "appearance" to "外观
         Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.3f)); Spacer(Modifier.width(12.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f), modifier = Modifier.weight(1f))
         Icon(Icons.Outlined.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable private fun SettingsDetailPage(title: String, close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    BackHandler(onBack = close)
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxSize().imePadding()) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                ToolButton(Icons.Outlined.ArrowBack, "返回设置") { close() }
+                Text(title, Modifier.padding(start = 10.dp), style = MaterialTheme.typography.titleMedium)
+            }
+            HorizontalDivider()
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+            }
+        }
     }
 }

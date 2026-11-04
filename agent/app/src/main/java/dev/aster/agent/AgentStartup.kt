@@ -10,7 +10,7 @@ data class AgentWebState(val phase: AgentWebPhase = AgentWebPhase.LOADING, val m
 
 /** No model configuration is needed to install the local runtime. The UI observes each step. */
 internal object AgentStartup {
-    const val REVISION = "agent-startup-fix3"
+    const val REVISION = "agent-permissions-startup-fix4"
     suspend fun prepare(
         workspace: suspend () -> Unit,
         runtime: suspend () -> Boolean,

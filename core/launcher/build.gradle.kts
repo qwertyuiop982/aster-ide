@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+// Set the output directory before getDefaultProguardFile() captures it.
+layout.buildDirectory.set(rootProject.layout.projectDirectory.dir("core/build/application"))
 android {
     namespace = "dev.aster.ide"
     compileSdk = 35
@@ -12,13 +14,13 @@ android {
         minSdk = 24
         // API 28 permits compiler executables in app-private storage. Not a Play Store build.
         targetSdk = 28
-        versionCode = 12
-        versionName = "1.0.1"
+        versionCode = 15
+        versionName = "1.0.4"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
     sourceSets.getByName("main").jniLibs.srcDir(rootProject.file("build/native/codex"))
     buildTypes {
-        debug { versionNameSuffix = "-agent-fix2" }
+        debug { versionNameSuffix = "-agent-tools" }
         release {
             isDebuggable = false
             isMinifyEnabled = true
@@ -38,7 +40,6 @@ android {
     lint { abortOnError = true; disable += setOf("MissingTranslation", "ExpiredTargetSdkVersion") }
     testOptions { unitTests.isReturnDefaultValues = true }
 }
-layout.buildDirectory.set(rootProject.layout.projectDirectory.dir("core/build/application"))
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
@@ -62,10 +63,19 @@ dependencies {
 
 val prepareCodexNative by tasks.registering(Exec::class) {
     workingDir(rootProject.projectDir)
-    commandLine("python3", "-B", "scripts/prepare_native.py", "--component", "codex", "--force")
+    // Reuse the verified arm64 Codex artifact already prepared for the APK. Native
+    // compilation is intentionally explicit because it can take many minutes on
+    // the Android build host; pass -PasterForceNative=true when the Rust source
+    // or toolchain itself changed.
+    val forceNative = project.providers.gradleProperty("asterForceNative").orNull == "true"
+    if (forceNative) {
+        commandLine("python3", "-B", "scripts/prepare_native.py", "--component", "codex", "--force")
+    } else {
+        commandLine("python3", "-B", "scripts/prepare_native.py", "--component", "codex")
+    }
     inputs.files(rootProject.file("scripts/prepare_native.py"), rootProject.file("core/termux-runtime/src/main/assets/runtime/checksums.json"))
     inputs.dir(rootProject.file("vendor/codex/codex-rs"))
-    inputs.files(rootProject.file("scripts/build_codex_agent.py"), rootProject.file("scripts/build_codex_host.py"), rootProject.file("scripts/termux_agent_sysroot.py"))
+    inputs.files(rootProject.file("scripts/prepare_native.py"), rootProject.file("scripts/build_codex_agent.py"), rootProject.file("scripts/build_codex_host.py"), rootProject.file("scripts/termux_agent_sysroot.py"))
     outputs.dir(rootProject.file("build/native/codex"))
 }
 tasks.named("preBuild").configure { dependsOn(prepareCodexNative) }

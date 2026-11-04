@@ -10,7 +10,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 
-data class Workspace(val id: String, val name: String, val directory: File, val source: String? = null)
+data class Workspace(val id: String, val name: String, val directory: File, val source: String? = null, val direct: Boolean = false)
 data class FileNode(val path: String, val name: String, val directory: Boolean, val depth: Int, val size: Long)
 class WorkspaceRepository(private val context: Context, private val settings: SettingsStore) {
     private val home = File(context.filesDir, "workspaces").apply { mkdirs() }
@@ -25,7 +25,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     private fun load(id: String): Workspace? = runCatching {
         val dir = File(home, id)
         val meta = JSONObject(File(dir, ".aster-workspace.json").readText())
-        Workspace(id, meta.getString("name"), dir, meta.optString("source").takeIf(String::isNotBlank))
+        Workspace(id, meta.getString("name"), meta.optString("directPath").takeIf(String::isNotBlank)?.let(::File) ?: dir, meta.optString("source").takeIf(String::isNotBlank), meta.optString("directPath").isNotBlank())
     }.getOrNull()
 
     suspend fun recent(): List<Workspace> = withContext(Dispatchers.IO) {
@@ -35,7 +35,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     fun select(workspace: Workspace) { prefs.edit().putString("current", workspace.id).apply() }
 
     private fun metadata(workspace: Workspace) {
-        File(workspace.directory, ".aster-workspace.json").writeText(JSONObject().put("name", workspace.name).put("source", workspace.source ?: "").toString())
+        File(File(home, workspace.id).apply { mkdirs() }, ".aster-workspace.json").writeText(JSONObject().put("name", workspace.name).put("source", workspace.source ?: "").put("directPath", if (workspace.direct) workspace.directory.canonicalPath else "").toString())
     }
 
     suspend fun create(name: String): Workspace = withContext(Dispatchers.IO) {
@@ -56,6 +56,8 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
                 val name = file.name ?: return@forEach
                 if (name in ignored || name in setOf("local.properties", ".aster-workspace.json") || '/' in name || name == "..") return@forEach
                 val path = if (relative.isEmpty()) name else "$relative/$name"
+                // Preserve original projects; do not import ACS editor/session metadata.
+                if (!WorkspaceTransferPolicy.shouldCopy(path)) return@forEach
                 if (file.isDirectory) walk(file, path, depth + 1)
                 else if (file.isFile) {
                     if (file.length() > settings.value.maxFileMB * 1024L * 1024) { skipped++; return@forEach }
@@ -90,6 +92,26 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
         }
     }
 
+    suspend fun openDirectTree(uri: Uri): Workspace = withContext(Dispatchers.IO) {
+        val directory = AgentStorageAccess.directory(context, uri)
+        AgentStorageAccess.persist(context, uri)
+        Workspace(UUID.randomUUID().toString(), directory.name.ifBlank { "设备存储" }, directory, uri.toString(), true)
+            .also { metadata(it); select(it) }
+    }
+
+    suspend fun nativeWorkspace(workspace: Workspace): Workspace = withContext(Dispatchers.IO) {
+        val current = if (!workspace.direct && workspace.source != null) {
+            workspace.copy(directory = AgentStorageAccess.directory(context, Uri.parse(workspace.source)), direct = true)
+                .also { metadata(it) }
+        } else workspace
+        if (current.direct) {
+            check(AgentStorageAccess.granted(context)) { "原目录文件授权已失效，请在工具权限中重新授权" }
+        }
+        check(current.directory.isDirectory && current.directory.canRead() && current.directory.canWrite()) { "项目原目录不可读写" }
+        dev.aster.termux.PathRedirect.registerWorkspace(context, current.id, current.directory)
+        current
+    }
+
     fun resolve(workspace: Workspace, path: String): File {
         require(path.isNotBlank() && !path.startsWith('/') && path.split('/').none { it == ".." || it.isBlank() }) { "无效的相对路径" }
         val root = workspace.directory.canonicalFile
@@ -122,7 +144,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
             FileOutputStream(temp).use { out -> out.write(text.toByteArray(Charsets.UTF_8)); out.fd.sync() }
             check(temp.renameTo(file)) { "无法原子保存 $path" }
         } finally { temp.delete() }
-        workspace.source?.let { exportFile(workspace, path, text) }
+        workspace.source?.takeUnless { workspace.direct }?.let { exportFile(workspace, path, text) }
     }
 
     private fun exportFile(workspace: Workspace, path: String, text: String) {
@@ -139,7 +161,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
         val target = resolve(workspace, path)
         check(!target.exists()) { "同名文件已存在" }
         if (folder) check(target.mkdirs()) { "创建目录失败" }
-        else { target.parentFile?.mkdirs(); check(target.createNewFile()) { "创建文件失败" }; workspace.source?.let { exportFile(workspace, path, "") } }
+        else { target.parentFile?.mkdirs(); check(target.createNewFile()) { "创建文件失败" }; workspace.source?.takeUnless { workspace.direct }?.let { exportFile(workspace, path, "") } }
     }
 
     suspend fun rename(workspace: Workspace, old: String, new: String) = withContext(Dispatchers.IO) {
@@ -148,7 +170,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
         check(!to.exists()) { "目标路径已存在" }
         to.parentFile?.mkdirs()
         check(from.renameTo(to)) { "重命名失败" }
-        workspace.source?.let { source ->
+        workspace.source?.takeUnless { workspace.direct }?.let { source ->
             var doc = DocumentFile.fromTreeUri(context, Uri.parse(source))
             old.split('/').forEach { doc = doc?.findFile(it) }
             if (old.substringBeforeLast('/', "") == new.substringBeforeLast('/', "")) doc?.renameTo(new.substringAfterLast('/'))
@@ -157,7 +179,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
 
     suspend fun delete(workspace: Workspace, path: String) = withContext(Dispatchers.IO) {
         check(resolve(workspace, path).deleteRecursively()) { "删除失败" }
-        workspace.source?.let { source ->
+        workspace.source?.takeUnless { workspace.direct }?.let { source ->
             var doc = DocumentFile.fromTreeUri(context, Uri.parse(source))
             path.split('/').forEach { doc = doc?.findFile(it) }
             doc?.delete()

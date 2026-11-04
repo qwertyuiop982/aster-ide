@@ -6,6 +6,19 @@ import java.io.File
 import java.io.FileOutputStream
 
 object AgentJson {
+    fun subagents(rows: List<AgentSubagentConversation>): JSONArray = JSONArray(boundedSubagentConversations(rows).map { child ->
+        JSONObject().put("id", child.id).put("label", child.label).put("engine", child.engineId).put("model", child.model).put("status", child.status).put("running", child.running)
+            .put("messages", JSONArray(child.messages.map { JSONObject().put("id", it.id).put("role", it.role).put("text", it.text) }))
+    })
+    fun readSubagents(array: JSONArray?): List<AgentSubagentConversation> = boundedSubagentConversations((0 until (array?.length() ?: 0)).mapNotNull { index ->
+        array?.optJSONObject(index)?.let { item ->
+            val messages = item.optJSONArray("messages")
+            AgentSubagentConversation(item.optString("id"), item.optString("label"), item.optString("engine"), item.optString("model"),
+                if (item.optBoolean("running")) "已中断" else item.optString("status"), false,
+                (0 until (messages?.length() ?: 0)).mapNotNull { i -> messages?.optJSONObject(i)?.let { AgentMessage(it.optString("id"), it.optString("role"), it.optString("text").take(24000)) } })
+        }
+    })
+
     fun tasks(tasks: List<AgentTask>) = JSONArray(tasks.map { JSONObject().put("task", it.task).put("status", it.status) })
     fun readTasks(values: JSONArray?) = (0 until (values?.length() ?: 0).coerceAtMost(20)).mapNotNull { index ->
         values?.optJSONObject(index)?.let { item ->
@@ -81,6 +94,7 @@ class AgentConversationStore(private val root: File) {
             .put("runtimeSessionId", snapshot.runtimeSessionId).put("contextTokens", snapshot.context.tokens)
             .put("contextWindow", snapshot.context.window).put("contextSource", snapshot.context.source).put("contextUpdatedAt", snapshot.context.updatedAt).put("compactions", snapshot.context.compactions).put("proposalRevision", snapshot.proposalRevision)
             .put("messages", JSONArray(messages.map { JSONObject().put("id", it.id).put("role", it.role).put("text", it.text) }))
+            .put("subagents", AgentJson.subagents(snapshot.subagentConversations))
             .put("tasks", AgentJson.tasks(snapshot.tasks.take(20))).put("edits", AgentJson.changes(snapshot.changes))
         atomicWrite(File(directory, "$id.json"), value.toString())
         atomicWrite(metaFile, metadata.toString(), 8192)
@@ -109,7 +123,7 @@ class AgentConversationStore(private val root: File) {
             boundedAgentMessages(rows), AgentJson.readTasks(value.optJSONArray("tasks")), edits, value.optString("status", "准备就绪"),
             value.optInt("step").coerceIn(0, 64), value.optInt("tokens").coerceAtLeast(0), value.optBoolean("wasRunning"),
             value.optString("runtimeSessionId", id).takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,80}")) } ?: id,
-            AgentContextState(value.optInt("contextTokens").coerceAtLeast(0), value.optInt("contextWindow", 32768).coerceIn(1, 1048576), value.optInt("compactions").coerceAtLeast(0), AgentContextPolicy.source(value.optString("contextSource")), value.optLong("contextUpdatedAt").coerceAtLeast(0)), value.optString("proposalRevision", "initial"), value.optString("engineId", "pi"))
+            AgentContextState(value.optInt("contextTokens").coerceAtLeast(0), value.optInt("contextWindow", 32768).coerceIn(1, 1048576), value.optInt("compactions").coerceAtLeast(0), AgentContextPolicy.source(value.optString("contextSource")), value.optLong("contextUpdatedAt").coerceAtLeast(0)), value.optString("proposalRevision", "initial"), value.optString("engineId", "pi"), AgentJson.readSubagents(value.optJSONArray("subagents")))
     }.getOrNull()
     @Synchronized fun delete(workspaceId: String, id: String) {
         val directory = folder(workspaceId)

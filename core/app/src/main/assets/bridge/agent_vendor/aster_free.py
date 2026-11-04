@@ -71,7 +71,7 @@ def repair_request(request, response):
     return {"request_id": uuid.uuid4().hex, "messages": messages}
 
 
-def decode_response(response, tool_names, purpose="task", require_finish=False):
+def decode_response(response, tool_names, purpose="task", require_finish=False, tool_schemas=None):
     response = dict(response)
     usage = dict(response.get("usage") or {})
     usage.setdefault("prompt_tokens", usage.get("input_tokens", 0))
@@ -98,22 +98,34 @@ def decode_response(response, tool_names, purpose="task", require_finish=False):
     if parsed.get("tool"):
         requested = [{"name": parsed["tool"], "arguments": parsed.get("arguments") or {}}]
     if not isinstance(requested, list) or len(requested) > 16:
-        raise ValueError("Aster-free 的工具调用数量无效")
+        raise FreeProtocolError("Aster-free 的工具调用数量无效")
     if not requested and require_finish and "finish" in tool_names:
         raise FreeProtocolError("工具执行后请继续调用工具，或调用 finish 明确结束任务")
+    schemas = {}
+    for item in tool_schemas or []:
+        function = item.get("function") if isinstance(item, dict) else None
+        if isinstance(function, dict) and function.get("name"):
+            schemas[function["name"]] = function
     calls = []
     for item in requested:
         if not isinstance(item, dict):
-            raise ValueError("Aster-free 的工具调用格式无效")
+            raise FreeProtocolError("Aster-free 的工具调用格式无效")
         function = item.get("function") if isinstance(item.get("function"), dict) else item
         name = str(function.get("name", ""))
         if name not in tool_names:
-            raise ValueError("Aster-free 请求了当前模式不允许的工具：" + name)
+            raise FreeProtocolError("Aster-free 请求了当前模式不允许的工具：" + name)
         arguments = function.get("arguments", {})
         if isinstance(arguments, str):
-            arguments = json.loads(arguments)
+            try:
+                arguments = json.loads(arguments)
+            except (ValueError, TypeError):
+                raise FreeProtocolError("Aster-free 的工具参数不是有效 JSON 对象") from None
         if not isinstance(arguments, dict):
-            raise ValueError("Aster-free 的工具参数不是对象")
+            raise FreeProtocolError("Aster-free 的工具参数不是对象")
+        required = ((schemas.get(name) or {}).get("parameters") or {}).get("required") or []
+        missing = [key for key in required if key not in arguments]
+        if missing:
+            raise FreeProtocolError("Aster-free 的工具参数缺少：" + ", ".join(map(str, missing)))
         calls.append({"id": "aster_call_" + uuid.uuid4().hex, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments, ensure_ascii=False)}})
     message = {"role": "assistant", "content": text_content(parsed.get("content"))}
     if calls:

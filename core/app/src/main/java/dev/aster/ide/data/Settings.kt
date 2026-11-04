@@ -5,6 +5,7 @@ import dev.aster.ide.agent.AgentEngine
 import dev.aster.ide.agent.AgentProfile
 import dev.aster.ide.agent.AgentContextPolicy
 import dev.aster.ide.agent.AgentThinkingPolicy
+import dev.aster.ide.agent.AgentAppearance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
@@ -59,6 +60,14 @@ data class IdeSettings(
     val agentModel: String = "",
     val agentMaxSteps: Int = 16,
     val agentMode: String = "execute",
+    val agentPermissionMode: String = "review",
+    val agentNativeCommandsUnchecked: Boolean = false,
+    val agentLongTaskMode: Boolean = false,
+    val agentCodexNebulaLeft: String = AgentAppearance.DEFAULT_LEFT,
+    val agentCodexNebulaRight: String = AgentAppearance.DEFAULT_RIGHT,
+    val agentCodexNebulaAll: Boolean = false,
+    val agentUiLayout: String = "chat",
+    val terminalAllowedCommands: String = "pwd\nls\nrg --files\ngit status\ngit diff\ngit log",
     val agentStreaming: Boolean = true,
     val agentMaxTokens: Int = 4096,
     val agentContextWindow: Int = 32768,
@@ -103,10 +112,15 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             put("excludedDirs", next.excludedDirs)
             put("agentEngine", next.agentEngine); put("agentUseFree", next.agentUseFree); put("agentFreeTier", next.agentFreeTier)
             put("agentProfiles", JSONObject().apply {
-                next.agentProfiles.forEach { (id, p) -> put(id, JSONObject().put("endpoint", p.endpoint).put("model", p.model).put("contextWindow", p.contextWindow).put("maxTokens", p.maxTokens).put("thinkingLevel", p.thinkingLevel).put("thinkingMode", p.thinkingMode).put("thinkingBudget", p.thinkingBudget).put("protocol", p.protocol).put("reviewEnabled", p.reviewEnabled).put("reviewModel", p.reviewModel).put("enabledSkills", p.enabledSkills).put("mcpServers", p.mcpServers)) }
+                next.agentProfiles.forEach { (id, p) -> put(id, JSONObject().put("endpoint", p.endpoint).put("model", p.model).put("contextWindow", p.contextWindow).put("maxTokens", p.maxTokens).put("thinkingLevel", p.thinkingLevel).put("thinkingMode", p.thinkingMode).put("thinkingBudget", p.thinkingBudget).put("protocol", p.protocol).put("reviewEnabled", p.reviewEnabled).put("reviewModel", p.reviewModel).put("enabledSkills", p.enabledSkills).put("mcpServers", p.mcpServers).put("mcpDefinitions", p.mcpDefinitions).put("subagentModels", p.subagentModels)) }
             })
             put("agentEndpoint", next.agentEndpoint); put("agentModel", next.agentModel)
             put("agentMode", next.agentMode); put("agentStreaming", next.agentStreaming)
+            put("agentLongTaskMode", next.agentLongTaskMode)
+            put("agentCodexNebulaLeft", next.agentCodexNebulaLeft); put("agentCodexNebulaRight", next.agentCodexNebulaRight)
+            put("agentCodexNebulaAll", next.agentCodexNebulaAll)
+            put("agentUiLayout", next.agentUiLayout)
+            put("agentPermissionMode", next.agentPermissionMode); put("agentNativeCommandsUnchecked", next.agentNativeCommandsUnchecked); put("terminalAllowedCommands", next.terminalAllowedCommands)
             put("agentMaxSteps", next.agentMaxSteps); put("agentMaxTokens", next.agentMaxTokens); put("agentContextWindow", next.agentContextWindow)
             put("agentDockFraction", next.agentDockFraction); put("agentDockExpanded", next.agentDockExpanded)
             put("servers", JSONObject().apply {
@@ -137,7 +151,7 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
         val storedProfiles = j.optJSONObject("agentProfiles")
         AgentEngine.entries.forEach { engine -> storedProfiles?.optJSONObject(engine.id)?.let { p ->
             profiles[engine.id] = AgentProfile(p.optString("endpoint", engine.endpoint), p.optString("model"),
-                p.optInt("contextWindow", AgentContextPolicy.defaultWindow(engine)).coerceIn(8192, AgentContextPolicy.MAX_WINDOW), p.optInt("maxTokens", 4096).coerceIn(64, 65536), AgentThinkingPolicy.normalize(p.optString("thinkingLevel", "auto")), p.optString("thinkingMode", "legacy"), p.optInt("thinkingBudget", 1024), p.optString("protocol", "gemini").takeIf { it in setOf("gemini", "openai") } ?: "gemini", p.optBoolean("reviewEnabled", false), p.optString("reviewModel", ""), p.optString("enabledSkills", ""), p.optString("mcpServers", ""))
+                p.optInt("contextWindow", AgentContextPolicy.defaultWindow(engine)).coerceIn(8192, AgentContextPolicy.MAX_WINDOW), p.optInt("maxTokens", 4096).coerceIn(64, 65536), AgentThinkingPolicy.normalize(p.optString("thinkingLevel", "auto")), p.optString("thinkingMode", "legacy"), p.optInt("thinkingBudget", 1024), p.optString("protocol", "gemini").takeIf { it in setOf("gemini", "openai") } ?: "gemini", p.optBoolean("reviewEnabled", false), p.optString("reviewModel", ""), p.optString("enabledSkills", ""), p.optString("mcpServers", ""), p.optString("subagentModels", ""), p.optString("mcpDefinitions", "{}"))
         } }
         IdeSettings(
             agentEngine = AgentEngine.fromId(j.optString("agentEngine", "pi")).id, agentUseFree = j.optBoolean("agentUseFree", true), agentFreeTier = j.optString("agentFreeTier", "free").takeIf { it in setOf("free", "go") } ?: "free", agentProfiles = profiles,
@@ -165,6 +179,14 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             agentEndpoint = j.optString("agentEndpoint", IdeSettings().agentEndpoint), agentModel = j.optString("agentModel"),
             agentMode = j.optString("agentMode", "execute").takeIf { it in listOf("ask", "plan", "execute") } ?: "execute",
             agentStreaming = j.optBoolean("agentStreaming", true),
+            agentPermissionMode = j.optString("agentPermissionMode", "review").takeIf { it in setOf("review", "native") } ?: "review",
+            agentNativeCommandsUnchecked = j.optBoolean("agentNativeCommandsUnchecked", false),
+            agentLongTaskMode = j.optBoolean("agentLongTaskMode", false),
+            agentCodexNebulaLeft = AgentAppearance.color(j.optString("agentCodexNebulaLeft"), AgentAppearance.DEFAULT_LEFT),
+            agentCodexNebulaRight = AgentAppearance.color(j.optString("agentCodexNebulaRight"), AgentAppearance.DEFAULT_RIGHT),
+            agentCodexNebulaAll = j.optBoolean("agentCodexNebulaAll", false),
+            agentUiLayout = j.optString("agentUiLayout", "chat").takeIf { it in setOf("chat", "classic") } ?: "chat",
+            terminalAllowedCommands = j.optString("terminalAllowedCommands", IdeSettings().terminalAllowedCommands),
             agentMaxSteps = j.optInt("agentMaxSteps", 16).coerceIn(4, 64), agentMaxTokens = j.optInt("agentMaxTokens", 4096).coerceIn(512, 8192),
             agentContextWindow = j.optInt("agentContextWindow", 32768).coerceIn(8192, AgentContextPolicy.MAX_WINDOW),
             agentDockFraction = j.optDouble("agentDockFraction", 0.36).takeIf { it.isFinite() }?.toFloat()?.coerceIn(0.28f, 0.5f) ?: 0.36f,
