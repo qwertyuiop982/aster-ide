@@ -127,17 +127,26 @@ class NativeTransportTest(unittest.TestCase):
         self.assertFalse(self.wire.native_completed)
         self.assertEqual(self.wire.summary, '')
 
+    def test_spawn_source_child_messages_are_forwarded(self):
+        self.wire.notification('thread/started', {'thread': {'id': 'child', 'source': {'subAgent': {'thread_spawn': {'parent_thread_id': 'parent'}}}}})
+        self.wire.notification('item/agentMessage/delta', {'threadId': 'child', 'itemId': 'answer', 'delta': 'hello'})
+        events = [data for kind, data in self.session.events if kind == 'subagent_event']
+        self.assertEqual(events[-1]['event']['text'], 'hello')
+        self.assertEqual(events[-1]['subagentId'], 'child')
+        self.assertEqual(self.wire.summary, '')
+
     def test_user_input_routes_original_ids_and_answers(self):
         response = self.request('item/tool/requestUserInput', questions=[{'id': 'choice', 'question': 'Continue?'}])
         self.assertEqual(response['result']['answers'], {'choice': {'answers': ['yes']}})
         self.assertEqual([kind for kind, _ in self.session.events], ['tool', 'tool_result'])
 
-    def test_tool_limit_interrupts_native_turn(self):
-        self.session.steps = 2
+    def test_old_step_setting_does_not_interrupt_native_turn(self):
+        self.session.steps = 200
         self.wire.notification('item/started', {'threadId': 'parent', 'turnId': 'turn', 'item': {'id': 'exec', 'type': 'commandExecution'}})
-        self.assertEqual(self.wire.pending_status, 'LimitsExceeded')
-        self.assertTrue(self.wire.interrupt_sent)
-        self.assertIn(b'turn/interrupt', self.process.stdin.getvalue())
+        self.assertEqual(self.session.steps, 201)
+        self.assertIsNone(self.wire.pending_status)
+        self.assertFalse(self.wire.interrupt_sent)
+        self.assertNotIn(b'turn/interrupt', self.process.stdin.getvalue())
 
     def test_shell_changes_checkpoint_native_proposal(self):
         self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'turn', 'item': {'id': 'cmd', 'type': 'commandExecution', 'status': 'completed'}})

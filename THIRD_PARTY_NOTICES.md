@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-The complete project is distributed under GNU GPL v3. Dependency licenses below retain their own terms. Matching sources and rebuild recipes are included or linked, including components with LGPL relinking rights.
+Aster retains GPL-covered upstream components and dependencies under their respective licenses. This inventory is not a grant to relicense those components. The browser provenance identifies compiled AGPL-covered sources; the combined distribution terms and corresponding-source completeness remain release-review items. See `docs/license-review-and-release-gates.md`. Matching sources and rebuild recipes are retained or referenced below; a reference alone is not proof that all distribution obligations have been met.
 
 | Component | Version | License | Source |
 | --- | --- | --- | --- |
@@ -35,3 +35,7 @@ Shizuku API/provider 13.1.5 (RikkaApps/Shizuku-API, MIT) are Maven dependencies.
 ## Android Code Studio UI
 
 ACS / AndroidIDE UI sources are pinned to `e93e7468e6482ea51ef8e1adad6b7c6de86ae7cd` from https://github.com/AndroidCSOfficial/android-code-studio, fetched through `https://v4.gh-proxy.org/`. Copyright Android Code Studio and AndroidIDE contributors, GPL-3.0-or-later. Aster adapts the workbench layout, language-service preferences and completion presentation. Exact upstream layouts/classes, source hashes, the GPL text and Aster service baseline are retained in `research/acs-ui/`; the APK contains the license and provenance under `assets/licenses/`.
+
+## License texts and release status
+
+Core assets include full GPL-2.0, GPL-3.0, LGPL-2.1, LGPL-3.0 and Apache-2.0 texts, plus the retained Pi MIT notice. Browser AGPL and Shizuku notices remain in their module assets. Original component notices and exceptions remain authoritative. This development snapshot is not represented as a fully license-cleared binary release. The root LICENSE retains the historical Termux notice and must not be read as overriding dependency terms.

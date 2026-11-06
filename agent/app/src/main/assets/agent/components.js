@@ -350,17 +350,19 @@ export function createPage(profile,send,local) {
     compact.disabled=!!state.busy||empty||state.compactSupported===false;
     compactNote.textContent=state.compactSupported===false?'此引擎暂不支持手动压缩。':'';compactNote.hidden=!compactNote.textContent;
     runtimeText.textContent=(state.runtime||'环境未连接')+' · '+(state.setupPhase||'尚未检查')+'\n构建底层：'+profile.label+' '+(state.engineVersion||'')+'；资源可用不等于模型请求成功。';
-    const messageKey=JSON.stringify([child?.id||'',displayMessages]);
+    const messageScope=JSON.stringify([state.session||'',child?.id||'',state.engine||'']);
+    const messageKey=JSON.stringify([messageScope,displayMessages]);
     if(lastMessages!==messageKey){
       const ids=new Set();let previous=null;
       for(const item of displayMessages){
-        ids.add(item.id);let record=messageNodes.get(item.id);
+        const nodeKey=JSON.stringify([messageScope,item.id,item.role]);
+        ids.add(nodeKey);let record=messageNodes.get(nodeKey);
         if(!record){
           const tool=item.role==='tool'||item.role==='system';const row=el(tool?'details':'article','message '+(tool?'tool-event':item.role==='user'?'user':'assistant'));
           const body=el('div','message-body');
           if(tool){const label=el('summary');label.append(icon('terminal'),el('span','',item.text.split('\n')[0].slice(0,110)),icon('chevron-right'));row.append(label,body);}
           else {if(item.role!=='user')row.append(el('div','assistant-label',child?.label||profile.label));row.append(body);}
-          record={row,body,text:null};messageNodes.set(item.id,record);
+          record={row,body,text:null};messageNodes.set(nodeKey,record);
         }
         if(record.text!==item.text){if(item.role==='tool'||item.role==='system'){record.row.querySelector('summary span').textContent=item.text.split('\n')[0].slice(0,110);record.row.dataset.failed=String(item.text.split('\n')[0].includes(' · 失败'));}if(item.role==='user')record.body.textContent=item.text;else richText(record.body,item.text,text=>request('copy',{text}));record.text=item.text;}
         if(record.row.previousElementSibling!==previous||record.row.parentElement!==messages)messages.insertBefore(record.row,previous?previous.nextSibling:messages.firstChild);

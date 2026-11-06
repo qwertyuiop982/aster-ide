@@ -397,10 +397,7 @@
     }
     function renderList(force = false) {
       var _a2;
-      const rows = getState().subagents || [], key2 = JSON.stringify(rows.map((c) => {
-        var _a3;
-        return [c.id, c.label, c.status, c.running, (_a3 = c.messages) == null ? void 0 : _a3.length];
-      }));
+      const rows = getState().subagents || [], key2 = JSON.stringify([selected, rows.map((c) => [c.id, c.label, c.model, c.status, c.running])]);
       if (!force && lastList === key2) return;
       lastList = key2;
       const focused = (_a2 = document.activeElement) == null ? void 0 : _a2.dataset.child;
@@ -1288,13 +1285,15 @@
       compactNote.textContent = state.compactSupported === false ? "此引擎暂不支持手动压缩。" : "";
       compactNote.hidden = !compactNote.textContent;
       runtimeText.textContent = (state.runtime || "环境未连接") + " · " + (state.setupPhase || "尚未检查") + "\n构建底层：" + profile.label + " " + (state.engineVersion || "") + "；资源可用不等于模型请求成功。";
-      const messageKey = JSON.stringify([(child == null ? void 0 : child.id) || "", displayMessages]);
+      const messageScope = JSON.stringify([state.session || "", (child == null ? void 0 : child.id) || "", state.engine || ""]);
+      const messageKey = JSON.stringify([messageScope, displayMessages]);
       if (lastMessages !== messageKey) {
         const ids = /* @__PURE__ */ new Set();
         let previous = null;
         for (const item of displayMessages) {
-          ids.add(item.id);
-          let record = messageNodes.get(item.id);
+          const nodeKey = JSON.stringify([messageScope, item.id, item.role]);
+          ids.add(nodeKey);
+          let record = messageNodes.get(nodeKey);
           if (!record) {
             const tool = item.role === "tool" || item.role === "system";
             const row = el(tool ? "details" : "article", "message " + (tool ? "tool-event" : item.role === "user" ? "user" : "assistant"));
@@ -1308,7 +1307,7 @@
               row.append(body);
             }
             record = { row, body, text: null };
-            messageNodes.set(item.id, record);
+            messageNodes.set(nodeKey, record);
           }
           if (record.text !== item.text) {
             if (item.role === "tool" || item.role === "system") {

@@ -146,7 +146,6 @@ class CodexTransport:
         self.native_outputs = {}
         self.native_started = set()
         self.messages = {}
-        self.limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
 
     def begin_turn(self, session):
         self.session = session
@@ -164,7 +163,6 @@ class CodexTransport:
         self.native_started.clear()
         self.native_items.clear()
         self.native_outputs.clear()
-        self.limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
 
     def send(self, message):
         cancelled = getattr(self.reply_context, 'cancelled', None)
@@ -476,7 +474,10 @@ class CodexTransport:
             return
         if method == 'thread/started':
             thread = params.get('thread') or {}
-            parent = thread.get('parentThreadId')
+            source = thread.get('source') or {}
+            subagent = source.get('subAgent') if isinstance(source, dict) else None
+            spawn = subagent.get('thread_spawn') if isinstance(subagent, dict) else None
+            parent = thread.get('parentThreadId') or (spawn.get('parent_thread_id') if isinstance(spawn, dict) else None)
             if parent and (parent == self.thread_id or parent in self.child_threads):
                 identifier = thread.get('id')
                 if identifier:
@@ -529,11 +530,6 @@ class CodexTransport:
             if identifier and kind in NATIVE_ITEM_TYPES and identifier not in self.native_started:
                 self.native_started.add(identifier)
                 self.native_items[identifier] = item
-                if self.session.steps >= self.limit:
-                    self.pending_status = 'LimitsExceeded'
-                    self.stop_deadline = time.monotonic() + 10
-                    self.interrupt()
-                    return
                 self.session.consume_tool_budget()
                 self.session.steps += 1
                 self.session.emit('tool', name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
