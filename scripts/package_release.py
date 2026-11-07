@@ -2,7 +2,7 @@
 from pathlib import Path
 import argparse, datetime, hashlib, json, shutil, subprocess, zipfile
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '1.0.1'
+VERSION = '1.0.5'
 
 def sha256(path):
     digest = hashlib.sha256()
@@ -30,6 +30,7 @@ def main():
             raise RuntimeError('Native build output changed: ' + name)
         native_receipts.append(receipt)
 
+    if signed['version'] != VERSION: raise RuntimeError('Packaging version differs from signed APK')
     source_apk = ROOT/signed['apk']
     if sha256(source_apk) != signed['sha256']: raise RuntimeError('Signed APK changed')
     apk_name = f'aster-v{VERSION}-release.apk'
@@ -64,8 +65,10 @@ def main():
                 for block in iter(lambda: stream.read(1024 * 1024), b''): digest.update(block)
             if digest.hexdigest() != receipt['sha256']:
                 raise RuntimeError('APK native entry differs from its source build: ' + entry)
-    validation={'version':VERSION,'versionCode':11,'ordinaryApkSha256':signed['sha256'],
+    validation={'version':VERSION,'versionCode':signed['versionCode'],'ordinaryApkSha256':signed['sha256'],
                 'certificateSha256':signed['certificateSha256'],
+                'compatibleWithInstalledCertificate':signed['compatibleWithInstalledCertificate'],
+                'buildCpuLimit':4,'startupDeviceTimingVerified':False,
                 'localDebugCertificateForUpgradeCompatibility':signed['localDebugCertificateForUpgradeCompatibility'],
                 'apkSignatureVerified':True,'minified':signed['minified'],'resourcesShrunk':signed['resourcesShrunk'],
                 'releaseAssembleVerified':True,'lintReleaseVerified':':app:lintRelease' in log,
@@ -77,11 +80,13 @@ def main():
                 'sourceArchiveContainsSharedLibraries':False,'sourceArchiveContainsBuildIntermediates':False,
                 'sourceArchiveContainsTestOrExampleTrees':False,'sourceArchiveRestrictedSdkIncluded':False,
                 'realDeviceUiVerified':False,'operitFullFeatureParity':False,
+                'legalClearance':False,'licenseReview':'docs/license-inventory.json',
+                'nativeBuildReuse':'Same retained Rust source inputs and verified release binary hashes',
                 'providerHistory':{'scope':'Prior 1.0.1 validation, not re-run during source cleanup',
                                    'textRequestsSucceededPreviously':True,
                                    'vision':{'status':'blocked','httpStatus':403,'code':'INSUFFICIENT_BALANCE','verifiedOnLiveProvider':False}}}
     if options.record_only:
-        public={'version':VERSION,'versionCode':11,'apkSha256':signed['sha256'],
+        public={'version':VERSION,'versionCode':signed['versionCode'],'apkSha256':signed['sha256'],
                 'certificateSha256':signed['certificateSha256'],'ordinaryReleaseOnly':True,
                 'restrictedSdkIncluded':False,'nativeArtifactsInSource':False,
                 'shizukuSourceVendored':False,'nativeBuildOutputs':'ignored build/native/',
@@ -89,17 +94,17 @@ def main():
         (ROOT/'PUBLIC-RELEASE.json').write_text(json.dumps(public,ensure_ascii=False,indent=2)+'\n')
         (ROOT/'VERIFICATION.md').write_text('''# Public source verification
 
-The compact 1.0.1 source was validated before its initial GitHub publication:
+The 1.0.5 release includes the native collaboration event fix and bounded IDE startup:
 
-- Codex app-server and code-mode-host compiled for aarch64-linux-android from the trimmed Rust workspace with its retained lockfile.
-- Pi and Gemini production runner bundles rebuilt after a clean npm dependency installation.
+- Codex app-server and code-mode-host reuse successful aarch64-linux-android release builds after comparing all 2,348 retained Rust source/configuration inputs and checking both binary hashes.
+- Pi and Gemini production runner bundles and the Agent UI are retained with their source and lockfiles; the UI is rebuilt during release assembly.
 - Shizuku API/provider 13.1.5 resolved through Maven; the Shizuku client module compiled without vendored Shizuku sources.
 - Gradle release APK assembly and lint completed, with R8 and resource shrinking enabled.
 - APK signature, manifest version/debuggability, native runtime entries, bootstrap and client notice assets checked.
 - Public source snapshot excludes shared libraries, build intermediates, caches, standalone test/example trees, restricted SDK material and signing keys.
 - Pinned runtime/V8 dependency extraction verified using the separate native-dependencies Release archive as the fallback source.
 
-The detailed APK/source hashes and current build scope are in the Release validation JSON and SHA256SUMS. Device UI authorization/click/vision flows were not re-validated during source cleanup. Prior provider text connectivity succeeded; the prior image-provider request returned HTTP 403 / INSUFFICIENT_BALANCE. Those records do not establish current live provider availability.
+The detailed APK/source hashes and current build scope are in the Release validation JSON and SHA256SUMS. Automated checks do not establish device UI acceptance. The user reports five-agent R8 stress validation passed; the previous IDE eventually loaded after 31 minutes. The bounded startup change in this release still needs device timing. Prior provider text connectivity succeeded; the prior image-provider request returned HTTP 403 / INSUFFICIENT_BALANCE. Those records do not establish current live provider availability.
 ''')
     else:
         dirty = subprocess.check_output(['git','status','--porcelain','--untracked-files=normal'],cwd=ROOT,text=True)
@@ -128,7 +133,7 @@ The detailed APK/source hashes and current build scope are in the Release valida
         sums=output/f'SHA256SUMS-{VERSION}.txt'
         sums.write_text(''.join(item['sha256']+'  '+name+'\n' for name,item in downloads.items()))
         downloads[sums.name]={'size':sums.stat().st_size,'sha256':sha256(sums)}
-        delivery={'name':'Aster','version':VERSION,'versionCode':11,'abi':'arm64-v8a','minSdk':24,'targetSdk':28,
+        delivery={'name':'Aster','version':VERSION,'versionCode':signed['versionCode'],'abi':'arm64-v8a','minSdk':24,'targetSdk':28,
                   'releaseDate':datetime.date.today().isoformat(),'engines':['Pi','Codex','Gemini'],
                   'sourceCommit':commit,'sourceFiles':source_files,'sourceBytes':source_bytes,
                   'restrictedMaterialIncluded':False,'downloads':downloads}

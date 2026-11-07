@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse, fcntl, hashlib, io, json, os, shutil, subprocess, sys, tarfile, urllib.request, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = Path(os.environ.get('ASTER_NATIVE_CACHE', str(Path.home() / '.cache/aster-native')))
-RELEASE = 'https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1/'
+RELEASE = 'https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.5/'
 
 def verified_download(url, destination, expected):
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,7 @@ def _verified_download(url, destination, expected):
         temporary.replace(destination)
     except Exception as original_error:
         # Rolling Termux repositories remove old packages. The Release retains the exact pinned .deb inputs.
-        archive = CACHE / 'aster-native-dependencies-1.0.1.zip'
+        archive = CACHE / 'aster-native-dependencies-1.0.5.zip'
         with (CACHE / 'dependency-archive.lock').open('a') as archive_lock:
             fcntl.flock(archive_lock.fileno(), fcntl.LOCK_EX)
             if not archive.is_file():

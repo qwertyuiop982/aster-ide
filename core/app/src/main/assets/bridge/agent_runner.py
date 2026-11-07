@@ -386,8 +386,8 @@ class AgentSession:
 
     def _client_tool(self, name, arguments):
         if name == 'subagent':
-            if self.request.get('isSubagent'):
-                raise ValueError('子代理不能创建子代理')
+            if self.request.get('isSubagent') and not (self.request.get('configuration') or {}).get('subagentsUnlimited'):
+                raise ValueError('子代理继续派发需要极端协作与 Ultra')
         elif name != 'user_input':
             if self.mode != 'execute':
                 raise ValueError('Client tools require execute mode')
@@ -507,6 +507,7 @@ class AgentSession:
     def system_prompt(self):
         if self.permission_mode == 'native':
             return (str(self.request.get('systemPrompt') or 'You are a coding assistant in Aster on Android. Read relevant files before changing them. Complete the task and report results honestly.')
+                    + '\nWorking directory (absolute path): ' + str(self.workspace) + '\nRun project commands in this directory and resolve project-relative paths from it. '
                     + '\nNative permissions: use the actual project cwd directly. Files are modified immediately; do not stage, copy, or back up the project. All installed tools are available under Android filesystem permissions. '
                     + ('Commands and terminal input are authorized without review.' if self.native_commands_unchecked else 'Commands use the configured terminal allow rules; other commands prompt the user.')
                     + '\nThe parent and every child inherit these exact permissions. User questions still require actual user answers.')
@@ -642,9 +643,9 @@ class AgentSession:
         system = self.system_prompt()
         system += "\nRuntime: Termux on Android. Commands inherit PREFIX, HOME, PATH and the Android toolchain from Aster. Use the supplied environment; do not install or invoke proot. Edits are staged in the current command directory."
         if self.request.get('isSubagent'):
-            system += "\nYou are a subagent with an independent context. Complete only your assigned prompt. You share the parent project/environment and its permissions; you cannot create subagents."
-        else:
-            system += "\nHigh-priority built-in tool: use subagent/models and delegate independent substantial work with subagent/parallel when useful. Choose suitable configured models, thinking strength and focused system prompts; integrate their results."
+            system += "\nYou are a subagent with an independent context. Complete only your assigned prompt. You share the parent project/environment and its permissions."
+        from agent_task_mode import collaboration_prompt
+        collaboration = collaboration_prompt(self)
         system += "\nPersistent terminal tool: shell sessions survive tool returns and subsequent turns in this conversation. Use terminal/list to resume, terminal/exec for commands, terminal/write for prompts and modifier keys, terminal/read to wait without restarting a command. Each result includes recent console history. Do not repeat a command just because wait_ms elapsed."
         if self.engine_id == "gemini":
             system += "\nUse the original Gemini CLI tool registry and supplied schemas for files, shell and background commands, plans, tasks, skills, user questions, MCP and invoke_agent collaboration. Use the browser/desktop host tools for Android UI operations. Work in the staged project and continue through implementation and validation. A final native assistant response completes the task."
@@ -662,6 +663,8 @@ class AgentSession:
             system = system.replace("High-priority built-in tool: use subagent/models and delegate independent substantial work with subagent/parallel when useful. Choose suitable configured models, thinking strength and focused system prompts; integrate their results.", "Delegate independent work with the native invoke_agent tool when useful.")
             system = system.replace("Persistent terminal tool: shell sessions survive tool returns and subsequent turns in this conversation. Use terminal/list to resume, terminal/exec for commands, terminal/write for prompts and modifier keys, terminal/read to wait without restarting a command. Each result includes recent console history. Do not repeat a command just because wait_ms elapsed.", "Use native run_shell_command, list_background_processes and read_background_output for shell jobs; resume running commands instead of starting them again.")
         system += "\n\n" + self.task_mode_prompt()
+        if collaboration:
+            system += "\n\n" + collaboration
         child_env = dict(self.environment, ASTER_AGENT_HOME=str(self.session_directory.parent))
         child_env.pop("NODE_OPTIONS", None)
         with tempfile.TemporaryFile() as errors:
@@ -687,7 +690,7 @@ class AgentSession:
                       "configuration": configuration if self.engine_id != "pi" else {}, "thinking": thinking, "thinkingLevel": thinking["level"],
                       "sessionFile": str(self.session_file), "workspace": str(self.workspace), "model": configuration.get("model", "aster"),
                       "freeMode": free_mode, "maxToolCalls": 64 if free_mode else None,
-                      "maxSteps": 64 if free_mode else max(1, min(int(configuration.get("maxSteps", 32)), 128)),
+                      "maxSteps": 64 if free_mode else -1,
                       "maxTokens": configuration.get("maxTokens", 4096), "contextWindow": configuration.get("contextWindow", 32768),
                       "compactOnly": bool(self.request.get("compactOnly"))})
                 while True:
@@ -733,7 +736,7 @@ class AgentSession:
                                     self.emit("status", text="正在思考", step=self.steps)
                                 if model is None:
                                     raise ValueError("This engine owns its native model transport")
-                                result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"))
+                                result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"), maxTokens=payload.get("maxTokens"))
                             elif value.get("method") == "native_tool":
                                 from agent_native import native_rpc
                                 result = native_rpc(self, payload)
@@ -854,7 +857,7 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
                 raise ValueError('子代理不能改变主任务的权限模式')
             with parent.children_lock:
                 parent_config = parent.request.get("configuration") or {}
-                unlimited = parent.engine_id == "codex" and parent_config.get("thinkingLevel") == "ultra" and parent_config.get("subagentsUnlimited") is True
+                unlimited = parent_config.get("collaborationMode") == "extreme" and parent_config.get("thinkingLevel") == "ultra" and parent_config.get("subagentsUnlimited") is True
                 if not unlimited and len(parent.children) >= 2:
                     raise ValueError('同一主任务最多同时运行 2 个子代理')
                 session.root_session = parent
@@ -862,7 +865,9 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
                 session.native_commands_unchecked = parent.native_commands_unchecked
                 session.request['configuration'] = {**(session.request.get('configuration') or {}),
                     'permissionMode': parent.permission_mode, 'nativeCommandsUnchecked': parent.native_commands_unchecked,
-                    'longTaskMode': (parent.request.get('configuration') or {}).get('longTaskMode') is True,
+                    'longTaskMode': parent_config.get('longTaskMode') is True,
+                    'collaborationMode': parent_config.get('collaborationMode', 'assist'),
+                    'subagentsUnlimited': unlimited,
                     'terminalAllowedCommands': (parent.request.get('configuration') or {}).get('terminalAllowedCommands', '')}
                 session.stage = parent.stage
                 session.excluded = parent.excluded
@@ -870,7 +875,7 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
                 session.client_tool_lock = parent.client_tool_lock
                 session.terminal_conversation_id = parent.session_id
                 session.terminal_engine_id = parent.engine_id
-                session.allowed_tools = set(parent.allowed_tools) - {'subagent'}
+                session.allowed_tools = set(parent.allowed_tools) if unlimited else set(parent.allowed_tools) - {'subagent'}
                 session.tools = [item for item in TOOLS if item['function']['name'] in session.allowed_tools]
                 session.original = parent.original.copy()
                 session.disk_baseline = parent.disk_baseline.copy()

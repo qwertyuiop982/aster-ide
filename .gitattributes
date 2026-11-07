@@ -8,3 +8,6 @@ gradlew text eol=lf
 *.png binary
 *.jpg binary
 *.gif binary
+
+# Preserve required unified-diff context markers on blank lines.
+docs/native-unlimited-context.patch whitespace=-blank-at-eol

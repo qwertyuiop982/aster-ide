@@ -56,7 +56,7 @@ await run(async start => {
     interactive: false, usageStatisticsEnabled: false, telemetry: { enabled: false },
     checkpointing: false, includeDirectoryTree: true, skipNextSpeakerCheck: true,
     disableModelRouterForAuth: [AuthType.GATEWAY, AuthType.USE_GEMINI],
-    maxSessionTurns: start.maxSteps, maxAttempts: 3, retryFetchErrors: true,
+    maxSessionTurns: start.freeMode ? 64 : -1, maxAttempts: 3, retryFetchErrors: true,
     compressionThreshold: Math.min(0.8, 1 - reserve / contextWindow),
     contextManagement: { enabled: false },
     modelConfigServiceConfig: { customOverrides: [

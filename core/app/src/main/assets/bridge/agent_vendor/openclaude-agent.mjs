@@ -90,12 +90,13 @@ await run(async (start) => {
   if (effectiveWindow !== start.contextWindow) throw new Error("OpenClaude did not accept the requested context window");
   const abortController = new AbortController();
   const allowed = new Set(start.allowedTools);
+  const stepLimit = start.freeMode ? 64 : Infinity;
   let steps = 0, tokens = 0, compactions = 0;
   let summary = "", status = "Failed", messageId = "", text = "";
   let finished = false;
   let toolQueue = Promise.resolve();
   const limit = () => {
-    if (steps >= start.maxSteps) {
+    if (steps >= stepLimit) {
       status = "LimitsExceeded";
       abortController.abort();
     }
@@ -104,7 +105,7 @@ await run(async (start) => {
     const fn = item.function;
     return sdk.tool(fn.name, fn.description, fn.parameters, async (args) => {
       const perform = async () => {
-        if (finished || steps >= start.maxSteps) return { isError: true, content: [{ type: "text", text: "Task finished or step limit reached" }] };
+        if (finished || steps >= stepLimit) return { isError: true, content: [{ type: "text", text: "Task finished or step limit reached" }] };
         steps++;
         const result = await rpc("tool", { name: fn.name, arguments: args });
         if (result.finished) {
@@ -131,7 +132,7 @@ await run(async (start) => {
       permissionMode: "default",
       includePartialMessages: true,
       systemPrompt: start.system,
-      maxTurns: start.maxSteps,
+      maxTurns: start.freeMode ? 64 : undefined,
       env: {
         OPENCLAUDE_CONFIG_DIR: start.engineHome,
         ANTHROPIC_BASE_URL: start.configuration.endpoint,

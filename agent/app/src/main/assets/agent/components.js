@@ -1,3 +1,4 @@
+import {createMessageRenderer} from './message-renderer.js';
 import {thinkingBubble,subagentNavigator} from './bubbles.js';
 import {applyCodexAppearance,syncCodexCanvas} from './appearance.js';
 import {el,icon,button,iconButton,section,richText} from './dom.js';
@@ -7,7 +8,7 @@ import {engineArtwork} from './patterns.js';
 /** Shared real-state controls; each engine owns its layout profile. */
 export function createPage(profile,send,local) {
   const preparedSelections=new Map();let bubble,childNav;
-  let state={},draftTimer,follow=true,lastMessages='',lastHistory='',lastTasks='',lastChanges='',lastFiles='',lastAck,lastPrompt;
+  let state={},draftTimer,follow=true,lastHistory='',lastTasks='',lastChanges='',lastFiles='',lastAck,lastPrompt;
   let drawerMode='',previousFocus=null,infoTab='overview',navPinned=profile.navigation,infoPinned=profile.inspector,layout='';
   const wide=matchMedia('(min-width: 1080px) and (min-height: 520px) and (orientation: landscape)');
   const dual=matchMedia('(min-width: 1360px) and (min-height: 520px) and (orientation: landscape)');
@@ -49,7 +50,7 @@ export function createPage(profile,send,local) {
   function setRouteActive(active){for(const node of [rail,sidebarHost,main,infoHost,root.querySelector('.agent-dock')].filter(Boolean)){node.inert=active;if(active)node.setAttribute('aria-hidden','true');else node.removeAttribute('aria-hidden');}root.dataset.routeOpen=String(active);if(active){const focused=document.activeElement;if(focused&&main.contains(focused))focused.blur();}}
   function panelChanged(){
     send('panel',{id:panelIsOpen()||!quick.hidden||bubble?.isOpen()||childNav?.selected||childNav?.isOpen?'open':''});
-    for(const node of root.querySelectorAll('[data-picker],.thinking-picker'))node.setAttribute('aria-expanded',String(node===thinking?!!bubble?.isOpen():['engine','mode'].includes(node.dataset.picker)?!quick.hidden&&node.dataset.picker===quickMode:panelIsOpen()&&node.dataset.picker===drawerMode));
+    for(const node of root.querySelectorAll('[data-picker],.thinking-picker'))node.setAttribute('aria-expanded',String(node===thinking?!!bubble?.isOpen():['engine','mode','collaboration'].includes(node.dataset.picker)?!quick.hidden&&node.dataset.picker===quickMode:panelIsOpen()&&node.dataset.picker===drawerMode));
   }
   const escapePanel=event=>{if(event.key!=='Escape')return;if(!quick.hidden){event.preventDefault();closeQuickPicker();}else if(panelIsOpen()){event.preventDefault();closePanel();}};
   function closeQuickPicker(restoreFocus=true){
@@ -76,7 +77,7 @@ export function createPage(profile,send,local) {
     bubble?.close(true);closeQuickPicker(false);
     if(!routePage.hidden)closePanel();
     quickMode=kind;quickAnchor=anchor;quickFocus=anchor||document.activeElement;
-    quick.dataset.kind=kind;quickTitle.textContent=kind==='engine'?'底层引擎':'操作权限';
+    quick.dataset.kind=kind;quickTitle.textContent=kind==='collaboration'?'子代理协作模式':kind==='engine'?'底层引擎':'操作权限';
     quickBody.replaceChildren(selection(kind));quick.hidden=false;positionQuickPicker();panelChanged();
     requestAnimationFrame(()=>{if(quick.hidden||quickMode!==kind)return;positionQuickPicker();quickBody.querySelector('[aria-selected=true]:not(:disabled),button:not(:disabled)')?.focus();});
   }
@@ -86,7 +87,7 @@ export function createPage(profile,send,local) {
   document.addEventListener('scroll',positionQuickPicker,true);
   document.addEventListener('keydown',escapePanel);
   function openPanel(kind,anchor){
-    if(['engine','mode'].includes(kind)){openQuickPicker(kind,anchor);return;}
+    if(['engine','mode','collaboration'].includes(kind)){openQuickPicker(kind,anchor);return;}
     closeQuickPicker(false);
     if(layout==='chat'&&kind==='menu')kind='history';
     bubble?.close(true);
@@ -127,15 +128,16 @@ export function createPage(profile,send,local) {
   const engineLabel=engineSelect;
   const engineChoices=[{id:'codex',label:'Codex',icon:'code-xml'},{id:'openclaude',label:'OpenClaude',icon:'message-square'},{id:'gemini',label:'Gemini CLI',icon:'sparkles'},{id:'pi',label:'Pi',icon:'terminal'}];
   const modeChoices=[{id:'ask',label:'问答',detail:'只读',icon:'message-square'},{id:'plan',label:'规划',detail:'只读 · 任务清单',icon:'list-checks'},{id:'execute',label:'执行',detail:'暂存修改 · 命令需审批',icon:'wrench'}];
+  const collaborationChoices=[{id:'extreme',label:'极端',detail:'配合 Ultra · 主代理首批派发，子代理递归协作',icon:'sparkles'},{id:'team',label:'团队',detail:'主代理只编排整合，全部执行委派子代理',icon:'layers'},{id:'assist',label:'辅助',detail:'根据任务大小适当委派',icon:'sliders-horizontal'},{id:'off',label:'关闭',detail:'不注入协作提示词，代理工具保留',icon:'circle'}];
   function selection(kind){
-    const choices=kind==='engine'?engineChoices.map(item=>{const availability=(state.engines||[]).find(engine=>engine.id===item.id);return {...item,detail:!availability?.checked?'尚未检查':availability.available?'本地资源可用':availability.reason||'未安装'};}):kind==='mode'?modeChoices:state.thinkingChoices||[{id:'auto',label:'自动',detail:'引擎默认'}];
-    const value=kind==='engine'?state.engine:kind==='mode'?state.mode:state.thinkingLevel||'auto';
+    const choices=kind==='collaboration'?collaborationChoices:kind==='engine'?engineChoices.map(item=>{const availability=(state.engines||[]).find(engine=>engine.id===item.id);return {...item,detail:!availability?.checked?'尚未检查':availability.available?'本地资源可用':availability.reason||'未安装'};}):kind==='mode'?modeChoices:state.thinkingChoices||[{id:'auto',label:'自动',detail:'引擎默认'}];
+    const value=kind==='collaboration'?(state.collaborationMode||'assist'):kind==='engine'?state.engine:kind==='mode'?state.mode:state.thinkingLevel||'auto';
     const cacheKey=JSON.stringify([choices,value,state.thinkingNote||'']);
     const cached=preparedSelections.get(kind);
     if(cached?.key===cacheKey)return cached.node;
     const container=el('div','selection-content');
-    container.append(choiceList(({engine:'底层引擎',mode:'操作权限',thinking:'思考等级'})[kind],choices,value,id=>{
-      if(state.busy)return;if(['engine','mode'].includes(kind))closeQuickPicker();else closePanel();request(kind==='thinking'?'thinking':kind,{id});
+    container.append(choiceList(({collaboration:'子代理协作模式',engine:'底层引擎',mode:'操作权限',thinking:'思考等级'})[kind],choices,value,id=>{
+      if(state.busy)return;if(['engine','mode','collaboration'].includes(kind))closeQuickPicker();else closePanel();request(kind==='thinking'?'thinking':kind,{id});
     }));
     if(kind==='thinking'&&['gemini','openclaude'].includes(state.engine))container.replaceChildren(button('思考预算 / 思考强度',()=>nativeRequest('settings'),'menu-action','sliders-horizontal'));
     if(kind==='thinking'&&state.thinkingNote)container.append(el('p','selection-note',state.thinkingNote));
@@ -161,7 +163,8 @@ export function createPage(profile,send,local) {
   const welcome=el('div','welcome');if(profile.id!=='codex')welcome.append(engineArtwork(profile));welcome.append(el('h1','',profile.greeting));
   if(profile.starters.length){const starters=el('div','task-starters');for(const [label,symbol,text] of profile.starters){starters.append(button(label,()=>{if(!input.value.trim()){input.value=text;saveDraft();fitInput();}input.focus();},'starter',symbol));}welcome.append(starters);}
   const welcomeWorkspace=el('p','welcome-workspace');welcome.append(welcomeWorkspace);
-  const messages=el('div','messages'),messageNodes=new Map();
+  const messages=el('div','messages');
+  const renderMessages=createMessageRenderer(messages,request);
   viewport.append(welcome,messages);
   const jump=button('回到最新',()=>{follow=true;viewport.scrollTop=viewport.scrollHeight;jump.hidden=true;},'jump-latest','arrow-down');jump.hidden=true;
   viewport.addEventListener('scroll',()=>{follow=viewport.scrollHeight-viewport.scrollTop-viewport.clientHeight<72;jump.hidden=follow;},{passive:true});
@@ -199,15 +202,16 @@ export function createPage(profile,send,local) {
   for(const eventName of ['pointerup','pointercancel','pointerleave'])longTask.addEventListener(eventName,clearLongTaskPress);
   longTask.addEventListener('contextmenu',event=>{event.preventDefault();clearLongTaskPress();if(!longTaskHeld){longTaskHeld=true;showLongTaskInfo();}});
   longTask.addEventListener('keydown',event=>{if(event.key==='F1'){event.preventDefault();showLongTaskInfo();}});
+  const collaboration=picker('协作','collaboration','layers');
   const submit=iconButton('发送任务','arrow-up',()=>{},'send-button');submit.type='submit';submit.disabled=true;
   const stop=iconButton('停止任务','square',()=>request('stop'),'send-button stop-button');stop.hidden=true;
-  controls.append(attach,modeLabel,model,thinking,longTask);
+  controls.append(attach,modeLabel,model,thinking,longTask,collaboration);
   const inputRow=el('div','composer-input-row'),sendLane=el('div','send-lane');sendLane.append(submit,stop);inputRow.append(input,sendLane);
   composer.append(project,chips,inputRow,controls);composerArea.append(statusLine,composer);
   composer.addEventListener('submit',e=>{e.preventDefault();if(!submit.disabled&&input.value.trim())request('send',{text:input.value});});
   main.append(header,workspaceBar,alert,viewport,jump,composerArea);
   bubble=thinkingBubble(root,thinking,()=>state,request,()=>panelChanged());
-  childNav=subagentNavigator(root,main,viewport,composerArea,()=>state,()=>{lastMessages='';follow=true;update(state);panelChanged();},request,panelChanged);
+  childNav=subagentNavigator(root,main,viewport,composerArea,()=>state,()=>{follow=true;update(state);panelChanged();},request,panelChanged);
   const sidebar=el('div','sidebar-content');
   sidebar.append(el('div','sidebar-brand',profile.id==='pi'?'Pi':'Aster'));
   const newNav=button('新会话',()=>{closePanel();request('new');},'new-conversation','plus');
@@ -268,12 +272,12 @@ export function createPage(profile,send,local) {
     if(value==='chat'){
       header.replaceChildren(menuButton,model,thinking,topStop,fresh);
       inputRow.insertBefore(attach,input);attach.replaceChildren(icon('plus'));
-      sidebarControls.replaceChildren(engineSelect,mode,longTask);
+      sidebarControls.replaceChildren(engineSelect,mode,longTask,collaboration);
       sidebar.insertBefore(sidebarControls,workspaceNav);sidebar.insertBefore(menu,footer);
       fresh.replaceChildren(icon('notebook-pen'));input.placeholder='询问 '+profile.label+'…';
     }else{
       header.replaceChildren(menuButton,engineLabel,topTitle,logs,fresh,more);
-      controls.replaceChildren(attach,mode,model,thinking,longTask);sidebarControls.remove();menu.remove();
+      controls.replaceChildren(attach,mode,model,thinking,longTask,collaboration);sidebarControls.remove();menu.remove();
       attach.replaceChildren(icon('paperclip'));fresh.replaceChildren(icon('plus'));input.placeholder=profile.placeholder;
     }
     restorePanels();requestAnimationFrame(()=>{positionJump();syncCodexCanvas(root);});
@@ -308,6 +312,9 @@ export function createPage(profile,send,local) {
     thinking.dataset.engine=state.engine||'';thinking.dataset.ultra=String(state.engine==='codex'&&state.thinkingLevel==='ultra');
     thinking.dataset.explicit=String((state.thinkingLevel||'auto')!=='auto');
     thinking.title='思考等级 · '+thinkingLabel;thinking.setAttribute('aria-label',thinking.title);
+    collaboration.title='子代理协作模式：'+(collaborationChoices.find(c=>c.id===(state.collaborationMode||'assist'))?.label||'辅助');
+    collaboration.setAttribute('aria-label',collaboration.title);
+    collaboration.disabled=!!state.busy||!state.session;
     longTask.setAttribute('aria-pressed',String(!!state.longTaskMode));
     longTask.title='长任务模式：'+(state.longTaskMode?'开启 · 无人守候':'关闭 · 优先提问')+'；长按查看说明';
     longTask.setAttribute('aria-label',longTask.title);
@@ -351,25 +358,8 @@ export function createPage(profile,send,local) {
     compactNote.textContent=state.compactSupported===false?'此引擎暂不支持手动压缩。':'';compactNote.hidden=!compactNote.textContent;
     runtimeText.textContent=(state.runtime||'环境未连接')+' · '+(state.setupPhase||'尚未检查')+'\n构建底层：'+profile.label+' '+(state.engineVersion||'')+'；资源可用不等于模型请求成功。';
     const messageScope=JSON.stringify([state.session||'',child?.id||'',state.engine||'']);
-    const messageKey=JSON.stringify([messageScope,displayMessages]);
-    if(lastMessages!==messageKey){
-      const ids=new Set();let previous=null;
-      for(const item of displayMessages){
-        const nodeKey=JSON.stringify([messageScope,item.id,item.role]);
-        ids.add(nodeKey);let record=messageNodes.get(nodeKey);
-        if(!record){
-          const tool=item.role==='tool'||item.role==='system';const row=el(tool?'details':'article','message '+(tool?'tool-event':item.role==='user'?'user':'assistant'));
-          const body=el('div','message-body');
-          if(tool){const label=el('summary');label.append(icon('terminal'),el('span','',item.text.split('\n')[0].slice(0,110)),icon('chevron-right'));row.append(label,body);}
-          else {if(item.role!=='user')row.append(el('div','assistant-label',child?.label||profile.label));row.append(body);}
-          record={row,body,text:null};messageNodes.set(nodeKey,record);
-        }
-        if(record.text!==item.text){if(item.role==='tool'||item.role==='system'){record.row.querySelector('summary span').textContent=item.text.split('\n')[0].slice(0,110);record.row.dataset.failed=String(item.text.split('\n')[0].includes(' · 失败'));}if(item.role==='user')record.body.textContent=item.text;else richText(record.body,item.text,text=>request('copy',{text}));record.text=item.text;}
-        if(record.row.previousElementSibling!==previous||record.row.parentElement!==messages)messages.insertBefore(record.row,previous?previous.nextSibling:messages.firstChild);
-        previous=record.row;
-      }
-      for(const[id,record]of messageNodes)if(!ids.has(id)){record.row.remove();messageNodes.delete(id);}
-      lastMessages=messageKey;if(follow)requestAnimationFrame(()=>{viewport.scrollTop=viewport.scrollHeight;childNav.restoreScroll();});else jump.hidden=false;
+    if(renderMessages(messageScope,displayMessages,child?.label||profile.label)){
+      if(follow)requestAnimationFrame(()=>{viewport.scrollTop=viewport.scrollHeight;childNav.restoreScroll();});else jump.hidden=false;
     }
     renderHistory();for(const b of history.querySelectorAll('button')){b.disabled=!!state.busy;if(b.dataset.session)b.setAttribute('aria-current',String(b.dataset.session===state.session));}
     const taskKey=JSON.stringify(state.tasks||[]);if(taskKey!==lastTasks){taskList.replaceChildren();for(const item of state.tasks||[]){const done=['completed','done'].includes(item.status);const running=['in_progress','running','active'].includes(item.status);const li=el('li',done?'done':running?'active':'pending');li.append(icon(done?'check':running?'loader-circle':'circle'),el('span','',item.task));taskList.append(li);}if(!(state.tasks||[]).length)taskList.append(el('li','empty-note','尚未生成任务清单'));lastTasks=taskKey;}

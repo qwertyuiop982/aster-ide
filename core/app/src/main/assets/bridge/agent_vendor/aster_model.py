@@ -300,13 +300,26 @@ class OpenAIModel:
 
     def query(self, messages, **kwargs):
         self.session.check_cancelled()
+        # Enforce current collaboration policy at the final provider boundary, including
+        # restored/compacted Pi contexts whose historical system sections may differ.
+        from agent_task_mode import collaboration_prompt
+        policy = collaboration_prompt(self.session)
+        if policy:
+            messages = [dict(message) for message in messages]
+            system_index = next((i for i, message in enumerate(messages) if message.get('role') == 'system'), None)
+            if system_index is None:
+                messages.insert(0, {'role': 'system', 'content': policy})
+            elif policy not in str(messages[system_index].get('content', '')):
+                messages[system_index]['content'] = str(messages[system_index].get('content', '')) + '\n\n' + policy
         # Pi owns context compaction. Preserve whole exchanges and exact tool arguments.
         if len(json.dumps(messages, ensure_ascii=False).encode()) > 4 * MAX_TEXT:
             raise ValueError("模型上下文超过 4 MiB，请先压缩会话")
         purpose = kwargs.get("purpose", "task")
         names = kwargs.get("tools")
         selected = [item for item in self.session.tools if names is None or item["function"]["name"] in names]
-        payload = {"model": self.model, "messages": messages, "max_tokens": self.max_tokens,
+        requested_max_tokens = kwargs.get("maxTokens")
+        max_tokens = self.max_tokens if requested_max_tokens is None else max(1, min(65536, int(requested_max_tokens)))
+        payload = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
                    "stream": self.streaming and purpose != "compaction"}
         if 'effort' in self.thinking and purpose != 'compaction':
             payload['reasoning_effort'] = self.thinking['effort']
@@ -410,7 +423,7 @@ class OpenAIModel:
         if normalized_calls:
             output["tool_calls"] = normalized_calls
         self.session.tokens += max(0, int((result.get("usage") or {}).get("total_tokens", 0)))
-        if content and not result.get("_streamed"):
+        if content and not result.get("_streamed") and purpose != "compaction":
             self.session.emit("message", role="assistant", text=str(content)[:24000])
         if choices[0].get("finish_reason") == "length":
             raise ValueError("Aster-free 单次回复达到上限，请分步处理当前任务" if self.free_mode else "模型回复达到 token 上限，请调高回复上限或缩小当前任务后继续")

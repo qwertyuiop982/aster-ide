@@ -251,6 +251,11 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                     if (kind != "message_start" || messages.none { it.id == id })
                         put(id, event.optString("role", "assistant"), event.optString("text"), kind == "message_delta")
                 }
+                "tool_delta" -> {
+                    val id = "tool-" + event.optString("callId")
+                    val before = messages.firstOrNull { it.id == id }
+                    put(id, "tool", (before?.text ?: (event.optString("name") + " · 运行中\n输出\n")) + event.optString("text"))
+                }
                 "tool", "tool_result" -> {
                     val id = "tool-" + event.optString("callId").ifBlank { event.optString("name") }
                     val before = messages.firstOrNull { it.id == id }
@@ -279,11 +284,12 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         .put("endpoint", profile.endpoint).put("model", profile.model).put("apiKey", key).put("freeMode", free)
         .put("permissionMode", settings.value.agentPermissionMode).put("nativeCommandsUnchecked", settings.value.agentPermissionMode == "native" && settings.value.agentNativeCommandsUnchecked).put("terminalAllowedCommands", settings.value.terminalAllowedCommands)
         .put("longTaskMode", settings.value.agentLongTaskMode)
-        .put("subagentsUnlimited", !free && engine == AgentEngine.CODEX && profile.thinkingLevel == "ultra" && profile.thinkingMode in setOf("strength", "legacy"))
+            .put("collaborationMode", settings.value.agentCollaborationMode)
+        .put("subagentsUnlimited", !free && settings.value.agentCollaborationMode == "extreme" && profile.thinkingLevel == "ultra" && profile.thinkingMode in setOf("strength", "legacy"))
         .put("protocol", profile.protocol).put("reviewEnabled", profile.reviewEnabled).put("reviewModel", profile.reviewModel)
         .put("mcpServers", profile.mcpServers).put("mcpDefinitions", JSONObject(profile.mcpDefinitions.ifBlank { "{}" }).let { it.optJSONObject("mcpServers") ?: it }).put("enabledSkills", JSONArray(profile.enabledSkills.split(",").map(String::trim).filter(String::isNotEmpty)))
         .put("thinkingLevel", profile.thinkingLevel).put("thinkingMode", profile.thinkingMode).put("thinkingBudget", profile.thinkingBudget)
-        .put("maxSteps", if (free) dev.aster.ide.account.FreeAgentProfile.MAX_TOOL_CALLS else settings.value.agentMaxSteps)
+        .put("maxSteps", if (free) dev.aster.ide.account.FreeAgentProfile.MAX_TOOL_CALLS else -1)
         .put("maxTokens", profile.maxTokens).put("contextWindow", profile.contextWindow).put("stream", settings.value.agentStreaming)
 
     /** Starts only local resources; never sends a model request or runs a user tool. */
@@ -378,6 +384,9 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                             recordToolEvent(event)
                         }
                         "client_tool" -> {
+                            val clientCallId = "client-" + event.getString("requestId")
+                            recordToolEvent(JSONObject().put("kind", "tool").put("callId", clientCallId)
+                                .put("name", event.getString("name")).put("text", event.getJSONObject("arguments").toString()))
                             clientTasks += launch(Dispatchers.IO) {
                                 val result = try {
                                     val name = event.getString("name")
@@ -385,6 +394,10 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                                     else executeClientTool(name, event.getJSONObject("arguments").also { if (name == "user_input") it.put("_requestId", event.getString("requestId")) })
                                 } catch (e: CancellationException) { throw e }
                                 catch (e: Exception) { JSONObject().put("ok", false).put("error", AgentDiagnostics.redact(e.message ?: "Client operation failed", candidates.map { it.configuration.optString("apiKey") }.filter(String::isNotBlank))) }
+                                recordToolEvent(JSONObject().put("kind", "tool_result").put("callId", clientCallId)
+                                    .put("name", event.getString("name")).put("status", if (result.optBoolean("ok", true)) "succeeded" else "failed")
+                                    .put("text", result.toString()))
+                                checkpoint()
                                 val reply = bridge.rpc("agent_client_result", workspace.id, JSONObject().put("job", identifier).put("requestId", event.getString("requestId")).put("result", result))
                                 check(reply.optBoolean("accepted") || event.getString("requestId") in endedInteractions) { "交互结果未被运行环境接受，请重新发起任务" }
                             }

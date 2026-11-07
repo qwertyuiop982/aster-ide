@@ -27,23 +27,3 @@ data class AgentSnapshot(
     val runtimeSessionId: String = id, val context: AgentContextState = AgentContextState(), val proposalRevision: String = "initial", val engineId: String = "pi",
     val subagentConversations: List<AgentSubagentConversation> = emptyList()
 )
-
-fun boundedAgentMessages(messages: List<AgentMessage>): List<AgentMessage> {
-    var characters = 0
-    return messages.takeLast(60).asReversed().mapNotNull { message ->
-        val text = message.text.take(24000)
-        if (characters + text.length > 200000) null else message.copy(text = text).also { characters += text.length }
-    }.asReversed()
-}
-
-/** Retain every child identity while bounding transcript memory across the session. */
-fun boundedSubagentConversations(rows: List<AgentSubagentConversation>): List<AgentSubagentConversation> {
-    var remaining = 800000
-    return rows.asReversed().map { row ->
-        var allowance = minOf(100000, remaining)
-        val messages = boundedAgentMessages(row.messages).asReversed().mapNotNull { message ->
-            if (message.text.length > allowance) null else message.also { allowance -= it.text.length; remaining -= it.text.length }
-        }.asReversed()
-        row.copy(messages = messages)
-    }.asReversed()
-}

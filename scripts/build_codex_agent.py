@@ -16,7 +16,7 @@ def main():
     parser.add_argument('--ndk', default=os.environ.get('ANDROID_NDK_HOME', str(Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android'))) / 'ndk/29.0.14206865')))
     parser.add_argument('--cargo-home', default=os.environ.get('CARGO_HOME', str(Path.home() / ('.cache/aster-agent/cargo' if (Path.home() / '.cache/aster-agent/cargo').exists() else '.cargo'))))
     parser.add_argument('--rustup-home', default=os.environ.get('RUSTUP_HOME', str(Path.home() / ('.cache/aster-agent/rustup' if (Path.home() / '.cache/aster-agent/rustup').exists() else '.rustup'))))
-    parser.add_argument('--jobs', type=int, default=1)
+    parser.add_argument('--jobs', type=int, default=int(os.environ.get('CARGO_BUILD_JOBS', '4')))
     parser.add_argument('--api', type=int, default=28)
     parser.add_argument('--prepare-only', action='store_true', help='Verify shared Termux dependencies and compile the Android TLS probe')
     parser.add_argument('--update-lock', action='store_true')

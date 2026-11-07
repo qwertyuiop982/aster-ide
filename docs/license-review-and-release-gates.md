@@ -12,7 +12,7 @@ For every embedded component, record its upstream repository, pinned version or 
 
 ## Copyleft review
 
-GPL components require review of the complete corresponding source, build scripts and distribution method. LGPL dependencies additionally require reviewing modification and relinking obligations for the actual linking arrangement. EPL-covered source and modifications need their own notice and availability review. An AGPL-listed component is a release blocker until its actual usage, derivation boundary, version and compatibility with the proposed distribution license are established. A list containing the word AGPL does not establish either compliance or infringement.
+GPL components require review of the complete corresponding source, build scripts and distribution method. LGPL dependencies additionally require reviewing modification and relinking obligations for the actual linking arrangement. EPL-covered source and modifications need their own notice and availability review. GPLv3 section 13 expressly permits combining GPLv3 and AGPLv3 works under its conditions: each part retains its terms and AGPL section 13 network-interaction requirements apply to the combination. AGPL presence alone is not incompatibility. Review the actual usage, derivation boundary and corresponding-source obligations before a binary release. A list containing the word AGPL does not establish either compliance or infringement.
 
 The current notices include entries that may distinguish an integrated dependency from reference or research material incorrectly. Resolve these individually; do not mechanically label the entire repository GPL-3.0-only while contradictory dependencies remain unexplained.
 

@@ -11,8 +11,8 @@
     "coding-agent context compaction"
   ],
   "platformAdapter": "Aster authenticated model/project bridge; Termux environment and native Compose UI",
-  "bundleSha256": "33d66e8cce4fd313562e18531aa903433378177a865c71728266d70f260fa1d1",
-  "runnerSha256": "e0e2e0695a9c12a39a7838dd516a5d53a2756d245698c80d6993d02223936939",
+  "bundleSha256": "9b7ab7d03222f4e6b72be41cb923f9ef5a5ab05b92721701831f934c314be919",
+  "runnerSha256": "865fb80e67636c566dfadca3e8b4536070735f0e5300471c4fd6f5546ea8b9fa",
   "lockSha256": "872ca97fdcd4c4a6af7791d052f0c8b18d0e6c48d5529a66d2d5e8f9f2a4a055",
   "buildScriptSha256": "60c58f9b6e2d8005154710c0f04947bd0ee9463b4d7bef2394616d81cb48dee1",
   "buildConfigurationSha256": "351dfd9b7d204382708a3a5aead5abd480a1ebdd025801e1662de0d4262c298f",

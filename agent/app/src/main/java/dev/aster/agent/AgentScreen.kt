@@ -94,6 +94,7 @@ import dev.aster.ide.agent.AgentEngine
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::importWorkspace) }
     AgentConfigurationPage("工作区", { vm.showWorkspaces = false }) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = vm::detachWorkspace, enabled = !vm.locked, modifier = Modifier.fillMaxWidth()) { Text("不绑定工作区 · 普通对话") }
             Text("最近工作区", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 24.dp))
             vm.workspaces.forEach { workspace ->
                 TextButton(onClick = { vm.selectWorkspace(workspace.id) }, enabled = !vm.locked, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 12.dp)) {

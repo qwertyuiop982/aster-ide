@@ -16652,7 +16652,7 @@
     "format": "esm"
   },
   "runner.ts": {
-    "bytes": 12991,
+    "bytes": 13261,
     "imports": [
       {
         "path": "../../vendor/pi/packages/agent/src/index.ts",

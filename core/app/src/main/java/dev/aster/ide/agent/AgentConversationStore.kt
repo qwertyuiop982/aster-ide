@@ -121,7 +121,7 @@ class AgentConversationStore(private val root: File) {
         check(edits.sumOf { it.before.toByteArray(Charsets.UTF_8).size.toLong() + it.after.toByteArray(Charsets.UTF_8).size } <= 4L * 1024 * 1024)
         AgentSnapshot(id, workspaceId, value.optString("title", "新会话").take(64), value.getLong("updated"), AgentMode.fromId(value.optString("mode")),
             boundedAgentMessages(rows), AgentJson.readTasks(value.optJSONArray("tasks")), edits, value.optString("status", "准备就绪"),
-            value.optInt("step").coerceIn(0, 64), value.optInt("tokens").coerceAtLeast(0), value.optBoolean("wasRunning"),
+            value.optInt("step").coerceAtLeast(0), value.optInt("tokens").coerceAtLeast(0), value.optBoolean("wasRunning"),
             value.optString("runtimeSessionId", id).takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,80}")) } ?: id,
             AgentContextState(value.optInt("contextTokens").coerceAtLeast(0), value.optInt("contextWindow", 32768).coerceIn(1, 1048576), value.optInt("compactions").coerceAtLeast(0), AgentContextPolicy.source(value.optString("contextSource")), value.optLong("contextUpdatedAt").coerceAtLeast(0)), value.optString("proposalRevision", "initial"), value.optString("engineId", "pi"), AgentJson.readSubagents(value.optJSONArray("subagents")))
     }.getOrNull()

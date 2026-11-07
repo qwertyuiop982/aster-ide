@@ -1,0 +1,361 @@
+{
+  "schema": 1,
+  "technicalChecksPassed": true,
+  "legalClearance": false,
+  "limitations": [
+    "Not an exhaustive dependency license inventory.",
+    "Source availability and preferred-form completeness require manual review.",
+    "GPLv3/AGPLv3 section 13 permits combination under its conditions; presence of AGPL is not itself incompatibility.",
+    "No permission to relicense third-party components is implied."
+  ],
+  "failures": [],
+  "files": [
+    {
+      "path": "LICENSE",
+      "bytes": 533,
+      "sha256": "a8992ad867b1b4ea442693acb2e1ee829a814758e79a099bd8243a04ae383304"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 5515,
+      "sha256": "f7032254de6501a488c936c978b5a01283c639d68f71a49fd5a1d7176e5e19a3"
+    },
+    {
+      "path": "vendor/termux-app/LICENSE.md",
+      "bytes": 533,
+      "sha256": "a8992ad867b1b4ea442693acb2e1ee829a814758e79a099bd8243a04ae383304"
+    },
+    {
+      "path": "vendor/qingzhou/LICENSE",
+      "bytes": 33801,
+      "sha256": "69ebd9c8b7f5f305d3f0e5231945f6230779bd6bc487b00d27c21254be015b5f"
+    },
+    {
+      "path": "vendor/pi/LICENSE",
+      "bytes": 1069,
+      "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+    },
+    {
+      "path": "vendor/codex/LICENSE",
+      "bytes": 10926,
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "path": "research/acs-ui/ACS-LICENSE.txt",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "client/SOURCES.json",
+      "bytes": 972,
+      "sha256": "695d3178fc202eab47a8d8b481dc877a5f82dab228ddc7f258bf7eb4d89b86c8"
+    },
+    {
+      "path": "client/browser/src/main/assets/licenses/browser-LICENSE.txt",
+      "bytes": 33801,
+      "sha256": "69ebd9c8b7f5f305d3f0e5231945f6230779bd6bc487b00d27c21254be015b5f"
+    },
+    {
+      "path": "client/shizuku/src/main/assets/licenses/shizuku-LICENSE.txt",
+      "bytes": 1062,
+      "sha256": "64870037f294b6f2b75c8ebe77cc0702acb3b64f86b4b0e58bf8558525303686"
+    },
+    {
+      "path": "agent/app/src/main/assets/agent/LUCIDE-LICENSE.txt",
+      "bytes": 880,
+      "sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc"
+    },
+    {
+      "path": "core/app/src/main/assets/bridge/agent_vendor/LICENSES.txt",
+      "bytes": 9372,
+      "sha256": "b13ef7cde284dc93c54a4a94b586dd763604bf8f6952738495b6458a75d40e40"
+    },
+    {
+      "path": "core/app/src/main/assets/bridge/agent_vendor/PI-LICENSE.txt",
+      "bytes": 1069,
+      "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/GPL-2.txt",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/GPL-3.txt",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/LGPL-2.1.txt",
+      "bytes": 26530,
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/LGPL-3.txt",
+      "bytes": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "core/app/src/main/assets/licenses/Pi-MIT.txt",
+      "bytes": 1069,
+      "sha256": "0457f5bcec3b3b211605dfb5d1a49042fd638f3686a410fe099c24a25af13c48"
+    },
+    {
+      "path": "research/runtime-sources/proot-5.1.107.96.zip",
+      "bytes": 489963,
+      "sha256": "75f654fe60dea92dabff2bf083ae8bfe4f91baa6a1a374786a6bf391015eebaa"
+    },
+    {
+      "path": "research/runtime-sources/talloc-2.5.0.tar.gz",
+      "bytes": 690172,
+      "sha256": "912afa237510ae542a7733998eb18a12bcda35ab6729c8e2ddb43e8d0ebab007"
+    },
+    {
+      "path": "research/runtime-sources/libandroid-shmem-0.7.tar.gz",
+      "bytes": 8891,
+      "sha256": "1e5ff8459bc0a8c229dd8a94b27d119987e09ef3414331c2b5ebfff20b98e867"
+    },
+    {
+      "path": "research/pi-agent/SOURCE.json",
+      "bytes": 8044,
+      "sha256": "b55778ae4662147eab1d6c3e952db029a885a81aea92452aa42b16bc1d21d73c"
+    },
+    {
+      "path": "research/agent-engines/codex/SOURCE.json",
+      "bytes": 789,
+      "sha256": "66cdb3733c7c12da5caeaf72ac0b7f2007b83c5edd97d9c56dafead99e9ed6db"
+    },
+    {
+      "path": "research/agent-engines/gemini/SOURCE.json",
+      "bytes": 825,
+      "sha256": "47ae4a140dc5d793f825f219d636cbddd272bccbca320c1671fa22629bba6384"
+    },
+    {
+      "path": "research/acs-ui/SOURCE.json",
+      "bytes": 1974,
+      "sha256": "62ff34a2cdeb9e05330705a75dfd9ac4438bc0e73a17d45c3338a01f45a52f89"
+    },
+    {
+      "path": "client/SOURCES.json",
+      "bytes": 972,
+      "sha256": "695d3178fc202eab47a8d8b481dc877a5f82dab228ddc7f258bf7eb4d89b86c8"
+    },
+    {
+      "path": "vendor/qingzhou/app/src/main/java/com/liulanqi/app/BrowserEngine.kt",
+      "bytes": 1175,
+      "sha256": "8e11ffbe42d0be087946c3fe0e4a50b47bdc75060a1203c4840a94a39fb2187d"
+    },
+    {
+      "path": "vendor/qingzhou/app/src/main/java/com/liulanqi/app/WebViewEngine.kt",
+      "bytes": 6821,
+      "sha256": "edff577a2e5103b4a0419d6843d2d4dc59f15593e5c9db69bd9da7a5080b8ac3"
+    }
+  ],
+  "provenance": {
+    "research/pi-agent/SOURCE.json": {
+      "engine": "Pi Coding Agent 1.3.0",
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.3.0",
+      "repository": "https://github.com/earendil-works/pi",
+      "commit": "71023aec1546d6d677a65669c5665c0927ce0dd0",
+      "license": "MIT",
+      "components": [
+        "pi-agent-core agent loop",
+        "coding-agent SessionManager",
+        "coding-agent context compaction"
+      ],
+      "platformAdapter": "Aster authenticated model/project bridge; Termux environment and native Compose UI",
+      "bundleSha256": "9b7ab7d03222f4e6b72be41cb923f9ef5a5ab05b92721701831f934c314be919",
+      "runnerSha256": "865fb80e67636c566dfadca3e8b4536070735f0e5300471c4fd6f5546ea8b9fa",
+      "lockSha256": "872ca97fdcd4c4a6af7791d052f0c8b18d0e6c48d5529a66d2d5e8f9f2a4a055",
+      "buildScriptSha256": "60c58f9b6e2d8005154710c0f04947bd0ee9463b4d7bef2394616d81cb48dee1",
+      "buildConfigurationSha256": "351dfd9b7d204382708a3a5aead5abd480a1ebdd025801e1662de0d4262c298f",
+      "sourceSnapshot": {
+        "url": "https://github.com/earendil-works/pi/archive/71023aec1546d6d677a65669c5665c0927ce0dd0.tar.gz",
+        "sha256": "d520df6b84f8860901f25f601c439deca752251515333dcbe406b7de26ba4ac4",
+        "retainedSource": "vendor/pi"
+      },
+      "upstreamInputs": {
+        "packages/ai/src/utils/event-stream.ts": "9fd5e33a8e295d88b5911af71d7afbfd437c9620288808d18331f16811e24dac",
+        "packages/ai/src/api/lazy.ts": "1d38468b570b179dc404be7d13b737cb1d001bd96a0a9b3626d8c3f0bf9a49be",
+        "packages/ai/src/auth/context.ts": "03101bfa711fad214af111e25328b6f607d6b0a7ebfe289af58a89cd55baf639",
+        "packages/ai/src/utils/abort.ts": "e81dc16de331e82d7f15759b27e38c7d0a3d28955693e0cf157dd52dadea7035",
+        "packages/ai/src/auth/credential-store.ts": "50ebde56b80b5862025e031719006ea303edd9aa80fec780fbc64319bb9e2847",
+        "packages/ai/src/auth/helpers.ts": "37b4c7f8048f09a54363607fa91bb1c265ddfe0790067de3c3220c1f06485b90",
+        "packages/ai/src/auth/types.ts": "2d14d659f1c62f11cc942b1c2d681f2218c0b671cc37a1df59a5e1a1ee37aef5",
+        "packages/ai/src/utils/diagnostics.ts": "06fcbc2347f65a43938078094a7118036b5f12e73147affb5c73cd72753443f0",
+        "packages/ai/src/utils/models-error.ts": "f35f82bd86123be7ef05e86036f18e8d3d5df14f394f558b22c38b23d122c12c",
+        "packages/ai/src/auth/resolve.ts": "b64d4b13ccdb3e8d056ec4849190aa68f002988ee0417317151d59d8668502ec",
+        "packages/ai/src/models-store.ts": "34ee433ca1501e98d19f31e0e5adf8d1721902e9f35e46c270626e32d7f711cc",
+        "packages/ai/src/utils/model-operations.ts": "d8a7bb663ad3b97253f03b424c6d9e821ed066c8c0449aa00e1f06b75f41115b",
+        "packages/ai/src/utils/text.ts": "d37c1825855c7fc71669a545b5b266810242c1c7e58d57228c0c143f29c1c544",
+        "packages/ai/src/utils/transcript.ts": "e0814f35bdcc93b017fa45589a6920e46b5480b88fba01ef93e5d2d4e815f0f2",
+        "packages/ai/src/models.ts": "c10385291e4e79dc3ea5301629288a35cac354f8a3635c07f9312608c269f573",
+        "packages/ai/src/providers/faux.ts": "aeaa8df95399776587ad0cfccccd3b498891a20c5c5846f935e04d9d09dd84a1",
+        "packages/ai/src/session-resources.ts": "3e6d76f038d6b7fe515ede0b6650d41a7df16eb4b3a9f1aa91c9de329ff092e2",
+        "packages/ai/src/types.ts": "258627828297eb0165de9828cab62666265a77e932dea5dba1542ace9c47c7d5",
+        "packages/ai/src/utils/json-parse.ts": "b101d288394a45498a50e06966c753ffb55a2b4900bec24ecbecafb7c17591bd",
+        "packages/ai/src/utils/overflow.ts": "2fa34713faa32430af3295ac25a10fd2e361cc0343b0f554491c16d2a2f44fc9",
+        "packages/ai/src/utils/retry.ts": "1f7947fa6f30596415e78fca0c0cbd43345c918509f6160b79cdeec459881dd8",
+        "packages/ai/src/utils/typebox-helpers.ts": "caf756258ce20c793dc8002cb8130a8efce18a7b5262ba0c54832b96f5a76e9f",
+        "packages/ai/src/utils/uuid.ts": "234a48d4b999e69188fdfa49173ccfa7887d947e443ef206cc30219515105a1f",
+        "packages/ai/src/utils/validation.ts": "e4b8029c184bd6df830e0ee2cb7034a39d49b5ecb8c068c26af9564c20246594",
+        "packages/ai/src/index.ts": "d8f7f7414fcf821c87ea69ee6f95ba654c955491e31586509dc51dbdf54edea8",
+        "packages/agent/src/stream-fn.ts": "1f9dee101a5ce1052558458d9ce47e53e05187224e879217899059a80d90bc45",
+        "packages/agent/src/agent-loop.ts": "28a2b03e34a7e32f004aa851e54d3b5be9dad71c392205614cbc9abdf3a9020a",
+        "packages/agent/src/agent.ts": "7024a3145a6ebc951a0f030164adb1dfb12d33d6e0dbbac15ef0efda49c87457",
+        "packages/agent/src/proxy.ts": "cf33691a899323b77026ecbfeface4bf33a8ca3f9f07397c97c80e9dde618306",
+        "packages/agent/src/types.ts": "2e116ef60fdaca4e26be5a1ace8d8b47f545d648d365de60b8c9f9d1ba629ee4",
+        "packages/agent/src/index.ts": "8bec36d174aee7e4326b1bfa61b4d7c6ac19dd659439e70f91d2d448794cc892",
+        "packages/coding-agent/src/utils/child-process.ts": "cd324f5b9a1abadd85ab5a331750d475c8bd51ec65cae091ad9b416245ec85d4",
+        "packages/coding-agent/src/utils/paths.ts": "64c3ebef724fa21ed0042e127908b4323a5d2f1b8aaa91eee550442332fe8502",
+        "packages/coding-agent/src/core/messages.ts": "5397e3c96c9504266e4ee8b6e88d5098b3280ee7dbb0c687b74708c62a06c8d4",
+        "packages/coding-agent/src/core/session-manager.ts": "450d82c529933214e088b8422f00061815e617f352f6c834689787a314064bff",
+        "packages/coding-agent/src/core/usage-totals.ts": "8b18dd04d65e90af9b331cd5aa23d7891aab8a296f38a6026ce17a098d674ee9",
+        "packages/coding-agent/src/core/compaction/utils.ts": "37eab7698cdbff8b5987d4529005ea16d7e1ae4a5344d7d0443c3466444aa90e",
+        "packages/coding-agent/src/core/compaction/compaction.ts": "d5aebd41333957b57fa3f1bee2a18b3c00b5d47bb1b4af6f913cf8cd791099c8"
+      },
+      "packages": [
+        {
+          "name": "cross-spawn",
+          "version": "7.0.6",
+          "integrity": "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==",
+          "licenseFile": "cross-spawn-LICENSE.txt",
+          "licenseSha256": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
+        },
+        {
+          "name": "isexe",
+          "version": "2.0.0",
+          "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==",
+          "licenseFile": "isexe-LICENSE.txt",
+          "licenseSha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        },
+        {
+          "name": "partial-json",
+          "version": "0.1.7",
+          "integrity": "sha512-Njv/59hHaokb/hRUjce3Hdv12wd60MtM9Z5Olmn+nehe0QDAsRtRbJPvJ0Z91TusF0SuZRIvnM+S4l6EIP8leA==",
+          "licenseFile": "partial-json-LICENSE.txt",
+          "licenseSha256": "cd519ad3d7e012427f978dfb2e3b92ee403d189d7b859ba6bf68fd7e12ca456f"
+        },
+        {
+          "name": "path-key",
+          "version": "3.1.1",
+          "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
+          "licenseFile": "path-key-LICENSE.txt",
+          "licenseSha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        },
+        {
+          "name": "shebang-command",
+          "version": "2.0.0",
+          "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
+          "licenseFile": "shebang-command-LICENSE.txt",
+          "licenseSha256": "69dee148a2cc470554dfa7142e830662062394d0fe67cddd379aba90dc60d6b3"
+        },
+        {
+          "name": "shebang-regex",
+          "version": "3.0.0",
+          "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
+          "licenseFile": "shebang-regex-LICENSE.txt",
+          "licenseSha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        },
+        {
+          "name": "typebox",
+          "version": "1.3.27",
+          "integrity": "sha512-zu+jc1pcy4UiNThxikUr36f0Rybk9PEeCg/NE6adeWr/SKsdNO4EzZHYRDlv2YCVAfj3Odq3dESSo/jNyoBXzA==",
+          "licenseFile": "typebox-LICENSE.txt",
+          "licenseSha256": "e8a7cc256941a26ba8234f04390165243a4d42f74fd6491934140605bf7eae2d"
+        },
+        {
+          "name": "which",
+          "version": "2.0.2",
+          "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
+          "licenseFile": "which-LICENSE.txt",
+          "licenseSha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "nodeMinimum": "22.19.0",
+      "nativeDependencies": false
+    },
+    "research/agent-engines/codex/SOURCE.json": {
+      "engine": "codex",
+      "repository": "https://github.com/openai/codex",
+      "tag": "rust-v0.163.0",
+      "commit": "83086188ae0614bd882818ff1aa23f3194962012",
+      "sourceDirectory": "vendor/codex",
+      "archiveUrl": "https://github.com/openai/codex/archive/83086188ae0614bd882818ff1aa23f3194962012.tar.gz",
+      "downloadUrl": "https://v4.gh-proxy.org/https://github.com/openai/codex/archive/83086188ae0614bd882818ff1aa23f3194962012.tar.gz",
+      "archiveSha256": "e57f1d4f914c71c3532a12d5c14f740909fca4e7e041fa1b3db71618c88e5567",
+      "licenseSha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+      "redistribution": "Apache-2.0",
+      "archiveOmitted": "Duplicate upstream archive is downloadable by archiveUrl and archiveSha256; build uses the retained trimmed sourceDirectory."
+    },
+    "research/agent-engines/gemini/SOURCE.json": {
+      "engine": "gemini",
+      "repository": "https://github.com/google-gemini/gemini-cli",
+      "tag": "v0.64.0",
+      "commit": "4a0749aceac5643e6f85a36d7420314d85e13b52",
+      "sourceDirectory": "vendor/gemini-cli",
+      "archiveUrl": "https://github.com/google-gemini/gemini-cli/archive/4a0749aceac5643e6f85a36d7420314d85e13b52.tar.gz",
+      "downloadUrl": "https://v4.gh-proxy.org/https://github.com/google-gemini/gemini-cli/archive/4a0749aceac5643e6f85a36d7420314d85e13b52.tar.gz",
+      "archiveSha256": "5bdfe2e7cad30594a40b84b1447dfa3c84e3d3859c606ef8a46e728e0b8203d6",
+      "licenseSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "redistribution": "Apache-2.0",
+      "archiveOmitted": "Duplicate upstream archive is downloadable by archiveUrl and archiveSha256; build uses the retained trimmed sourceDirectory."
+    },
+    "research/acs-ui/SOURCE.json": {
+      "source": "https://github.com/AndroidCSOfficial/android-code-studio",
+      "downloadProxy": "https://v4.gh-proxy.org/",
+      "commit": "e93e7468e6482ea51ef8e1adad6b7c6de86ae7cd",
+      "license": "GPL-3.0-or-later",
+      "files": {
+        "core/app/src/main/res/layout/activity_editor.xml": "752a22632d735ab0f277b0dd7f4edd782ffd050b51b456076839994a2ce2442d",
+        "core/app/src/main/res/layout/content_editor.xml": "245fa98d3cd2b8625611faeb1ad608b7cdc6d97d5a4e5d5621899b541aafd5dd",
+        "core/app/src/main/res/layout/layout_editor_bottom_sheet.xml": "377a8c5c082d51e4df176cce4f59071c268a392eeaa84f00a0de40c507f925b3",
+        "core/app/src/main/res/layout/layout_editor_bottom_action.xml": "ab1624bcf7bb973e724791c6e27739359baf5d586165af0093a1824cdb8a7ed5",
+        "core/app/src/main/res/layout/layout_diagnostic_info.xml": "48d5e5ecfe162f054b74a300cebfb152d48ec2d6eabd604a15a1cd8ccd022c79",
+        "core/app/src/main/java/com/tom/rv2ide/preferences/lspPrefs.kt": "5814326512332c1111906f83e9efc5beadba4f5d38497a73eb898a841df098df",
+        "editor/impl/src/main/res/layout/layout_completion_item.xml": "de995d8f7e8529ab6373756e215fdc959454ce3ae57118e57ada4379477c4bbc",
+        "editor/impl/src/main/res/values/dimens.xml": "9ac565caa71aead018fdbbafed35d3a16f5d955c89c50117dd1df32874f43e9a",
+        "editor/impl/src/main/java/com/tom/rv2ide/editor/adapters/CompletionListAdapter.kt": "551cb47a698799bb72d8aaabc2e9931fb056ce9e19c134236dd26e74f3fb8bd8",
+        "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/EditorCompletionLayout.kt": "b37e65b625896a569de7d50f0d469012ab99b6e6b6f064bd2ea4773feff4c9ea",
+        "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/BaseEditorWindow.java": "20b39a472a35166e3e9e7cd447abdfa957aace4c582eb0493dba42154a21602f",
+        "editor/impl/src/main/java/com/tom/rv2ide/editor/ui/SignatureHelpWindow.java": "101fe63ed9da22b1ed435e33f857d42de51bf3793fa8690b50b0a650bc749a90"
+      },
+      "scope": "UI layouts and completion presentation only; Aster services remain the implementation"
+    },
+    "client/SOURCES.json": {
+      "qingzhou": {
+        "url": "https://github.com/myos-Lu/qingzhou",
+        "commit": "3ec0701bef960f13ff6a91e41f225b6c599dc8f4",
+        "license": "AGPL-3.0",
+        "compiled": [
+          "BrowserEngine.kt",
+          "WebViewEngine.kt"
+        ]
+      },
+      "shizuku": {
+        "app": "Install and start the separate Shizuku app on the device; it is not bundled.",
+        "upstream": "https://github.com/RikkaApps/Shizuku-API",
+        "version": "13.1.5",
+        "license": "MIT",
+        "dependencies": [
+          "dev.rikka.shizuku:api:13.1.5",
+          "dev.rikka.shizuku:provider:13.1.5"
+        ],
+        "integration": "Resolved from Maven Central; Shizuku app/server/API source is not vendored in this repository."
+      },
+      "operit": {
+        "url": "https://github.com/AAswordman/Operit",
+        "commit": "dbf71916fae9750cfdc9f9a774f5a0fee56633fb",
+        "license": "LGPL-3.0",
+        "status": "Pinned upstream reference only; unused reference tree omitted; Aster adapters and license retained; not full feature parity"
+      }
+    }
+  },
+  "apk": null
+}

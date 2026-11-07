@@ -54367,7 +54367,7 @@
     "format": "esm"
   },
   "research/gemini-agent/runner.ts": {
-    "bytes": 17330,
+    "bytes": 17340,
     "imports": [
       {
         "path": "vendor/gemini-cli/packages/core/src/config/config.ts",

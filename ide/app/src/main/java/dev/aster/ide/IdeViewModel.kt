@@ -119,6 +119,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     private var runtimeJob: Job? = null
     private var openingJob: Job? = null
     private var languageJob: Job? = null
+    private var indexingJob: Job? = null
     private var openingGeneration = 0
     private var syncedWorkspace: String? = null
     private val preparing = Mutex()
@@ -129,11 +130,25 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     init {
         task {
             try {
-                workspace = repo.initialize(); refreshFiles(); recent = repo.recent()
-                workspace?.let { agent.selectWorkspace(it.id) }
+                val started = android.os.SystemClock.elapsedRealtime()
+                val initial = repo.initialize()
+                workspace = initial
+                nodes = repo.files(initial, maxDepth = 1, maxEntries = 256)
                 workspaceLoaded = true
                 settings.flow.first { it.uiStyleChosen }
-                prepareEditor()
+                coroutineScope {
+                    val history = async { agent.selectWorkspace(initial.id) }
+                    prepareEditor()
+                    log("IDE editor ready: ${android.os.SystemClock.elapsedRealtime() - started} ms")
+                    history.await()
+                }
+                if (workspace?.id == initial.id) {
+                    indexingJob = task {
+                        val indexed = repo.files(initial)
+                        if (workspace?.id == initial.id) nodes = indexed
+                    }
+                }
+                task { recent = repo.recent() }
                 if (settings.value.autoRuntime) connectRuntime(quiet = true)
             } catch (e: Exception) { startupError = e.message ?: "项目准备失败"; throw e }
         }
@@ -152,7 +167,13 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { notify(e.message ?: "操作失败"); log(e.stackTraceToString().take(3000)) }
     }
     suspend fun snapshot(doc: EditorDocument): String = withContext(Dispatchers.Default) { (doc.buffer?.toString() ?: doc.snapshot?.invoke() ?: doc.text).also { doc.text = it } }
-    suspend fun refreshFiles() { workspace?.let { nodes = repo.files(it) } }
+    suspend fun refreshFiles() {
+        indexingJob?.cancel()
+        workspace?.let { current ->
+            val indexed = repo.files(current)
+            if (workspace?.id == current.id) nodes = indexed
+        }
+    }
     fun refresh() = task { refreshFiles(); if (connected) refreshRuntime() }
 
     fun open(path: String): Job {
@@ -248,7 +269,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         syncedWorkspace = null
         languageJob?.cancel()
         workspace = project; repo.select(project); refreshFiles(); recent = repo.recent()
-        nodes.firstOrNull { !it.directory }?.let { openInternal(it.path) }
+        openInitialDocument()
     }
     fun createFile(path: String, folder: Boolean) = task { workspace?.let { repo.newFile(it, path, folder); syncedWorkspace = null; refreshFiles(); if (!folder) openInternal(path) } }
     fun renameFile(path: String, name: String) = task {
@@ -306,15 +327,17 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
             if (connected) active?.let { scheduleLsp(it) }
         }.also { runtimeJob = it }
     }
+    private suspend fun openInitialDocument() {
+        InitialDocument.open(nodes, ::openInternal) { path, error ->
+            log("跳过自动打开 $path：${error.message ?: "无法作为文本打开"}")
+        }
+    }
     private suspend fun prepareEditor() = preparing.withLock {
         if (editorReady) return@withLock
         preparingEditor = true
         try {
             withContext(Dispatchers.IO) { Highlighter.initialize(getApplication()) }
-            if (active == null) {
-                nodes.firstOrNull { it.path == "src/main.py" }?.let { openInternal(it.path) }
-                    ?: nodes.firstOrNull { !it.directory }?.let { openInternal(it.path) }
-            }
+            if (active == null) openInitialDocument()
             editorReady = true
             startupError = null
         } finally { preparingEditor = false }

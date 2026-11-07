@@ -129,7 +129,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         if (settings.value.agentPermissionMode == "native" || current.direct) {
             current = core.repo.nativeWorkspace(current)
             workspace = current
-            core.repo.select(current)
+            if (current.id != "agent-chat") core.repo.select(current)
             workspaces = core.repo.recent()
             core.termux.start()
         }
@@ -173,7 +173,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             withForeground {
                 AgentStartup.prepare(
                     workspace = {
-                        if (workspace == null) workspace = core.repo.initialize()
+                        if (workspace == null) workspace = core.repo.conversationWorkspace()
                         workspaces = core.repo.recent()
                         agent.selectWorkspace(checkNotNull(workspace).id)
                         loadContextFiles(); changed()
@@ -212,6 +212,17 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         warming?.join()
         agent.selectEngine(AgentEngine.entries.firstOrNull { it.id == id } ?: error("未知引擎")); webPanelOpen = false
         prewarmWorkspace()
+    }
+    fun detachWorkspace() = action {
+        check(!locked) { "请先停止当前任务" }
+        warming?.join()
+        val chat = core.repo.conversationWorkspace()
+        agent.selectWorkspace(chat.id)
+        workspace = chat
+        contextFiles = emptyList()
+        showWorkspaces = false
+        webPanelOpen = false
+        changed()
     }
     fun selectWorkspace(id: String) = action {
         warming?.join()
@@ -256,7 +267,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             val text = file.inputStream().use { AgentExplicitContext.readUtf8(it) }
             AgentExplicitContext.FileText(path, text)
         }
-        AgentExplicitContext.compose(current.name, prompt, texts)
+        if (current.id == "agent-chat") "No project workspace is bound. This is a general conversation. Do not assume a project or inspect project files unless the user asks.\n" + prompt
+        else AgentExplicitContext.compose(current.name, prompt, texts)
     }
     fun confirmDelete() {
         val selected = pendingDelete ?: return
@@ -297,6 +309,12 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val profile = agent.profile.copy(thinkingMode = "budget", thinkingBudget = value)
         AgentThinkingPolicy.validate(engine, profile)
         settings.updateAgentProfile(engine) { profile }
+    }
+    fun setCollaborationMode(value: String) {
+        check(!locked) { "请先停止当前任务" }
+        require(value in setOf("extreme", "team", "assist", "off"))
+        settings.update { it.copy(agentCollaborationMode = value) }
+        changed()
     }
     fun setLongTaskMode(enabled: Boolean) {
         check(!locked) { "请先停止或等待当前任务完成" }
@@ -495,6 +513,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 "mode" -> setMode(request.getString("id"))
                 "thinking" -> setThinking(request.getString("id"))
                 "thinking_budget" -> setThinkingBudget(request.getInt("value"))
+                "collaboration" -> setCollaborationMode(request.getString("id"))
                 "long_task" -> setLongTaskMode(request.getString("id") == "on")
                 "long_task_info" -> { webPanelOpen = false; showLongTaskInfo = true }
                 "prompt" -> savePrompt(request.getString("text"))
@@ -534,6 +553,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             .put("permissionMode", settings.value.agentPermissionMode).put("commandsUnchecked", settings.value.agentPermissionMode == "native" && settings.value.agentNativeCommandsUnchecked)
             .put("reducedMotion", core.settings.value.reducedMotion || !core.settings.value.animations)
             .put("longTaskMode", settings.value.agentLongTaskMode)
+            .put("collaborationMode", settings.value.agentCollaborationMode)
             .put("uiLayout", settings.value.agentUiLayout)
             .put("thinkingLevel", agent.profile.thinkingLevel).put("thinkingLabel", if (engine == AgentEngine.CODEX) AgentThinkingPolicy.label(engine, agent.profile.thinkingLevel) else AgentThinkingPolicy.summary(agent.profile))
             .put("codexAppearance", JSONObject().put("leftColor", settings.value.agentCodexNebulaLeft).put("rightColor", settings.value.agentCodexNebulaRight).put("wholeInterface", settings.value.agentCodexNebulaAll))

@@ -98,7 +98,7 @@ import kotlinx.coroutines.withContext
         Text("会话按项目自动保存，保留最近 30 个。任务清单与待预览修改可在重启后恢复；运行审批需要重新确认。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = { if (engine == AgentEngine.CODEX) vm.refreshAgentEngines() else vm.installServer("agent") }, enabled = vm.connected && !vm.buildRunning && !state.running && !vm.agentPreparing && !vm.agentStopping) { Text(if (engine == AgentEngine.CODEX) "检查原生 Codex 运行环境" else "安装／更新 Node.js 运行环境") }
         if (engine != AgentEngine.CODEX && vm.tools["node"].isNullOrBlank()) Text("首次发送任务时会自动安装内置 Node LTS。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SettingsSlider("最多步骤", settings.agentMaxSteps, 4, 64, 4, "步") { value -> vm.settings.update { it.copy(agentMaxSteps = value) } }
+        Text("工具调用与模型轮次不限次数。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         SectionLabel("协作与预算")
         var subagentModels by remember(engine, profile.subagentModels) { mutableStateOf(profile.subagentModels) }
         OutlinedTextField(subagentModels, { subagentModels = it }, label = { Text("子代理候选模型（逗号分隔）") }, modifier = Modifier.fillMaxWidth(),

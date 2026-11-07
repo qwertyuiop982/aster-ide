@@ -1,7 +1,7 @@
 {
-  "version": "1.0.4",
-  "versionCode": 15,
-  "apkSha256": "20b63382e2a6debd0cb43dc103344c43b867fa3a7afcf35b4e32db513fab523b",
+  "version": "1.0.5",
+  "versionCode": 16,
+  "apkSha256": "9ed050313ac7822ab2a7f7e689c10808fd7aac1d686710c213467149bda7ed43",
   "certificateSha256": "786fdc014aa516d0e96ee13aa028b07371ced388b0af9e145bc868be98f6864b",
   "ordinaryReleaseOnly": true,
   "restrictedSdkIncluded": false,

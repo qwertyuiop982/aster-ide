@@ -405733,7 +405733,7 @@ await run2(async (start2) => {
     includeDirectoryTree: true,
     skipNextSpeakerCheck: true,
     disableModelRouterForAuth: ["gateway" /* GATEWAY */, "gemini-api-key" /* USE_GEMINI */],
-    maxSessionTurns: start2.maxSteps,
+    maxSessionTurns: start2.freeMode ? 64 : -1,
     maxAttempts: 3,
     retryFetchErrors: true,
     compressionThreshold: Math.min(0.8, 1 - reserve / contextWindow),

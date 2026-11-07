@@ -2,9 +2,9 @@
  * All project and model I/O crosses the authenticated Aster Python bridge. */
 import { Agent } from '@earendil-works/pi-agent-core';
 import { AssistantMessageEventStream, getCurrentSystemPrompt, getCurrentTools, Type } from '@earendil-works/pi-ai';
-import { SessionManager } from '../../vendor/pi/packages/coding-agent/src/core/session-manager.ts';
+import { SessionManager, buildSessionProjection } from '../../vendor/pi/packages/coding-agent/src/core/session-manager.ts';
 import { convertToLlm } from '../../vendor/pi/packages/coding-agent/src/core/messages.ts';
-import { prepareCompaction, compact, estimateContextTokens } from '../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts';
+import { prepareCompaction, compact, estimateProjectedContextTokens } from '../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts';
 import { createInterface } from 'node:readline';
 import { dirname } from 'node:path';
 
@@ -68,7 +68,6 @@ function toOpenAI(context) {
 async function main() {
   const config = await started;
   const freeMode = config.freeMode === true;
-  const maxSteps = freeMode ? 64 : Math.max(1, Math.min(config.maxSteps || 32, 128));
   const maxToolCalls = freeMode ? 64 : Infinity;
   let toolCalls = 0;
   const thinkingLevel = config.thinkingLevel && config.thinkingLevel !== 'auto' ? config.thinkingLevel : 'off';
@@ -83,9 +82,17 @@ async function main() {
   let finished = false;
   let compacting = false;
   let compactions = manager.getBranch().filter(e => e.type === 'compaction').length;
-  const reserveTokens = Math.max(model.maxTokens, Math.min(8192, Math.max(2048, Math.floor(contextWindow / 4))));
-  if (reserveTokens > contextWindow - 1024) throw new Error("Output budget must leave at least 1024 tokens for input");
-  const settings = { enabled: true, reserveTokens, keepRecentTokens: Math.min(12000, Math.floor((contextWindow - reserveTokens) / 2)) };
+  const outputReserve = Math.max(model.maxTokens, Math.min(8192, Math.max(2048, Math.floor(contextWindow / 4))));
+  if (outputReserve > contextWindow - 1024) throw new Error("Output budget must leave at least 1024 tokens for input");
+  const inputBudget = contextWindow - outputReserve;
+  const settings = { enabled: true, reserveTokens: Math.min(8192, Math.max(256, Math.floor(inputBudget / 4))),
+    keepRecentTokens: Math.min(12000, Math.floor(inputBudget / 2)) };
+  function contextTokens() {
+    const branch = manager.getBranch();
+    // Retained assistant usage predates the checkpoint; use the upstream projection
+    // estimator so it cannot immediately retrigger compression with stale usage.
+    return estimateProjectedContextTokens(buildSessionProjection(branch), branch).tokens;
+  }
 
   // Restore old Aster text transcripts once. New sessions persist full tool exchanges.
   if (!manager.buildSessionContext().messages.some(m => m.role === 'user')) {
@@ -131,7 +138,7 @@ async function main() {
       try {
         if (options?.signal?.aborted) throw new Error('Agent cancelled');
         const result = await rpc('model', { messages: toOpenAI(context), step: compacting ? steps : ++steps,
-          purpose: compacting ? 'compaction' : 'task', reasoning: options?.reasoning, tools: compacting ? [] : getCurrentTools(context.messages).map(t => t.name) });
+          purpose: compacting ? 'compaction' : 'task', maxTokens: options?.maxTokens, reasoning: options?.reasoning, tools: compacting ? [] : getCurrentTools(context.messages).map(t => t.name) });
         if (result.content) message.content.push({ type: 'text', text: result.content });
         for (const call of result.tool_calls || []) {
           message.content.push({ type: 'toolCall', id: call.id, name: call.function.name, arguments: JSON.parse(call.function.arguments) });
@@ -152,21 +159,22 @@ async function main() {
   }
 
   async function compactContext(force = false, signal) {
-    const messages = convertToLlm(manager.buildSessionContext().messages);
-    const tokens = estimateContextTokens(messages).tokens;
+    const tokens = contextTokens();
     output({ type: 'event', kind: 'context', tokens, contextWindow, compactions, source: 'hybrid' });
-    if (!force && tokens < contextWindow - settings.reserveTokens) return false;
+    if (!force && tokens < contextWindow - outputReserve) return false;
     const preparation = prepareCompaction(manager.getBranch(), settings);
     if (!preparation) return false;
     output({ type: 'event', kind: 'status', text: '正在压缩上下文', step: steps });
     compacting = true;
     try {
-      const result = await compact(preparation, model, undefined, undefined,
+      // Reply length is a user preference; summaries need an independent checkpoint budget.
+      const compactionModel = { ...model, maxTokens: Math.max(model.maxTokens, Math.floor(0.8 * settings.reserveTokens)) };
+      const result = await compact(preparation, compactionModel, undefined, undefined,
         'Preserve user constraints, decisions, exact paths, outstanding tasks and command results. Distinguish proposed edits from applied edits. Answer in the user language.',
         signal, 'off', streamFn, undefined, { maxRetries: 1 });
       manager.appendCompaction(result.summary, result.firstKeptEntryId, result.tokensBefore, result.details, false, result.usage);
       compactions++;
-      output({ type: 'event', kind: 'context', tokens: estimateContextTokens(convertToLlm(manager.buildSessionContext().messages)).tokens, contextWindow, compactions, source: 'hybrid' });
+      output({ type: 'event', kind: 'context', tokens: contextTokens(), contextWindow, compactions, source: 'hybrid' });
       return true;
     } finally { compacting = false; }
   }
@@ -188,9 +196,9 @@ async function main() {
       if (message.stopReason === 'error' || message.stopReason === 'aborted') return;
       const calls = message.content.some(c => c.type === 'toolCall');
       if (!calls) { summary = asText(message.content); return { action: 'end' }; }
-      if (toolCalls >= maxToolCalls || steps >= maxSteps) {
+      if (toolCalls >= maxToolCalls) {
         status = 'LimitsExceeded';
-        summary = freeMode ? '已达到每轮任务 64 次工具调用或模型轮次上限，现有修改可以预览；发送消息可继续。' : '已达到步骤上限，现有修改可以预览；发送消息可继续。';
+        summary = '免费任务已达到每轮 64 次工具调用上限，现有修改可以预览；发送消息可继续。';
         return { action: 'end' };
       }
       return { action: 'continue' };
@@ -208,7 +216,7 @@ async function main() {
     const last = agent.state.messages.filter(m => m.role === 'assistant').at(-1);
     if (last?.stopReason === 'error') throw new Error(last.errorMessage || 'Model request failed');
   }
-  output({ type: 'event', kind: 'context', tokens: estimateContextTokens(convertToLlm(manager.buildSessionContext().messages)).tokens, contextWindow, compactions, source: 'hybrid' });
+  output({ type: 'event', kind: 'context', tokens: contextTokens(), contextWindow, compactions, source: 'hybrid' });
   output({ type: 'result', engine: ENGINE, status, summary, steps, toolCalls });
 }
 main().catch(error => {

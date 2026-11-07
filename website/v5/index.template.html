@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8f6">
   <title>Aster — 把开发，装进口袋。</title>
-  <meta name="description" content="代码编辑、多模型 Agent、交互终端。Aster，你的 Android 随身开发工作台。">
+  <meta name="description" content="在 Android 上编辑项目，与 Pi、Codex、Gemini 协作，查看子代理进度并使用交互终端。">
   <meta property="og:title" content="Aster — 把开发，装进口袋。">
-  <meta property="og:description" content="代码、Agent、终端。想到了，就开始。">
+  <meta property="og:description" content="编辑项目、协作写代码、汇总结果并验证，都在 Android 工作台。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://asteride.cn/">
   <link rel="canonical" href="https://asteride.cn/">
@@ -28,12 +28,12 @@
         <div class="intro-copy">
           <span class="eyebrow"><span class="live-dot" aria-hidden="true"></span> MADE FOR ANDROID <span class="eyebrow-rule"></span> v{{version}}</span>
           <h1 id="title">把开发，<br><span class="accent">装进口袋<span class="title-dot">。</span></span></h1>
-          <p class="description">代码、Agent、终端，都在手边。<br>想到了，就开始。</p>
+          <p class="description">编辑代码，与 Agent 协作，直接运行项目。<br>在 Android 上，接着把事情做完。</p>
           <div class="actions"><a class="primary" href="{{apk_url}}">下载 Android APK <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></a><span class="requirements">Android 7.0+<br>ARM64 · {{apk_size}}</span></div>
           <div class="feature-picker" role="tablist" aria-label="探索工作台">
-            <button id="tab-agent" role="tab" type="button" aria-selected="true" aria-controls="panel-agent" tabindex="0" data-tab="agent"><span class="tab-icon" aria-hidden="true">✳</span><span><strong>多模型 Agent</strong><small>把想法交给行动</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
-            <button id="tab-code" role="tab" type="button" aria-selected="false" aria-controls="panel-code" tabindex="-1" data-tab="code"><span class="tab-icon code-icon" aria-hidden="true">&lt;/&gt;</span><span><strong>代码编辑</strong><small>在手边继续创造</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
-            <button id="tab-terminal" role="tab" type="button" aria-selected="false" aria-controls="panel-terminal" tabindex="-1" data-tab="terminal"><span class="tab-icon terminal-icon" aria-hidden="true">&gt;_</span><span><strong>交互终端</strong><small>运行，不止于对话</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
+            <button id="tab-agent" role="tab" type="button" aria-selected="true" aria-controls="panel-agent" tabindex="0" data-tab="agent"><span class="tab-icon" aria-hidden="true">✳</span><span><strong>多模型 Agent</strong><small>独立会话，协作推进</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
+            <button id="tab-code" role="tab" type="button" aria-selected="false" aria-controls="panel-code" tabindex="-1" data-tab="code"><span class="tab-icon code-icon" aria-hidden="true">&lt;/&gt;</span><span><strong>代码编辑</strong><small>浏览项目，专注编辑</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
+            <button id="tab-terminal" role="tab" type="button" aria-selected="false" aria-controls="panel-terminal" tabindex="-1" data-tab="terminal"><span class="tab-icon terminal-icon" aria-hidden="true">&gt;_</span><span><strong>交互终端</strong><small>本地运行，远程协作</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
           </div>
         </div>
         <div class="showcase" aria-label="工作台交互示意">
@@ -44,21 +44,21 @@
             <div class="workspace-body">
               <div id="panel-agent" class="workspace-panel" role="tabpanel" aria-labelledby="tab-agent">
                 <div class="panel-heading"><span class="mini-icon" aria-hidden="true">✳</span><span>从一个想法开始<small>AGENT WORKSPACE</small></span><span class="pill">Agent</span></div>
-                <div class="prompt">帮我把灵感，变成一个小项目。<span class="prompt-avatar" aria-hidden="true">↗</span></div>
-                <div class="agent-message"><img src="/assets/mark.svg" width="23" height="23" alt=""><div><strong>好，一起动手。</strong><p>读懂项目，拆解任务，接着实现。</p></div></div>
-                <div class="task-list"><div><span class="check" aria-hidden="true">✓</span> 理解项目结构<span class="task-meta">context</span></div><div><span class="check" aria-hidden="true">✓</span> 编写代码与修改<span class="task-meta">tools</span></div><div><span class="working" aria-hidden="true"></span> 运行与验证<span class="task-meta">terminal</span></div></div>
-                <div class="model-row"><span>你的模型，你的选择。</span><span class="model-tags">Pi <i></i> Codex <i></i> Gemini</span></div>
+                <div class="prompt">把这个任务拆开，并行检查代码与测试。<span class="prompt-avatar" aria-hidden="true">↗</span></div>
+                <div class="agent-message"><img src="/assets/mark.svg" width="23" height="23" alt=""><div><strong>主对话，掌握整体进度。</strong><p>子代理各自处理任务，随时切换查看对话与工具结果。</p></div></div>
+                <div class="task-list"><div><span class="check" aria-hidden="true">✓</span> 检查项目与实现<span class="task-meta">context</span></div><div><span class="check" aria-hidden="true">✓</span> 查看子代理进度<span class="task-meta">tools</span></div><div><span class="working" aria-hidden="true"></span> 汇总结果并验证<span class="task-meta">terminal</span></div></div>
+                <div class="model-row"><span>账户模型或自定义供应商。</span><span class="model-tags">Pi <i></i> Codex <i></i> Gemini</span></div>
               </div>
               <div id="panel-code" class="workspace-panel" role="tabpanel" aria-labelledby="tab-code" hidden>
                 <div class="editor-tabs"><span>✳</span> hello.kt <span class="editor-tab-meta">Kotlin</span></div>
                 <div class="code-sample" aria-label="Kotlin 代码示意"><div><span class="line-no">1</span><code><b>fun</b> main() {</code></div><div><span class="line-no">2</span><code>  <b>val</b> idea = <em>"Hello, Aster"</em></code></div><div><span class="line-no">3</span><code>  println(idea)</code></div><div><span class="line-no">4</span><code>}</code></div><div><span class="line-no">5</span><code></code></div><div><span class="line-no">6</span><code class="code-comment">// 下一行，写下你的想法。</code></div></div>
                 <div class="editor-status"><span><span class="status-small" aria-hidden="true"></span> 留在项目里，专注下一行。</span><span>UTF-8</span></div>
-                <div class="editor-caption"><strong>小屏幕，也有完整思路。</strong><p>浏览项目、编辑代码，让工作随时接得上。</p></div>
+                <div class="editor-caption"><strong>小屏幕，也有完整思路。</strong><p>浏览项目、编辑代码、按需连接语言服务，继续手边的工作。</p></div>
               </div>
               <div id="panel-terminal" class="workspace-panel" role="tabpanel" aria-labelledby="tab-terminal" hidden>
                 <div class="terminal-title"><span>&gt;_ terminal</span><span class="terminal-badge">交互式会话</span></div>
-                <div class="terminal-output"><p class="terminal-muted">~/my-project</p><p><span class="terminal-green">$</span> python hello.py</p><p class="terminal-green">Hello, Aster.</p><p class="terminal-muted terminal-gap"># 想试试，就运行。</p><p><span class="terminal-green">$</span> <span class="cursor" aria-hidden="true"></span></p></div>
-                <div class="terminal-keys" aria-label="支持交互输入"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Tab</kbd><kbd>Esc</kbd><span>输入 · 运行 · 接着做</span></div>
+                <div class="terminal-output"><p class="terminal-muted">~/my-project</p><p><span class="terminal-green">$</span> python hello.py</p><p class="terminal-green">Hello, Aster.</p><p class="terminal-muted terminal-gap"># 本地环境与远程终端 MCP</p><p><span class="terminal-green">$</span> <span class="cursor" aria-hidden="true"></span></p></div>
+                <div class="terminal-keys" aria-label="支持交互输入"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Tab</kbd><kbd>Esc</kbd><span>交互输入 · 查看输出</span></div>
               </div>
             </div>
             <div class="window-footer"><span><span class="status-small" aria-hidden="true"></span> 代码 · Agent · 终端</span><span>工作台示意</span></div>

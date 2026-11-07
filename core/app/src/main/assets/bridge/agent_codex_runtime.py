@@ -48,7 +48,12 @@ atexit.register(close_all)
 def native_server(session, home, command, environment, transport):
     key = str(home.resolve())
     config = home / 'config.toml'
-    fingerprint = hashlib.sha256(json.dumps([command, environment, str(session.stage)], sort_keys=True).encode() + (config.read_bytes() if config.is_file() else b'')).hexdigest()
+    # Loaded Codex threads ignore developerInstructions overrides on resume.
+    # Restart the server on instruction/configuration changes so resume is cold.
+    request = getattr(session, 'request', None) or {}
+    instructions = {name: request.get(name) for name in ('configuration', 'systemPrompt', 'isSubagent', 'mode')}
+    project_instructions = session.project_instructions() if hasattr(session, 'project_instructions') else ''
+    fingerprint = hashlib.sha256(json.dumps([command, environment, str(session.stage), instructions, project_instructions], sort_keys=True).encode() + (config.read_bytes() if config.is_file() else b'')).hexdigest()
     with _LOCK:
         now = time.monotonic()
         for old_key, entry in list(_SERVERS.items()):

@@ -43,7 +43,7 @@ link=root/('next-v5-'+stamp);link.symlink_to(release)
 try:
     os.replace(link,root/'current')
     status,body=get('/?deployment='+stamp)
-    assert status==200 and '把开发，'.encode() in body and b'gh-proxy.org/https://github.com/' in body
+    assert status==200 and '把开发，'.encode() in body and b'https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.5/' in body
     assert get('/assets/site.js')[0]==200 and get('/privacy/')[0]==200
     after=protected();assert after==before,(before,after)
     assert hashlib.sha256(config.read_bytes()).hexdigest()==config_hash

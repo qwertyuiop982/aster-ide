@@ -27,18 +27,12 @@ import dev.aster.ide.data.IdeSettings
     val motion = LocalMotion.current
     val lines by vm.output.lines.collectAsStateWithLifecycle()
     val failure = vm.startupError ?: runtime.error
-    if (failure == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Aster", style = MaterialTheme.typography.headlineMedium)
-        }
-        return
-    }
     val running = vm.connecting || vm.preparingEditor || !vm.workspaceLoaded
     val status = when {
         !vm.workspaceLoaded -> "读取工作区…"
         vm.preparingEditor -> "准备编辑器…"
         failure != null -> "环境准备未完成"
-        else -> runtime.message
+        else -> "准备工作台…"
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(Modifier.widthIn(max = 520.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -46,7 +40,7 @@ import dev.aster.ide.data.IdeSettings
             Spacer(Modifier.height(16.dp))
             Text("Aster", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(8.dp))
-            Text("先准备运行环境，再进入工作台", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("正在打开本地工作区", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(28.dp))
             if (running) LinearProgressIndicator(Modifier.fillMaxWidth())
             Spacer(Modifier.height(16.dp))
@@ -65,7 +59,7 @@ import dev.aster.ide.data.IdeSettings
             Spacer(Modifier.height(18.dp))
             Text(if (settings.termuxMirror == "ustc") "软件源：中科大 USTC" else "软件源：当前配置", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
-            Text("首次启动需要安装 Python 桥接。完成后会复用已安装的环境。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("本地编辑先就绪，终端与 Agent 环境在后台准备。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (failure != null) {
                 Spacer(Modifier.height(16.dp))
                 Text(failure.take(500), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)

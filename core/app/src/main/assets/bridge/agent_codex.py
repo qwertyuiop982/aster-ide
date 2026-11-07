@@ -134,6 +134,7 @@ class CodexTransport:
         self.context_source = "unknown"
         self.context_window = int((session.request.get('configuration') or {}).get('contextWindow', 32768))
         self.child_threads = set()
+        self.pending_child_events = {}
         self.child_turns = {}
         self.child_completed = set()
         self.send_lock = threading.RLock()
@@ -466,6 +467,21 @@ class CodexTransport:
         else:
             self.send({'id': value['id'], 'error': {'code': -32601, 'message': 'Aster does not support this request: ' + method}})
 
+    def register_child(self, identifier, *, label='', prompt='', model=''):
+        identifier = str(identifier or '')
+        if not identifier or identifier == self.thread_id:
+            return
+        fresh = identifier not in self.child_threads
+        self.child_threads.add(identifier)
+        if fresh:
+            self.session.emit('subagent_event', subagentId=identifier,
+                              label=label or 'Codex · ' + identifier[-8:],
+                              event={'kind': 'started', 'prompt': prompt, 'model': model})
+        for method, params in self.pending_child_events.pop(identifier, []):
+            self.notification(method, params)
+
+    def has_active_children(self):
+        return any(identifier not in self.child_completed for identifier in self.child_turns)
     def notification(self, method, params):
         if method == 'serverRequest/resolved':
             pending = self.server_requests.get(params.get('requestId'))
@@ -481,16 +497,55 @@ class CodexTransport:
             if parent and (parent == self.thread_id or parent in self.child_threads):
                 identifier = thread.get('id')
                 if identifier:
-                    self.child_threads.add(identifier)
-                    self.session.emit('subagent_event', subagentId=str(identifier), label=str(thread.get('agentNickname') or ('Codex · ' + str(identifier)[-8:])), event={'kind': 'started', 'model': str(thread.get('model') or '')})
+                    self.register_child(identifier, label=str(thread.get('agentNickname') or ''), model=str(thread.get('model') or ''))
             return
+        activity = params.get('item') or {}
+        is_subagent_activity = method in ('item/started', 'item/completed') and activity.get('type') == 'subAgentActivity'
         thread_id = params.get('threadId', self.thread_id)
         child = thread_id in self.child_threads
+        if is_subagent_activity:
+            target = str(activity.get('agentThreadId') or '')
+            action = activity.get('kind')
+            if not target:
+                return
+            self.register_child(target, label=str(activity.get('agentPath') or ''), model=str(activity.get('model') or ''))
+            label = str(activity.get('agentPath') or 'Codex · ' + target[-8:])
+            call_id = str(activity.get('id') or target)
+            if action == 'started':
+                event = {'callId': call_id, 'name': 'spawn_agent', 'status': 'running',
+                         'text': json.dumps(self.session.redact_event(activity), ensure_ascii=False)}
+                if child:
+                    event['kind'] = 'tool'
+                    self.session.emit('subagent_event', subagentId=str(thread_id), label='Codex · ' + str(thread_id)[-8:], event=event)
+                else:
+                    self.session.emit('tool', **event)
+            elif action in ('completed', 'interrupted'):
+                self.child_completed.add(target)
+                result = {'callId': call_id, 'name': 'spawn_agent',
+                          'status': 'completed' if action == 'completed' else 'failed',
+                          'text': json.dumps(self.session.redact_event(activity), ensure_ascii=False)}
+                if child:
+                    result['kind'] = 'tool_result'
+                    self.session.emit('subagent_event', subagentId=str(thread_id), label='Codex · ' + str(thread_id)[-8:], event=result)
+                else:
+                    self.session.emit('tool_result', **result)
+                self.session.emit('subagent_event', subagentId=target, label=label,
+                                  event={'kind': 'result', 'status': 'completed' if action == 'completed' else 'interrupted'})
+            return
         if self.thread_id and thread_id != self.thread_id and not child:
+            if thread_id and method.startswith(('item/', 'turn/')):
+                if thread_id in self.pending_child_events or len(self.pending_child_events) < 128:
+                    pending = self.pending_child_events.setdefault(thread_id, [])
+                    if len(pending) < 256:
+                        pending.append((method, params))
             return
         incoming_turn = params.get('turnId') or (params.get('turn') or {}).get('id')
         expected = self.child_turns.get(thread_id) if child else self.turn_id
         if expected and incoming_turn and incoming_turn != expected and method != 'turn/started':
+            return
+        if child and method in ('thread/closed', 'thread/archived'):
+            self.child_completed.add(thread_id)
+            self.session.emit('subagent_event', subagentId=str(thread_id), label='Codex · ' + str(thread_id)[-8:], event={'kind': 'result', 'status': 'interrupted'})
             return
         if child and method == 'turn/started':
             self.child_turns[thread_id] = incoming_turn
@@ -518,8 +573,14 @@ class CodexTransport:
             elif kind == 'userMessage' and method == 'item/completed':
                 text = '\n'.join(str(part.get('text', '')) for part in item.get('content', []) if isinstance(part, dict))
                 child_event = {'kind': 'message', 'messageId': str(item.get('id', '')), 'role': 'user', 'text': text}
+            elif method == 'item/commandExecution/outputDelta' and params.get('itemId'):
+                child_event = {'kind': 'tool_delta', 'callId': str(params.get('itemId')), 'name': 'commandExecution', 'text': str(params.get('delta', ''))}
             elif kind in NATIVE_ITEM_TYPES:
-                child_event = {'kind': 'tool_result' if method == 'item/completed' else 'tool', 'callId': str(item.get('id', '')), 'name': native_item_name(item), 'status': 'failed' if item.get('status') in ('failed', 'declined') else 'completed', 'text': json.dumps(self.session.redact_event(item), ensure_ascii=False)[:16000]}
+                if kind == 'collabAgentToolCall':
+                    for receiver in item.get('receiverThreadIds', []):
+                        self.register_child(receiver, prompt=str(item.get('prompt', '')))
+
+                child_event = {'kind': 'tool_result' if method == 'item/completed' else 'tool', 'callId': str(item.get('id', '')), 'name': native_item_name(item), 'status': 'running' if method == 'item/started' else 'failed' if item.get('status') in ('failed', 'declined') else 'completed', 'text': json.dumps(self.session.redact_event(item), ensure_ascii=False)[:16000]}
             if child_event:
                 self.session.emit('subagent_event', subagentId=str(thread_id), label='Codex · ' + str(thread_id)[-8:], event=child_event)
             return
@@ -532,7 +593,7 @@ class CodexTransport:
                 self.native_items[identifier] = item
                 self.session.consume_tool_budget()
                 self.session.steps += 1
-                self.session.emit('tool', name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
+                self.session.emit('tool', callId=identifier, name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
         elif method == 'item/commandExecution/outputDelta':
             identifier = str(params.get('itemId', ''))
             self.native_outputs[identifier] = (self.native_outputs.get(identifier, '') + str(params.get('delta', '')))[-24000:]
@@ -557,20 +618,17 @@ class CodexTransport:
                     self.native_started.add(identifier)
                     self.session.consume_tool_budget()
                     self.session.steps += 1
-                    self.session.emit('tool', name=name, text=json.dumps({'native': True, 'name': name}, ensure_ascii=False))
+                    self.session.emit('tool', callId=identifier, name=name, text=json.dumps({'native': True, 'name': name}, ensure_ascii=False))
                 if kind == 'collabAgentToolCall':
                     for receiver in item.get('receiverThreadIds', []):
                         if receiver:
                             identifier_child = str(receiver)
-                            fresh = identifier_child not in self.child_threads
-                            self.child_threads.add(identifier_child)
-                            if fresh:
-                                self.session.emit('subagent_event', subagentId=identifier_child, label='Codex · ' + identifier_child[-8:], event={'kind': 'started', 'prompt': str(item.get('prompt', ''))})
+                            self.register_child(identifier_child, prompt=str(item.get('prompt', '')))
                 if kind in ('fileChange', 'commandExecution'):
                     self.session.checkpoint_proposal()
                 result = {'ok': item.get('status') not in ('failed', 'declined', 'interrupted'), 'native': True,
                           'item': item, 'output': self.native_outputs.pop(identifier, '')}
-                self.session.emit('tool_result', name=name, text=json.dumps(self.session.redact_event(result), ensure_ascii=False)[:24000])
+                self.session.emit('tool_result', callId=identifier, name=name, text=json.dumps(self.session.redact_event(result), ensure_ascii=False)[:24000])
                 self.native_items.pop(identifier, None)
             elif kind == 'contextCompaction' and not child:
                 identifier = str(item.get('id', ''))
@@ -624,11 +682,14 @@ class CodexTransport:
 def thinking_settings(configuration):
     from agent_thinking import resolve_thinking
     thinking = resolve_thinking('codex', configuration)
+    # Ultra is a native coordination mode, not merely the provider's max effort.
+    if configuration.get('thinkingLevel') == 'ultra' and configuration.get('thinkingMode', 'legacy') in ('legacy', 'strength'):
+        return {'model_reasoning_effort': 'ultra'}
     return {'model_reasoning_effort': thinking['effort']} if 'effort' in thinking else {}
 
 
 def ultra_collaboration_settings(configuration):
-    if configuration.get('thinkingLevel') != 'ultra' or configuration.get('thinkingMode', 'legacy') not in ('legacy', 'strength'):
+    if configuration.get('collaborationMode', 'extreme') != 'extreme' or configuration.get('thinkingLevel') != 'ultra' or configuration.get('thinkingMode', 'legacy') not in ('legacy', 'strength'):
         return {}
     # Native TOML exposes positive integer capacities, not a nullable/unlimited value.
     # Use its largest signed wire integer so no practical application quota is imposed.
@@ -708,6 +769,19 @@ def run_codex(session, configuration, *, prepare_only=False):
         'features.hooks': False,
         'shell_environment_policy.inherit': 'all', 'shell_environment_policy.set': shell_environment,
     }
+    from agent_task_mode import collaboration_prompt
+    from types import SimpleNamespace
+    root_contract = collaboration_prompt(session)
+    child_contract = collaboration_prompt(SimpleNamespace(request={**session.request, 'isSubagent': True}))
+    if configuration.get('collaborationMode', 'assist') in ('team', 'extreme'):
+        # Override native explicit-request-only hints at their real role-specific source.
+        settings['features.multi_agent_v2.root_agent_usage_hint_text'] = root_contract
+        settings['features.multi_agent_v2.subagent_usage_hint_text'] = child_contract
+        settings['features.multi_agent_v2.subagent_developer_instructions'] = child_contract + '\nYou are an execution child, not the root. Work in the inherited cwd using native tools, preserve user permissions, and return actual evidence.'
+        settings['features.multi_agent_v2.multi_agent_mode_hint_text'] = (
+            'Delegation is mandatory for this task. The root orchestrates and reports only; '
+            'all repository inspection, shell execution, edits and tests belong to child agents. '
+            'Use spawn_agent and wait_agent; a user does not need to explicitly ask again.')
     command = [str(binary), '--listen', 'stdio://']
     for name, value in settings.items():
         if isinstance(value, dict):
@@ -730,16 +804,18 @@ def run_codex(session, configuration, *, prepare_only=False):
             developer += chr(10) + 'User-enabled MCP servers are loaded by the native Codex MCP registry when configured in the project; use native mcp_resource tools and native approvals.'
             if session.request.get('isSubagent'):
                 developer += chr(10) + 'You are a native Codex collaboration child with an independent context. Complete the assigned prompt using the shared project and inherited permissions.'
-            else:
-                # Native collaboration is registered by the pinned Codex core.
-                developer += chr(10) + 'Use native multi-agent collaboration when independent investigation helps. Continue through implementation and validation; do not stop after a plan or a single tool result.'
+            from agent_task_mode import collaboration_prompt
+            collaboration = collaboration_prompt(session)
+            developer += chr(10) + 'Working directory (absolute path): ' + str(session.stage)
             developer += chr(10) + 'The pinned Codex release removed the legacy js_repl name; use its native code mode exec/wait surface when JavaScript evaluation is needed. list_dir is provided through native unified_exec directory commands, and shell is exposed as native exec_command/unified_exec.'
             developer += chr(10) + 'Keep working until the task is complete or a concrete blocker is returned. Do not end the turn merely because one command or patch completed.'
             from agent_permissions import permission_prompt
             developer = permission_prompt(session, developer)
             developer += chr(10) + session.task_mode_prompt()
+            if collaboration:
+                developer += chr(10) + collaboration
             if ultra_collaboration_settings(configuration):
-                developer += chr(10) + 'Ultra mode is enabled: use Max reasoning. There is no application quota on subagent count or concurrency; derive the number of children from useful independent tasks and available resources.'
+                developer += chr(10) + 'Ultra mode is enabled: preserve native Ultra coordination (the provider resolves its inference effort to Max). There is no application quota on subagent count or concurrency; derive the number of children from useful independent tasks and available resources.'
             options = {'model': configuration['model'], 'modelProvider': 'aster', 'cwd': str(session.stage),
                        'approvalPolicy': 'never' if session.permission_mode == 'native' and session.native_commands_unchecked else 'untrusted', 'sandbox': 'danger-full-access' if session.permission_mode == 'native' else ('workspace-write' if session.mode == 'execute' else 'read-only'),
                        'developerInstructions': developer,
@@ -774,7 +850,7 @@ def run_codex(session, configuration, *, prepare_only=False):
                 response = wire.request('turn/start', {'threadId': wire.thread_id, 'input': [{'type': 'text', 'text': task}], 'environments': options['environments'],
                     **({'effort': effort} if effort is not None else {})})
                 wire.turn_id = response['turn']['id']
-                while not wire.native_completed or wire.has_interactions():
+                while not wire.native_completed or wire.has_interactions() or wire.has_active_children():
                     wire.poll()
                     wire.drain_interactions()
             save_pointer()

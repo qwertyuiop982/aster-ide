@@ -26,7 +26,7 @@ internal class AgentSubagents(
     private val clientTool: suspend (String, JSONObject) -> JSONObject
 ) {
     private val models = choices.associateBy { it.id }
-    private val unlimited = parentConfiguration.optBoolean("subagentsUnlimited") && parentConfiguration.optString("thinkingLevel") == "ultra"
+    private val unlimited = parentConfiguration.optString("collaborationMode") == "extreme" && parentConfiguration.optBoolean("subagentsUnlimited") && parentConfiguration.optString("thinkingLevel") == "ultra"
     private val parallelism = if (unlimited) null else Semaphore(2)
     private val connections = ConcurrentHashMap<String, BridgeConnection>()
     @Volatile private var cancelled = false
@@ -80,11 +80,12 @@ internal class AgentSubagents(
         AgentThinkingPolicy.validate(choice.engine, profile)
         val config = JSONObject(choice.configuration.toString())
             .put("thinkingLevel", profile.thinkingLevel).put("thinkingMode", profile.thinkingMode).put("thinkingBudget", profile.thinkingBudget)
-            .put("maxSteps", integer(value, "max_steps", 16, 1..64)).put("reviewEnabled", false)
+            .put("reviewEnabled", false)
             .put("permissionMode", parentConfiguration.optString("permissionMode", "review"))
             .put("nativeCommandsUnchecked", parentConfiguration.optBoolean("nativeCommandsUnchecked"))
             .put("longTaskMode", parentConfiguration.optBoolean("longTaskMode", false))
             .put("subagentsUnlimited", unlimited)
+            .put("collaborationMode", parentConfiguration.optString("collaborationMode", "assist"))
             .put("mcpServers", parentConfiguration.optString("mcpServers"))
             .put("enabledSkills", parentConfiguration.optJSONArray("enabledSkills") ?: JSONArray())
         return Task(choice, prompt, system, config, integer(value, "timeout", 300, 15..900))
@@ -118,16 +119,28 @@ internal class AgentSubagents(
                             val value = connection.receive()
                             if (value.optString("type") == "error") error(value.optString("error"))
                             when (value.optString("kind")) {
+                                "subagent_event" -> {
+                                    val nested = JSONObject(value.getJSONObject("event").toString())
+                                        .put("subagentId", value.optString("subagentId"))
+                                        .put("parentSubagentId", identifier)
+                                        .put("engineId", task.choice.engine.id)
+                                    event(value.optString("label"), nested)
+                                }
                                 "client_tool" -> {
                                     val requestId = value.getString("requestId")
+                                    val name = value.optString("name")
+                                    emit(JSONObject().put("kind", "tool").put("callId", requestId).put("name", name)
+                                        .put("status", "running").put("text", value.optJSONObject("arguments")?.toString() ?: "{}"))
                                     val task = launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
                                         try {
                                             val result = try {
-                                                val name = value.getString("name")
-                                                check(name != "subagent" && (name == "user_input" || parentConfiguration.optString("permissionMode") == "native" || mode == AgentMode.EXECUTE)) { "子代理不能创建子代理或越过主代理模式" }
-                                                clientTool(name, value.getJSONObject("arguments").also { if (name == "user_input") it.put("_requestId", requestId) })
+                                                check((name != "subagent" || unlimited) && (name == "subagent" || name == "user_input" || parentConfiguration.optString("permissionMode") == "native" || mode == AgentMode.EXECUTE)) { "子代理不能创建子代理或越过主代理模式" }
+                                                if (name == "subagent") execute(value.getJSONObject("arguments")) else clientTool(name, value.getJSONObject("arguments").also { if (name == "user_input") it.put("_requestId", requestId) })
                                             } catch (e: CancellationException) { throw e }
                                             catch (e: Exception) { JSONObject().put("ok", false).put("error", e.message) }
+                                            emit(JSONObject().put("kind", "tool_result").put("callId", requestId).put("name", name)
+                                                .put("status", if (result.optBoolean("ok", true)) "succeeded" else "failed")
+                                                .put("text", result.toString()))
                                             val reply = bridge.rpc("agent_client_result", workspace, JSONObject().put("job", identifier).put("requestId", requestId).put("result", result))
                                             check(reply.optBoolean("accepted") || !clientTasks.containsKey(requestId)) { "子代理交互结果未被接受" }
                                         } finally { clientTasks.remove(requestId) }
@@ -148,7 +161,7 @@ internal class AgentSubagents(
                                 }
                                 "approval" -> error("子代理审批未经过主任务路由")
                                 "error" -> { failure = value.optString("text"); emit(value) }
-                                "status", "tool", "tool_result", "command", "message", "message_start", "message_delta", "message_end" -> emit(value)
+                                "status", "tool", "tool_result", "tool_delta", "command", "message", "message_start", "message_delta", "message_end" -> emit(value)
                             }
                         }
                         @Suppress("UNREACHABLE_CODE") JSONObject()

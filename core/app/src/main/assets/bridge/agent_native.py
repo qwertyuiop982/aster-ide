@@ -78,9 +78,6 @@ def before_native_tool(session, payload):
     if not isinstance(args, dict) or not native_available(session, name, server):
         raise ValueError('Native tool is not available in this mode: ' + str(name))
     session.check_cancelled()
-    limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
-    if session.steps >= limit:
-        raise ValueError('Native tool call limit reached')
     for key, value in args.items():
         if key in PATH_FIELDS and value:
             staged_path(session, value, folder=key in {'dir_path', 'directory', 'workdir', 'cwd'} or name in {'glob', 'grep_search', 'list_directory'})

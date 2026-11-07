@@ -1,13 +1,13 @@
-# Aster 1.0.4
+# Aster 1.0.5
 
-Aster is an Android ARM64 development workbench with a Compose interface, code editor, embedded Termux environment, language services, native Android builds and Pi/Codex/Gemini agents. The first launch offers VS Code and ACS interface styles. Version 1.0.4 adds compact Agent controls, native transport improvements and a dedicated model configuration page.
+Aster is an Android ARM64 development workbench with a Compose interface, code editor, embedded Termux environment, language services, native Android builds and Pi/Codex/Gemini agents. The first launch offers VS Code and ACS interface styles.
 
 - Android 7.0+ (API 24), arm64-v8a; target SDK 28 allows app-private compiler executables.
 - Qingzhou's BrowserEngine and WebViewEngine provide the embedded browser tools.
 - Device tools call the separately installed, running **Shizuku app** through `dev.rikka.shizuku:api` and `provider` 13.1.5. Install/start Shizuku and grant Aster permission. Shizuku's server and API source trees are not included in this repository.
-- Model providers, API keys and any paid model capacity are supplied by the user.
+- Use Aster account models or configure your own provider and API key.
 
-Get the APK, compact corresponding source, checksums and validation record from [GitHub Releases](https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.0.4). Download links on the static website use `https://gh-proxy.org/https://github.com/...`.
+Get the APK, compact corresponding source, checksums and validation record from [GitHub Releases](https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.0.5). Website download buttons use GitHub Release assets through the existing gh-proxy.org proxy; direct GitHub asset URLs remain available.
 
 ## Build
 
@@ -27,4 +27,4 @@ The release build enables R8/resource shrinking and produces an unsigned APK. Si
 
 [PUBLIC-RELEASE.md](PUBLIC-RELEASE.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [client/SOURCES.json](client/SOURCES.json) describe source provenance and component licenses. Third-party licenses remain in their respective directories and APK notice assets. `SOURCE-CLEANUP.json` records the compact-source scope. Restricted OpenClaude SDK material is excluded.
 
-[website/](website/) contains the static product site. It can be published on GitHub Pages; APKs and source archives are GitHub Release assets. The compact production landing page lives in `website/v5/`; it contains no account or credit UI. Account backend deployment is separate.
+[website/](website/) contains the static product site. It can be published on GitHub Pages; APKs and source archives are GitHub Release assets. No server deployment is required.

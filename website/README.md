@@ -1,3 +1,9 @@
+# Website entry points
+
+The production compact homepage is maintained in [v5/](v5/README.md). Build it with `python3 website/v5/build.py --release-dir /path/to/release-v1.0.5 --output /path/to/site`; its version, APK hash and download URL come from verified delivery metadata. The production download proxy remains gh-proxy.org, targeting the v1.0.5 GitHub Release.
+
+The following instructions describe the retained legacy multi-page generator and its historical 1.0.1 delivery, not the production deployment.
+
 # Aster static website
 
 The homepage, guide and component/license page are generated as static files. Interactive workflow previews are local illustrations. The website does not contact model providers or need a server. Published APK/source downloads use GitHub Release assets via `https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.1/`.

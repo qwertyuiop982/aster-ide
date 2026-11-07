@@ -1,11 +1,15 @@
 """Discard only the Android linker configuration warning known to be harmless."""
 
+import re
+
 _WARNINGS = tuple(
     ('WARNING: linker: Warning: failed to find generated linker configuration from '
      + quote + '/linkerconfig/ld.config.txt' + quote).encode()
     for quote in ('"', "'")
 )
 
+
+_WARNING_ENDINGS = tuple(value + ending for value in _WARNINGS for ending in (bytes((10,)), bytes((13,10))))
 
 class LinkerWarningFilter:
     """Filter fragmented byte streams without buffering ordinary prompts or output."""
@@ -19,7 +23,7 @@ class LinkerWarningFilter:
         output = []
         while data:
             if self.line_start:
-                candidates = [value + ending for value in _WARNINGS for ending in (b'\n', b'\r\n')]
+                candidates = _WARNING_ENDINGS
                 matched = next((value for value in candidates if data.startswith(value)), None)
                 if matched is not None:
                     data = data[len(matched):]

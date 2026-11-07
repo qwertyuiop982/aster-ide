@@ -1,0 +1,460 @@
+--- a/agent/app/src/main/java/dev/aster/agent/AgentModelSettings.kt
++++ b/agent/app/src/main/java/dev/aster/agent/AgentModelSettings.kt
+@@ -64,7 +64,6 @@
+     var thinkingMode by remember(engine) { mutableStateOf(AgentThinkingPolicy.effectiveMode(engine, profile)) }
+     var thinkingBudget by remember(engine) { mutableStateOf((if (profile.thinkingMode == "legacy") AgentThinkingPolicy.budget(engine, profile, profile.thinkingLevel) ?: profile.thinkingBudget else profile.thinkingBudget).toString()) }
+     var streaming by remember { mutableStateOf(vm.settings.value.agentStreaming) }
+-    var steps by remember { mutableStateOf(vm.settings.value.agentMaxSteps.toString()) }
+     var validationError by remember { mutableStateOf<String?>(null) }
+     val hasKey by vm.agent.secrets.hasKey.collectAsStateWithLifecycle()
+     val outputConfigurable = AgentContextPolicy.outputConfigurable(engine)
+@@ -76,30 +75,15 @@
+             val window = context.trim().toIntOrNull() ?: error("上下文窗口必须是整数 tokens")
+             val output = if (outputConfigurable) tokens.trim().toIntOrNull() ?: error("最大输出必须是整数 tokens") else profile.maxTokens
+             AgentContextPolicy.validate(engine, window, output)
+-            val maxSteps = steps.trim().toIntOrNull() ?: error("任务上限必须是整数")
+-            require(maxSteps in 4..64) { "任务上限须为 4–64" }
+             val nextProfile = profile.copy(subagentModels = subagentModels.trim(), mcpServers = vm.settings.value.agentProfile(engine).mcpServers, mcpDefinitions = vm.settings.value.agentProfile(engine).mcpDefinitions, enabledSkills = enabledSkills.trim(), reviewEnabled = reviewEnabled, reviewModel = reviewModel.trim(), protocol = protocol, endpoint = endpoint.trim(), model = model.trim(), contextWindow = window, maxTokens = output, thinkingLevel = thinking, thinkingMode = if (engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)) thinkingMode else if (thinking in setOf("auto", "off")) thinking else "strength", thinkingBudget = if (thinkingMode == "budget") thinkingBudget.toIntOrNull() ?: error("思考预算必须是整数") else thinkingBudget.toIntOrNull() ?: profile.thinkingBudget)
+             AgentThinkingPolicy.validate(engine, nextProfile)
+             vm.settings.updateAgentProfile(engine) { nextProfile }
+-            vm.settings.update { it.copy(agentStreaming = streaming, agentMaxSteps = maxSteps) }
++            vm.settings.update { it.copy(agentStreaming = streaming) }
+             if (key.isNotBlank()) vm.agent.secrets.save(key.trim(), engine)
+             key = ""; vm.showSettings = false
+         }.onFailure { validationError = it.message ?: "配置无效" }
+     }
+     ModelSettingsPage("${engine.label} · 模型配置", { key = ""; vm.showSettings = false }, save, message = validationError) {
+-        ModelSettingsSection("账号与工具", "管理账号来源、运行权限和环境。") {
+-            dev.aster.ide.account.AccountSourceControls(engine)
+-                dev.aster.ide.agent.AgentPermissionControls(permissionSettings, !vm.locked,
+-                    { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
+-                    { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeWorkspace)
+-                dev.aster.ide.agent.AgentToolConfigurationControls(permissionSettings, permissionSettings.agentProfile(engine), !vm.locked,
+-                    { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
+-                    { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
+-            TextButton(onClick = vm::openEnvironmentSettings) { Text("环境安装设置 · 编译工具 / SDK / NDK") }
+-        }
+-        ModelSettingsSection("界面配置", "布局与配色单独管理。") {
+-            TextButton(onClick = { vm.showAppearance = true }) { Text("打开界面配置") }
+-        }
+         ModelSettingsSection("连接模型", "地址、模型名称和密钥按引擎分别保存。") {
+             Text("真实底层 ${engine.displayName} · ${engine.apiLabel}", style = MaterialTheme.typography.labelLarge)
+             if (engine == AgentEngine.GEMINI) {
+@@ -113,6 +97,7 @@
+             OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API 地址") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+             OutlinedTextField(model, { model = it }, label = { Text("模型名称") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+             OutlinedTextField(key, { key = it }, label = { Text(if (hasKey) "API Key（留空保留）" else "API Key") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
++            if (hasKey) TextButton(onClick = { vm.agent.secrets.save("", engine) }) { Text("清除已保存的 Key") }
+         }
+         ModelSettingsSection("上下文与输出", "根据模型实际能力设置任务预算。") {
+             OutlinedTextField(context, { context = it; validationError = null }, label = { Text("自定义上下文窗口（tokens）") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+@@ -130,19 +115,7 @@
+                 if (engine == AgentEngine.OPENCLAUDE) Text("本地 SDK 使用上游输出选项；模型自身上限仍可能更低。完整任务循环尚待验证。", style = MaterialTheme.typography.bodySmall)
+             } else Text("Codex 最大输出仍由原生引擎/模型决定；未验证的输出上限不会伪装成已生效设置。上下文窗口可以独立修改。", style = MaterialTheme.typography.bodySmall)
+         }
+-        ModelSettingsSection("协作与审阅", "配置子代理候选模型、审阅和项目 Skill。") {
+-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+-                Text("完成修改后自动模型审阅")
+-                Switch(reviewEnabled, { reviewEnabled = it })
+-            }
+-            if (reviewEnabled) {
+-                OutlinedTextField(reviewModel, { reviewModel = it }, label = { Text("审阅模型（留空使用当前模型）") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+-                Text("使用当前引擎、API 地址和密钥；审阅仅可读取与检查修改。关闭此项不改变命令批准和修改应用流程。", style = MaterialTheme.typography.bodySmall)
+-            }
+-            OutlinedTextField(subagentModels, { subagentModels = it }, modifier = Modifier.fillMaxWidth(), label = { Text("子代理候选模型（逗号或换行分隔）") }, supportingText = { Text("沿用此供应商和 Key，每个引擎最多 8 个候选；主模型可以选择模型、思考强度、system 和 Prompt。留空时使用当前模型。") })
+-            OutlinedTextField(enabledSkills, { enabledSkills = it }, modifier = Modifier.fillMaxWidth(), label = { Text("启用的项目 Skill（逗号分隔）") }, supportingText = { Text("读取 .aster/skills/名称/SKILL.md 或 .agents/skills/名称/SKILL.md；每个引擎分别保存。") })
+-        }
+-        ModelSettingsSection("思考", "滑动选择当前模型支持的思考等级。") {
++        ModelSettingsSection("思考", "设置当前模型的思考模式、强度或预算。") {
+             val dualThinking = engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)
+             if (dualThinking) {
+                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+@@ -171,14 +144,36 @@
+             Text("预算与强度互斥；只发送当前模式参数。模型不支持时会明确报错。", style = MaterialTheme.typography.bodySmall)
+             Text(AgentThinkingPolicy.note(engine, currentProfile), style = MaterialTheme.typography.bodySmall)
+         }
+-        ModelSettingsSection("任务运行", "新配置从下一次任务生效。") {
+-            OutlinedTextField(steps, { steps = it }, label = { Text(if (engine == AgentEngine.CODEX) "宿主工具步骤上限" else "任务轮次上限") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
++        ModelSettingsSection("协作与审阅", "配置子代理候选模型、审阅和项目 Skill。") {
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++                Text("完成修改后自动模型审阅")
++                Switch(reviewEnabled, { reviewEnabled = it })
++            }
++            if (reviewEnabled) {
++                OutlinedTextField(reviewModel, { reviewModel = it }, label = { Text("审阅模型（留空使用当前模型）") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
++                Text("使用当前引擎、API 地址和密钥；审阅仅可读取与检查修改。关闭此项不改变命令批准和修改应用流程。", style = MaterialTheme.typography.bodySmall)
++            }
++            OutlinedTextField(subagentModels, { subagentModels = it }, modifier = Modifier.fillMaxWidth(), label = { Text("子代理候选模型（逗号或换行分隔）") }, supportingText = { Text("沿用此供应商和 Key，每个引擎最多 8 个候选；主模型可以选择模型、思考强度、system 和 Prompt。留空时使用当前模型。") })
++            OutlinedTextField(enabledSkills, { enabledSkills = it }, modifier = Modifier.fillMaxWidth(), label = { Text("启用的项目 Skill（逗号分隔）") }, supportingText = { Text("读取 .aster/skills/名称/SKILL.md 或 .agents/skills/名称/SKILL.md；每个引擎分别保存。") })
++        }
++        ModelSettingsSection("账号与工具", "管理账号来源、运行权限和环境。") {
++            dev.aster.ide.account.AccountSourceControls(engine)
++                dev.aster.ide.agent.AgentPermissionControls(permissionSettings, !vm.locked,
++                    { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
++                    { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeWorkspace)
++                dev.aster.ide.agent.AgentToolConfigurationControls(permissionSettings, permissionSettings.agentProfile(engine), !vm.locked,
++                    { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
++                    { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
++            TextButton(onClick = vm::openEnvironmentSettings) { Text("环境安装设置 · 编译工具 / SDK / NDK") }
++        }
++        ModelSettingsSection("任务运行", "不限调用次数 · 输出方式与任务行为。") {
++            Text("工具调用与模型轮次不限次数；任务可随时停止。", style = MaterialTheme.typography.bodyMedium)
+             if (engine == AgentEngine.PI) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { Text("流式输出"); Switch(streaming, { streaming = it }) }
+             else Text("此引擎使用原生事件流。", style = MaterialTheme.typography.bodySmall)
+             if (model.isBlank()) Text("可以先保存预算；发送任务前仍需填写模型名称。", style = MaterialTheme.typography.bodySmall)
+-            validationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+-            if (hasKey) TextButton(onClick = { vm.agent.secrets.save("", engine) }) { Text("清除已保存的 Key") }
++        }
++        ModelSettingsSection("界面配置", "布局与配色单独管理。") {
++            TextButton(onClick = { vm.showAppearance = true }) { Text("打开界面配置") }
+         }
+     }
+ }
+@@ -205,15 +200,18 @@
+ @Composable internal fun ModelSettingsSection(title: String, description: String, content: @Composable ColumnScope.() -> Unit) {
+     val navigation = LocalSettingsSectionNavigation.current
+     if (navigation.selected == null) {
+-        Column {
+-            Row(Modifier.fillMaxWidth().clickable { navigation.open(title) }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
++        Surface(
++            modifier = Modifier.fillMaxWidth(),
++            shape = RoundedCornerShape(16.dp),
++            color = MaterialTheme.colorScheme.surfaceContainerLow,
++        ) {
++            Row(Modifier.fillMaxWidth().clickable { navigation.open(title) }.padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                     Text(title, style = MaterialTheme.typography.bodyLarge)
+                     Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                 }
+                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.padding(start = 16.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+             }
+-            HorizontalDivider()
+         }
+     } else if (navigation.selected == title) {
+         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+--- a/core/app/src/main/assets/bridge/agent_codex.py
++++ b/core/app/src/main/assets/bridge/agent_codex.py
+@@ -146,7 +146,6 @@
+         self.native_outputs = {}
+         self.native_started = set()
+         self.messages = {}
+-        self.limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
+ 
+     def begin_turn(self, session):
+         self.session = session
+@@ -164,7 +163,6 @@
+         self.native_started.clear()
+         self.native_items.clear()
+         self.native_outputs.clear()
+-        self.limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
+ 
+     def send(self, message):
+         cancelled = getattr(self.reply_context, 'cancelled', None)
+@@ -529,11 +527,6 @@
+             if identifier and kind in NATIVE_ITEM_TYPES and identifier not in self.native_started:
+                 self.native_started.add(identifier)
+                 self.native_items[identifier] = item
+-                if self.session.steps >= self.limit:
+-                    self.pending_status = 'LimitsExceeded'
+-                    self.stop_deadline = time.monotonic() + 10
+-                    self.interrupt()
+-                    return
+                 self.session.consume_tool_budget()
+                 self.session.steps += 1
+                 self.session.emit('tool', name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
+--- a/core/app/src/main/assets/bridge/agent_native.py
++++ b/core/app/src/main/assets/bridge/agent_native.py
+@@ -78,9 +78,6 @@
+     if not isinstance(args, dict) or not native_available(session, name, server):
+         raise ValueError('Native tool is not available in this mode: ' + str(name))
+     session.check_cancelled()
+-    limit = max(1, min(int((session.request.get('configuration') or {}).get('maxSteps', 32)), 128))
+-    if session.steps >= limit:
+-        raise ValueError('Native tool call limit reached')
+     for key, value in args.items():
+         if key in PATH_FIELDS and value:
+             staged_path(session, value, folder=key in {'dir_path', 'directory', 'workdir', 'cwd'} or name in {'glob', 'grep_search', 'list_directory'})
+--- a/core/app/src/main/assets/bridge/agent_runner.py
++++ b/core/app/src/main/assets/bridge/agent_runner.py
+@@ -687,7 +687,7 @@
+                       "configuration": configuration if self.engine_id != "pi" else {}, "thinking": thinking, "thinkingLevel": thinking["level"],
+                       "sessionFile": str(self.session_file), "workspace": str(self.workspace), "model": configuration.get("model", "aster"),
+                       "freeMode": free_mode, "maxToolCalls": 64 if free_mode else None,
+-                      "maxSteps": 64 if free_mode else max(1, min(int(configuration.get("maxSteps", 32)), 128)),
++                      "maxSteps": 64 if free_mode else -1,
+                       "maxTokens": configuration.get("maxTokens", 4096), "contextWindow": configuration.get("contextWindow", 32768),
+                       "compactOnly": bool(self.request.get("compactOnly"))})
+                 while True:
+@@ -733,7 +733,7 @@
+                                     self.emit("status", text="正在思考", step=self.steps)
+                                 if model is None:
+                                     raise ValueError("This engine owns its native model transport")
+-                                result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"))
++                                result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"), maxTokens=payload.get("maxTokens"))
+                             elif value.get("method") == "native_tool":
+                                 from agent_native import native_rpc
+                                 result = native_rpc(self, payload)
+--- a/core/app/src/main/assets/bridge/agent_vendor/aster_model.py
++++ b/core/app/src/main/assets/bridge/agent_vendor/aster_model.py
+@@ -306,7 +306,9 @@
+         purpose = kwargs.get("purpose", "task")
+         names = kwargs.get("tools")
+         selected = [item for item in self.session.tools if names is None or item["function"]["name"] in names]
+-        payload = {"model": self.model, "messages": messages, "max_tokens": self.max_tokens,
++        requested_max_tokens = kwargs.get("maxTokens")
++        max_tokens = self.max_tokens if requested_max_tokens is None else max(1, min(65536, int(requested_max_tokens)))
++        payload = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
+                    "stream": self.streaming and purpose != "compaction"}
+         if 'effort' in self.thinking and purpose != 'compaction':
+             payload['reasoning_effort'] = self.thinking['effort']
+@@ -410,7 +412,7 @@
+         if normalized_calls:
+             output["tool_calls"] = normalized_calls
+         self.session.tokens += max(0, int((result.get("usage") or {}).get("total_tokens", 0)))
+-        if content and not result.get("_streamed"):
++        if content and not result.get("_streamed") and purpose != "compaction":
+             self.session.emit("message", role="assistant", text=str(content)[:24000])
+         if choices[0].get("finish_reason") == "length":
+             raise ValueError("Aster-free 单次回复达到上限，请分步处理当前任务" if self.free_mode else "模型回复达到 token 上限，请调高回复上限或缩小当前任务后继续")
+--- a/core/app/src/main/assets/bridge/agent_vendor/aster_tools.py
++++ b/core/app/src/main/assets/bridge/agent_vendor/aster_tools.py
+@@ -35,8 +35,7 @@
+ INTEGER = {"type": "integer"}
+ FILE_RANGE = {"path": STRING, "start_line": INTEGER, "end_line": INTEGER, "intent": STRING}
+ SUBAGENT_TASK = {"model_id": STRING, "prompt": STRING, "system_prompt": STRING,
+-    "thinking_level": STRING, "thinking_budget": INTEGER, "timeout": {"type":"integer","minimum":15,"maximum":900},
+-    "max_steps": {"type":"integer","minimum":1,"maximum":64}}
++    "thinking_level": STRING, "thinking_budget": INTEGER, "timeout": {"type":"integer","minimum":15,"maximum":900}}
+ TOOLS = [
+     tool("user_input", "Ask focused questions using the native Android question sheet. Use for material ambiguity, user preferences or blocking decisions; never fabricate an answer or treat dismissal as consent.",
+          {"questions": {"type": "array", "minItems": 1, "maxItems": 6, "items": {"type": "object",
+--- a/core/app/src/main/assets/bridge/agent_vendor/openclaude-agent.mjs
++++ b/core/app/src/main/assets/bridge/agent_vendor/openclaude-agent.mjs
+@@ -90,12 +90,13 @@
+   if (effectiveWindow !== start.contextWindow) throw new Error("OpenClaude did not accept the requested context window");
+   const abortController = new AbortController();
+   const allowed = new Set(start.allowedTools);
++  const stepLimit = start.freeMode ? 64 : Infinity;
+   let steps = 0, tokens = 0, compactions = 0;
+   let summary = "", status = "Failed", messageId = "", text = "";
+   let finished = false;
+   let toolQueue = Promise.resolve();
+   const limit = () => {
+-    if (steps >= start.maxSteps) {
++    if (steps >= stepLimit) {
+       status = "LimitsExceeded";
+       abortController.abort();
+     }
+@@ -104,7 +105,7 @@
+     const fn = item.function;
+     return sdk.tool(fn.name, fn.description, fn.parameters, async (args) => {
+       const perform = async () => {
+-        if (finished || steps >= start.maxSteps) return { isError: true, content: [{ type: "text", text: "Task finished or step limit reached" }] };
++        if (finished || steps >= stepLimit) return { isError: true, content: [{ type: "text", text: "Task finished or step limit reached" }] };
+         steps++;
+         const result = await rpc("tool", { name: fn.name, arguments: args });
+         if (result.finished) {
+@@ -131,7 +132,7 @@
+       permissionMode: "default",
+       includePartialMessages: true,
+       systemPrompt: start.system,
+-      maxTurns: start.maxSteps,
++      maxTurns: start.freeMode ? 64 : undefined,
+       env: {
+         OPENCLAUDE_CONFIG_DIR: start.engineHome,
+         ANTHROPIC_BASE_URL: start.configuration.endpoint,
+--- a/core/app/src/main/java/dev/aster/ide/agent/AgentController.kt
++++ b/core/app/src/main/java/dev/aster/ide/agent/AgentController.kt
+@@ -283,7 +283,7 @@
+         .put("protocol", profile.protocol).put("reviewEnabled", profile.reviewEnabled).put("reviewModel", profile.reviewModel)
+         .put("mcpServers", profile.mcpServers).put("mcpDefinitions", JSONObject(profile.mcpDefinitions.ifBlank { "{}" }).let { it.optJSONObject("mcpServers") ?: it }).put("enabledSkills", JSONArray(profile.enabledSkills.split(",").map(String::trim).filter(String::isNotEmpty)))
+         .put("thinkingLevel", profile.thinkingLevel).put("thinkingMode", profile.thinkingMode).put("thinkingBudget", profile.thinkingBudget)
+-        .put("maxSteps", if (free) dev.aster.ide.account.FreeAgentProfile.MAX_TOOL_CALLS else settings.value.agentMaxSteps)
++        .put("maxSteps", if (free) dev.aster.ide.account.FreeAgentProfile.MAX_TOOL_CALLS else -1)
+         .put("maxTokens", profile.maxTokens).put("contextWindow", profile.contextWindow).put("stream", settings.value.agentStreaming)
+ 
+     /** Starts only local resources; never sends a model request or runs a user tool. */
+--- a/core/app/src/main/java/dev/aster/ide/agent/AgentSubagents.kt
++++ b/core/app/src/main/java/dev/aster/ide/agent/AgentSubagents.kt
+@@ -80,7 +80,7 @@
+         AgentThinkingPolicy.validate(choice.engine, profile)
+         val config = JSONObject(choice.configuration.toString())
+             .put("thinkingLevel", profile.thinkingLevel).put("thinkingMode", profile.thinkingMode).put("thinkingBudget", profile.thinkingBudget)
+-            .put("maxSteps", integer(value, "max_steps", 16, 1..64)).put("reviewEnabled", false)
++            .put("reviewEnabled", false)
+             .put("permissionMode", parentConfiguration.optString("permissionMode", "review"))
+             .put("nativeCommandsUnchecked", parentConfiguration.optBoolean("nativeCommandsUnchecked"))
+             .put("longTaskMode", parentConfiguration.optBoolean("longTaskMode", false))
+--- a/core/app/src/main/java/dev/aster/ide/data/Settings.kt
++++ b/core/app/src/main/java/dev/aster/ide/data/Settings.kt
+@@ -58,7 +58,6 @@
+     val agentProfiles: Map<String, AgentProfile> = emptyMap(),
+     val agentEndpoint: String = "https://api.openai.com/v1",
+     val agentModel: String = "",
+-    val agentMaxSteps: Int = 16,
+     val agentMode: String = "execute",
+     val agentPermissionMode: String = "review",
+     val agentNativeCommandsUnchecked: Boolean = false,
+@@ -121,7 +120,7 @@
+             put("agentCodexNebulaAll", next.agentCodexNebulaAll)
+             put("agentUiLayout", next.agentUiLayout)
+             put("agentPermissionMode", next.agentPermissionMode); put("agentNativeCommandsUnchecked", next.agentNativeCommandsUnchecked); put("terminalAllowedCommands", next.terminalAllowedCommands)
+-            put("agentMaxSteps", next.agentMaxSteps); put("agentMaxTokens", next.agentMaxTokens); put("agentContextWindow", next.agentContextWindow)
++            put("agentMaxTokens", next.agentMaxTokens); put("agentContextWindow", next.agentContextWindow)
+             put("agentDockFraction", next.agentDockFraction); put("agentDockExpanded", next.agentDockExpanded)
+             put("servers", JSONObject().apply {
+                 next.servers.forEach { (id, s) -> put(id, JSONObject().put("enabled", s.enabled).put("command", s.command).put("initializationOptions", s.initializationOptions)) }
+@@ -187,7 +186,7 @@
+             agentCodexNebulaAll = j.optBoolean("agentCodexNebulaAll", false),
+             agentUiLayout = j.optString("agentUiLayout", "chat").takeIf { it in setOf("chat", "classic") } ?: "chat",
+             terminalAllowedCommands = j.optString("terminalAllowedCommands", IdeSettings().terminalAllowedCommands),
+-            agentMaxSteps = j.optInt("agentMaxSteps", 16).coerceIn(4, 64), agentMaxTokens = j.optInt("agentMaxTokens", 4096).coerceIn(512, 8192),
++            agentMaxTokens = j.optInt("agentMaxTokens", 4096).coerceIn(512, 8192),
+             agentContextWindow = j.optInt("agentContextWindow", 32768).coerceIn(8192, AgentContextPolicy.MAX_WINDOW),
+             agentDockFraction = j.optDouble("agentDockFraction", 0.36).takeIf { it.isFinite() }?.toFloat()?.coerceIn(0.28f, 0.5f) ?: 0.36f,
+             agentDockExpanded = j.optBoolean("agentDockExpanded"),
+--- a/ide/app/src/main/java/dev/aster/ide/ui/AgentSettings.kt
++++ b/ide/app/src/main/java/dev/aster/ide/ui/AgentSettings.kt
+@@ -98,7 +98,7 @@
+         Text("会话按项目自动保存，保留最近 30 个。任务清单与待预览修改可在重启后恢复；运行审批需要重新确认。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+         TextButton(onClick = { if (engine == AgentEngine.CODEX) vm.refreshAgentEngines() else vm.installServer("agent") }, enabled = vm.connected && !vm.buildRunning && !state.running && !vm.agentPreparing && !vm.agentStopping) { Text(if (engine == AgentEngine.CODEX) "检查原生 Codex 运行环境" else "安装／更新 Node.js 运行环境") }
+         if (engine != AgentEngine.CODEX && vm.tools["node"].isNullOrBlank()) Text("首次发送任务时会自动安装内置 Node LTS。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+-        SettingsSlider("最多步骤", settings.agentMaxSteps, 4, 64, 4, "步") { value -> vm.settings.update { it.copy(agentMaxSteps = value) } }
++        Text("工具调用与模型轮次不限次数。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+         SectionLabel("协作与预算")
+         var subagentModels by remember(engine, profile.subagentModels) { mutableStateOf(profile.subagentModels) }
+         OutlinedTextField(subagentModels, { subagentModels = it }, label = { Text("子代理候选模型（逗号分隔）") }, modifier = Modifier.fillMaxWidth(),
+--- a/research/gemini-agent/runner.ts
++++ b/research/gemini-agent/runner.ts
+@@ -56,7 +56,7 @@
+     interactive: false, usageStatisticsEnabled: false, telemetry: { enabled: false },
+     checkpointing: false, includeDirectoryTree: true, skipNextSpeakerCheck: true,
+     disableModelRouterForAuth: [AuthType.GATEWAY, AuthType.USE_GEMINI],
+-    maxSessionTurns: start.maxSteps, maxAttempts: 3, retryFetchErrors: true,
++    maxSessionTurns: start.freeMode ? 64 : -1, maxAttempts: 3, retryFetchErrors: true,
+     compressionThreshold: Math.min(0.8, 1 - reserve / contextWindow),
+     contextManagement: { enabled: false },
+     modelConfigServiceConfig: { customOverrides: [
+--- a/research/pi-agent/runner.ts
++++ b/research/pi-agent/runner.ts
+@@ -2,9 +2,9 @@
+  * All project and model I/O crosses the authenticated Aster Python bridge. */
+ import { Agent } from '@earendil-works/pi-agent-core';
+ import { AssistantMessageEventStream, getCurrentSystemPrompt, getCurrentTools, Type } from '@earendil-works/pi-ai';
+-import { SessionManager } from '../../vendor/pi/packages/coding-agent/src/core/session-manager.ts';
++import { SessionManager, buildSessionProjection } from '../../vendor/pi/packages/coding-agent/src/core/session-manager.ts';
+ import { convertToLlm } from '../../vendor/pi/packages/coding-agent/src/core/messages.ts';
+-import { prepareCompaction, compact, estimateContextTokens } from '../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts';
++import { prepareCompaction, compact, estimateProjectedContextTokens } from '../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts';
+ import { createInterface } from 'node:readline';
+ import { dirname } from 'node:path';
+ 
+@@ -68,7 +68,6 @@
+ async function main() {
+   const config = await started;
+   const freeMode = config.freeMode === true;
+-  const maxSteps = freeMode ? 64 : Math.max(1, Math.min(config.maxSteps || 32, 128));
+   const maxToolCalls = freeMode ? 64 : Infinity;
+   let toolCalls = 0;
+   const thinkingLevel = config.thinkingLevel && config.thinkingLevel !== 'auto' ? config.thinkingLevel : 'off';
+@@ -83,9 +82,17 @@
+   let finished = false;
+   let compacting = false;
+   let compactions = manager.getBranch().filter(e => e.type === 'compaction').length;
+-  const reserveTokens = Math.max(model.maxTokens, Math.min(8192, Math.max(2048, Math.floor(contextWindow / 4))));
+-  if (reserveTokens > contextWindow - 1024) throw new Error("Output budget must leave at least 1024 tokens for input");
+-  const settings = { enabled: true, reserveTokens, keepRecentTokens: Math.min(12000, Math.floor((contextWindow - reserveTokens) / 2)) };
++  const outputReserve = Math.max(model.maxTokens, Math.min(8192, Math.max(2048, Math.floor(contextWindow / 4))));
++  if (outputReserve > contextWindow - 1024) throw new Error("Output budget must leave at least 1024 tokens for input");
++  const inputBudget = contextWindow - outputReserve;
++  const settings = { enabled: true, reserveTokens: Math.min(8192, Math.max(256, Math.floor(inputBudget / 4))),
++    keepRecentTokens: Math.min(12000, Math.floor(inputBudget / 2)) };
++  function contextTokens() {
++    const branch = manager.getBranch();
++    // Retained assistant usage predates the checkpoint; use the upstream projection
++    // estimator so it cannot immediately retrigger compression with stale usage.
++    return estimateProjectedContextTokens(buildSessionProjection(branch), branch).tokens;
++  }
+ 
+   // Restore old Aster text transcripts once. New sessions persist full tool exchanges.
+   if (!manager.buildSessionContext().messages.some(m => m.role === 'user')) {
+@@ -131,7 +138,7 @@
+       try {
+         if (options?.signal?.aborted) throw new Error('Agent cancelled');
+         const result = await rpc('model', { messages: toOpenAI(context), step: compacting ? steps : ++steps,
+-          purpose: compacting ? 'compaction' : 'task', reasoning: options?.reasoning, tools: compacting ? [] : getCurrentTools(context.messages).map(t => t.name) });
++          purpose: compacting ? 'compaction' : 'task', maxTokens: options?.maxTokens, reasoning: options?.reasoning, tools: compacting ? [] : getCurrentTools(context.messages).map(t => t.name) });
+         if (result.content) message.content.push({ type: 'text', text: result.content });
+         for (const call of result.tool_calls || []) {
+           message.content.push({ type: 'toolCall', id: call.id, name: call.function.name, arguments: JSON.parse(call.function.arguments) });
+@@ -152,21 +159,22 @@
+   }
+ 
+   async function compactContext(force = false, signal) {
+-    const messages = convertToLlm(manager.buildSessionContext().messages);
+-    const tokens = estimateContextTokens(messages).tokens;
++    const tokens = contextTokens();
+     output({ type: 'event', kind: 'context', tokens, contextWindow, compactions, source: 'hybrid' });
+-    if (!force && tokens < contextWindow - settings.reserveTokens) return false;
++    if (!force && tokens < contextWindow - outputReserve) return false;
+     const preparation = prepareCompaction(manager.getBranch(), settings);
+     if (!preparation) return false;
+     output({ type: 'event', kind: 'status', text: '正在压缩上下文', step: steps });
+     compacting = true;
+     try {
+-      const result = await compact(preparation, model, undefined, undefined,
++      // Reply length is a user preference; summaries need an independent checkpoint budget.
++      const compactionModel = { ...model, maxTokens: Math.max(model.maxTokens, Math.floor(0.8 * settings.reserveTokens)) };
++      const result = await compact(preparation, compactionModel, undefined, undefined,
+         'Preserve user constraints, decisions, exact paths, outstanding tasks and command results. Distinguish proposed edits from applied edits. Answer in the user language.',
+         signal, 'off', streamFn, undefined, { maxRetries: 1 });
+       manager.appendCompaction(result.summary, result.firstKeptEntryId, result.tokensBefore, result.details, false, result.usage);
+       compactions++;
+-      output({ type: 'event', kind: 'context', tokens: estimateContextTokens(convertToLlm(manager.buildSessionContext().messages)).tokens, contextWindow, compactions, source: 'hybrid' });
++      output({ type: 'event', kind: 'context', tokens: contextTokens(), contextWindow, compactions, source: 'hybrid' });
+       return true;
+     } finally { compacting = false; }
+   }
+@@ -188,9 +196,9 @@
+       if (message.stopReason === 'error' || message.stopReason === 'aborted') return;
+       const calls = message.content.some(c => c.type === 'toolCall');
+       if (!calls) { summary = asText(message.content); return { action: 'end' }; }
+-      if (toolCalls >= maxToolCalls || steps >= maxSteps) {
++      if (toolCalls >= maxToolCalls) {
+         status = 'LimitsExceeded';
+-        summary = freeMode ? '已达到每轮任务 64 次工具调用或模型轮次上限，现有修改可以预览；发送消息可继续。' : '已达到步骤上限，现有修改可以预览；发送消息可继续。';
++        summary = '免费任务已达到每轮 64 次工具调用上限，现有修改可以预览；发送消息可继续。';
+         return { action: 'end' };
+       }
+       return { action: 'continue' };
+@@ -208,7 +216,7 @@
+     const last = agent.state.messages.filter(m => m.role === 'assistant').at(-1);
+     if (last?.stopReason === 'error') throw new Error(last.errorMessage || 'Model request failed');
+   }
+-  output({ type: 'event', kind: 'context', tokens: estimateContextTokens(convertToLlm(manager.buildSessionContext().messages)).tokens, contextWindow, compactions, source: 'hybrid' });
++  output({ type: 'event', kind: 'context', tokens: contextTokens(), contextWindow, compactions, source: 'hybrid' });
+   output({ type: 'result', engine: ENGINE, status, summary, steps, toolCalls });
+ }
+ main().catch(error => {
+--- a/scripts/test_codex_native.py
++++ b/scripts/test_codex_native.py
+@@ -132,12 +132,13 @@
+         self.assertEqual(response['result']['answers'], {'choice': {'answers': ['yes']}})
+         self.assertEqual([kind for kind, _ in self.session.events], ['tool', 'tool_result'])
+ 
+-    def test_tool_limit_interrupts_native_turn(self):
+-        self.session.steps = 2
++    def test_old_step_setting_does_not_interrupt_native_turn(self):
++        self.session.steps = 200
+         self.wire.notification('item/started', {'threadId': 'parent', 'turnId': 'turn', 'item': {'id': 'exec', 'type': 'commandExecution'}})
+-        self.assertEqual(self.wire.pending_status, 'LimitsExceeded')
+-        self.assertTrue(self.wire.interrupt_sent)
+-        self.assertIn(b'turn/interrupt', self.process.stdin.getvalue())
++        self.assertEqual(self.session.steps, 201)
++        self.assertIsNone(self.wire.pending_status)
++        self.assertFalse(self.wire.interrupt_sent)
++        self.assertNotIn(b'turn/interrupt', self.process.stdin.getvalue())
+ 
+     def test_shell_changes_checkpoint_native_proposal(self):
+         self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'turn', 'item': {'id': 'cmd', 'type': 'commandExecution', 'status': 'completed'}})

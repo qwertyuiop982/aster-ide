@@ -1,0 +1,29 @@
+[Unit]
+Description=Aster persistent terminal MCP
+After=network.target
+
+[Service]
+Type=simple
+User=aster-terminal
+Group=aster-terminal
+WorkingDirectory=/var/lib/aster-terminal-mcp
+EnvironmentFile=/etc/aster-terminal-mcp.env
+ExecStart=/opt/aster-terminal-mcp/venv/bin/python -B /opt/aster-terminal-mcp/current/server.py
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/aster-terminal-mcp
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+TasksMax=256
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

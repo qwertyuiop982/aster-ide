@@ -77,6 +77,109 @@ class NativeTransportTest(unittest.TestCase):
             self.wire.drain_interactions()
         return json.loads(self.process.stdin.getvalue())
 
+    def test_ultra_preserves_native_proactive_mode(self):
+        self.assertEqual(codex.thinking_settings({'thinkingLevel': 'ultra', 'thinkingMode': 'strength'}), {'model_reasoning_effort': 'ultra'})
+        self.assertEqual(codex.thinking_settings({'thinkingLevel': 'max', 'thinkingMode': 'strength'}), {'model_reasoning_effort': 'max'})
+
+    def test_parent_spawn_call_has_stable_transcript_id(self):
+        item = {'id': 'spawn-1', 'type': 'collabAgentToolCall', 'tool': 'spawnAgent', 'receiverThreadIds': ['child']}
+        self.wire.notification('item/started', {'threadId': 'parent', 'turnId': 'turn', 'item': item})
+        self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'turn', 'item': {**item, 'status': 'completed'}})
+        tools = [data for kind, data in self.session.events if kind in ('tool', 'tool_result')]
+        self.assertEqual([entry['callId'] for entry in tools], ['spawn-1', 'spawn-1'])
+        self.assertEqual([entry['name'] for entry in tools], ['spawn_agent', 'spawn_agent'])
+        self.assertIn('child', self.wire.child_threads)
+
+    def test_native_process_restarts_when_collaboration_contract_changes(self):
+        home = self.root / 'contract-native'
+        home.mkdir()
+        code = 'import sys,json\nfor line in sys.stdin:\n v=json.loads(line);print(json.dumps({"id":v["id"],"result":{}}),flush=True)'
+        command = [sys.executable, '-u', '-c', code]
+        self.session.request['configuration']['collaborationMode'] = 'assist'
+        with runtime.native_server(self.session, home, command, os.environ.copy(), codex.CodexTransport) as wire:
+            first_pid = wire.process.pid
+            wire.request('ping', {})
+        self.session.request['configuration']['collaborationMode'] = 'team'
+        with runtime.native_server(self.session, home, command, os.environ.copy(), codex.CodexTransport) as wire:
+            self.assertNotEqual(first_pid, wire.process.pid)
+            team_pid = wire.process.pid
+            wire.request('ping', {})
+        self.session.request['task'] = 'a new user turn must not restart the server'
+        with runtime.native_server(self.session, home, command, os.environ.copy(), codex.CodexTransport) as wire:
+            self.assertEqual(team_pid, wire.process.pid)
+        self.session.request['systemPrompt'] = 'new developer contract'
+        with runtime.native_server(self.session, home, command, os.environ.copy(), codex.CodexTransport) as wire:
+            self.assertNotEqual(team_pid, wire.process.pid)
+            wire.request('ping', {})
+
+    def test_parent_completion_keeps_active_child_event_pump_alive(self):
+        self.wire.register_child('child')
+        self.wire.notification('turn/started', {'threadId': 'child', 'turn': {'id': 'child-turn'}})
+        self.wire.summary = 'Delegated work is running'
+        self.wire.notification('turn/completed', {'threadId': 'parent', 'turn': {'id': 'turn', 'status': 'completed'}})
+        self.assertTrue(self.wire.native_completed)
+        self.assertTrue(self.wire.has_active_children())
+        self.wire.notification('item/completed', {'threadId': 'child', 'turnId': 'child-turn', 'item': {'id': 'late-answer', 'type': 'agentMessage', 'text': 'child actual result'}})
+        self.wire.notification('turn/completed', {'threadId': 'child', 'turn': {'id': 'child-turn', 'status': 'completed'}})
+        self.assertFalse(self.wire.has_active_children())
+        self.assertTrue(any(kind == 'subagent_event' and data['event'].get('text') == 'child actual result' for kind, data in self.session.events))
+
+    def test_native_role_contracts_are_in_generated_launch_and_thread_request(self):
+        from unittest.mock import patch
+        from contextlib import contextmanager
+        session = self.session
+        session.base = self.root
+        session.session_id = 'contracts'
+        session.session_file = self.root / 'contracts.jsonl'
+        session.engine_info = {'name': 'Codex'}
+        session.project_instructions = lambda: 'fixture project instructions'
+        session.task_mode_prompt = lambda: 'fixture task mode'
+        config = {'model': 'gpt-6.1-sol', 'endpoint': 'https://fixture.invalid/v1', 'collaborationMode': 'extreme', 'subagentsUnlimited': True, 'thinkingLevel': 'ultra', 'thinkingMode': 'strength'}
+        session.request['configuration'] = config
+        captured = {}
+        class Wire:
+            initialized = False
+            compactions = 0
+            thread_id = ''
+            def send(self, value): pass
+            def request(self, method, params):
+                captured[method] = params
+                return {'thread': {'id': 'fixture-thread'}}
+        @contextmanager
+        def fake_server(session, home, command, environment, transport):
+            captured['command'] = command
+            yield Wire()
+        with patch.object(codex, 'codex_binary', return_value=Path('/fixture/codex')), patch.object(runtime, 'native_server', fake_server):
+            codex.run_codex(session, config, prepare_only=True)
+        command = captured['command']
+        overrides = dict(value.split('=', 1) for index, value in enumerate(command) if index and command[index - 1] == '-c')
+        self.assertEqual(json.loads(overrides['model_reasoning_effort']), 'ultra')
+        self.assertIn('EXTREME ROOT CONTRACT', json.loads(overrides['features.multi_agent_v2.root_agent_usage_hint_text']))
+        self.assertIn('EXTREME CHILD CONTRACT', json.loads(overrides['features.multi_agent_v2.subagent_developer_instructions']))
+        self.assertNotIn('EXTREME ROOT CONTRACT', json.loads(overrides['features.multi_agent_v2.subagent_developer_instructions']))
+        self.assertIn('EXTREME ROOT CONTRACT', captured['thread/start']['developerInstructions'])
+
+    def test_real_v2_activity_registers_child_and_shows_spawn_tool_call(self):
+        self.wire.notification('item/agentMessage/delta', {'threadId': 'v2-child', 'itemId': 'answer', 'delta': 'actual child output'})
+        activity = {'type': 'subAgentActivity', 'id': 'spawn-v2', 'kind': 'started', 'agentThreadId': 'v2-child', 'agentPath': '/root/project_structure', 'model': 'fixture'}
+        self.wire.notification('item/started', {'threadId': 'parent', 'turnId': 'turn', 'item': activity})
+        self.assertIn('v2-child', self.wire.child_threads)
+        events = [data for kind, data in self.session.events if kind == 'subagent_event']
+        self.assertTrue(any(data['event'].get('text') == 'actual child output' for data in events))
+        tools = [data for kind, data in self.session.events if kind == 'tool']
+        self.assertEqual(len(tools), 1)
+        self.assertEqual((tools[0]['callId'], tools[0]['name']), ('spawn-v2', 'spawn_agent'))
+        self.wire.notification('item/completed', {'threadId': 'v2-child', 'item': {'type': 'subAgentActivity', 'id': 'grand-spawn', 'kind': 'started', 'agentThreadId': 'v2-grandchild', 'agentPath': '/root/project_structure/docs'}})
+        self.assertIn('v2-grandchild', self.wire.child_threads)
+        self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'old-turn', 'item': {**activity, 'kind': 'completed'}})
+        self.assertIn('v2-child', self.wire.child_completed)
+        tools = [(kind, data.get('callId'), data.get('name'), data.get('status'))
+                 for kind, data in self.session.events if kind in ('tool', 'tool_result')]
+        self.assertEqual(tools, [
+            ('tool', 'spawn-v2', 'spawn_agent', 'running'),
+            ('tool_result', 'spawn-v2', 'spawn_agent', 'completed'),
+        ])
+
     def test_context_settings_rejects_invalid_window(self):
         self.assertEqual(codex.context_settings({})['model_context_window'], 32768)
         for value in (True, 8191, 1048577, '32768'):
@@ -134,6 +237,34 @@ class NativeTransportTest(unittest.TestCase):
         self.assertEqual(events[-1]['event']['text'], 'hello')
         self.assertEqual(events[-1]['subagentId'], 'child')
         self.assertEqual(self.wire.summary, '')
+    def test_child_tool_start_output_and_completion_are_forwarded(self):
+        self.wire.notification('thread/started', {'thread': {'id': 'child', 'parentThreadId': 'parent'}})
+        self.wire.notification('turn/started', {'threadId': 'child', 'turn': {'id': 'child-turn'}})
+        self.wire.notification('item/started', {'threadId': 'child', 'turnId': 'child-turn', 'item': {'id': 'call-1', 'type': 'commandExecution', 'command': 'printf child'}})
+        self.wire.notification('item/commandExecution/outputDelta', {'threadId': 'child', 'turnId': 'child-turn', 'itemId': 'call-1', 'delta': 'child output'})
+        self.wire.notification('item/completed', {'threadId': 'child', 'turnId': 'child-turn', 'item': {'id': 'call-1', 'type': 'commandExecution', 'status': 'completed', 'command': 'printf child', 'aggregatedOutput': 'child output'}})
+        events = [data['event'] for kind, data in self.session.events if kind == 'subagent_event']
+        self.assertEqual([event['kind'] for event in events[-3:]], ['tool', 'tool_delta', 'tool_result'])
+        self.assertEqual(events[-1]['callId'], 'call-1')
+        self.assertIn('child output', events[-1]['text'])
+
+    def test_early_child_events_replay_only_after_parentage_confirmed(self):
+        self.wire.notification('item/started', {'threadId': 'late-child', 'item': {'id': 'early-tool', 'type': 'commandExecution'}})
+        self.assertFalse(any(kind == 'subagent_event' for kind, _ in self.session.events))
+        self.wire.notification('thread/started', {'thread': {'id': 'late-child', 'parentThreadId': 'parent'}})
+        events = [data for kind, data in self.session.events if kind == 'subagent_event']
+        self.assertEqual(events[-1]['subagentId'], 'late-child')
+        self.assertEqual(events[-1]['event']['callId'], 'early-tool')
+        self.assertEqual(events[-1]['event']['kind'], 'tool')
+        self.assertNotIn('late-child', self.wire.pending_child_events)
+
+    def test_nested_native_receiver_replays_early_tool_events(self):
+        self.wire.register_child('child')
+        self.wire.notification('item/started', {'threadId': 'grandchild', 'item': {'id': 'nested-tool', 'type': 'commandExecution'}})
+        self.wire.notification('item/completed', {'threadId': 'child', 'item': {'id': 'spawn', 'type': 'collabAgentToolCall', 'receiverThreadIds': ['grandchild']}})
+        events = [data for kind, data in self.session.events if kind == 'subagent_event' and data['subagentId'] == 'grandchild']
+        self.assertEqual(events[-1]['event']['callId'], 'nested-tool')
+        self.assertIn('grandchild', self.wire.child_threads)
 
     def test_user_input_routes_original_ids_and_answers(self):
         response = self.request('item/tool/requestUserInput', questions=[{'id': 'choice', 'question': 'Continue?'}])

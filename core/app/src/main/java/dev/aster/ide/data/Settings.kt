@@ -58,11 +58,11 @@ data class IdeSettings(
     val agentProfiles: Map<String, AgentProfile> = emptyMap(),
     val agentEndpoint: String = "https://api.openai.com/v1",
     val agentModel: String = "",
-    val agentMaxSteps: Int = 16,
     val agentMode: String = "execute",
     val agentPermissionMode: String = "review",
     val agentNativeCommandsUnchecked: Boolean = false,
     val agentLongTaskMode: Boolean = false,
+    val agentCollaborationMode: String = "assist",
     val agentCodexNebulaLeft: String = AgentAppearance.DEFAULT_LEFT,
     val agentCodexNebulaRight: String = AgentAppearance.DEFAULT_RIGHT,
     val agentCodexNebulaAll: Boolean = false,
@@ -117,11 +117,12 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             put("agentEndpoint", next.agentEndpoint); put("agentModel", next.agentModel)
             put("agentMode", next.agentMode); put("agentStreaming", next.agentStreaming)
             put("agentLongTaskMode", next.agentLongTaskMode)
+            put("agentCollaborationMode", next.agentCollaborationMode)
             put("agentCodexNebulaLeft", next.agentCodexNebulaLeft); put("agentCodexNebulaRight", next.agentCodexNebulaRight)
             put("agentCodexNebulaAll", next.agentCodexNebulaAll)
             put("agentUiLayout", next.agentUiLayout)
             put("agentPermissionMode", next.agentPermissionMode); put("agentNativeCommandsUnchecked", next.agentNativeCommandsUnchecked); put("terminalAllowedCommands", next.terminalAllowedCommands)
-            put("agentMaxSteps", next.agentMaxSteps); put("agentMaxTokens", next.agentMaxTokens); put("agentContextWindow", next.agentContextWindow)
+            put("agentMaxTokens", next.agentMaxTokens); put("agentContextWindow", next.agentContextWindow)
             put("agentDockFraction", next.agentDockFraction); put("agentDockExpanded", next.agentDockExpanded)
             put("servers", JSONObject().apply {
                 next.servers.forEach { (id, s) -> put(id, JSONObject().put("enabled", s.enabled).put("command", s.command).put("initializationOptions", s.initializationOptions)) }
@@ -182,12 +183,13 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             agentPermissionMode = j.optString("agentPermissionMode", "review").takeIf { it in setOf("review", "native") } ?: "review",
             agentNativeCommandsUnchecked = j.optBoolean("agentNativeCommandsUnchecked", false),
             agentLongTaskMode = j.optBoolean("agentLongTaskMode", false),
+            agentCollaborationMode = j.optString("agentCollaborationMode", "assist").takeIf { it in setOf("extreme", "team", "assist", "off") } ?: "assist",
             agentCodexNebulaLeft = AgentAppearance.color(j.optString("agentCodexNebulaLeft"), AgentAppearance.DEFAULT_LEFT),
             agentCodexNebulaRight = AgentAppearance.color(j.optString("agentCodexNebulaRight"), AgentAppearance.DEFAULT_RIGHT),
             agentCodexNebulaAll = j.optBoolean("agentCodexNebulaAll", false),
             agentUiLayout = j.optString("agentUiLayout", "chat").takeIf { it in setOf("chat", "classic") } ?: "chat",
             terminalAllowedCommands = j.optString("terminalAllowedCommands", IdeSettings().terminalAllowedCommands),
-            agentMaxSteps = j.optInt("agentMaxSteps", 16).coerceIn(4, 64), agentMaxTokens = j.optInt("agentMaxTokens", 4096).coerceIn(512, 8192),
+            agentMaxTokens = j.optInt("agentMaxTokens", 4096).coerceIn(512, 8192),
             agentContextWindow = j.optInt("agentContextWindow", 32768).coerceIn(8192, AgentContextPolicy.MAX_WINDOW),
             agentDockFraction = j.optDouble("agentDockFraction", 0.36).takeIf { it.isFinite() }?.toFloat()?.coerceIn(0.28f, 0.5f) ?: 0.36f,
             agentDockExpanded = j.optBoolean("agentDockExpanded"),

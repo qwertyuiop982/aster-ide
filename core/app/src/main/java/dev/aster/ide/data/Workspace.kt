@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -17,6 +18,9 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     private val prefs = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
     private val ignored get() = settings.value.excludedDirs.split(',').map(String::trim).filter(String::isNotEmpty).toSet()
 
+    suspend fun conversationWorkspace(): Workspace = withContext(Dispatchers.IO) {
+        Workspace("agent-chat", "未绑定工作区", File(context.filesDir, "agent-chat").apply { mkdirs() })
+    }
     suspend fun initialize(): Workspace = withContext(Dispatchers.IO) {
         val recent = prefs.getString("current", null)?.let { load(it) }
         recent ?: demo().also { select(it) }
@@ -120,20 +124,9 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
         return file
     }
 
-    suspend fun files(workspace: Workspace): List<FileNode> = withContext(Dispatchers.IO) {
-        val nodes = ArrayList<FileNode>()
-        fun walk(dir: File, depth: Int) {
-            if (depth > 32 || nodes.size >= 10000) return
-            dir.listFiles()?.filter { it.name !in ignored && it.name != ".aster-workspace.json" }
-                ?.sortedWith(compareBy<File> { !it.isDirectory }.thenBy { it.name.lowercase() })?.forEach { f ->
-                    if (f.canonicalPath.startsWith(workspace.directory.canonicalPath + "/")) {
-                        nodes += FileNode(f.relativeTo(workspace.directory).invariantSeparatorsPath, f.name, f.isDirectory, depth, f.length())
-                        if (f.isDirectory) walk(f, depth + 1)
-                    }
-                }
-        }
-        walk(workspace.directory, 0)
-        nodes
+    suspend fun files(workspace: Workspace, maxDepth: Int = 32, maxEntries: Int = 10000): List<FileNode> = withContext(Dispatchers.IO) {
+        val current = coroutineContext
+        WorkspaceFileTree.scan(workspace.directory, ignored, maxDepth, maxEntries) { current.ensureActive() }
     }
 
     suspend fun save(workspace: Workspace, path: String, text: String) = withContext(Dispatchers.IO) {

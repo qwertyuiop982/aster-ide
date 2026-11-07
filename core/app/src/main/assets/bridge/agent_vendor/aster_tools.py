@@ -35,8 +35,7 @@ STRING = {"type": "string"}
 INTEGER = {"type": "integer"}
 FILE_RANGE = {"path": STRING, "start_line": INTEGER, "end_line": INTEGER, "intent": STRING}
 SUBAGENT_TASK = {"model_id": STRING, "prompt": STRING, "system_prompt": STRING,
-    "thinking_level": STRING, "thinking_budget": INTEGER, "timeout": {"type":"integer","minimum":15,"maximum":900},
-    "max_steps": {"type":"integer","minimum":1,"maximum":64}}
+    "thinking_level": STRING, "thinking_budget": INTEGER, "timeout": {"type":"integer","minimum":15,"maximum":900}}
 TOOLS = [
     tool("user_input", "Ask focused questions using the native Android question sheet. Use for material ambiguity, user preferences or blocking decisions; never fabricate an answer or treat dismissal as consent.",
          {"questions": {"type": "array", "minItems": 1, "maxItems": 6, "items": {"type": "object",

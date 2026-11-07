@@ -14,8 +14,8 @@ android {
         minSdk = 24
         // API 28 permits compiler executables in app-private storage. Not a Play Store build.
         targetSdk = 28
-        versionCode = 15
-        versionName = "1.0.4"
+        versionCode = 16
+        versionName = "1.0.5"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
     sourceSets.getByName("main").jniLibs.srcDir(rootProject.file("build/native/codex"))

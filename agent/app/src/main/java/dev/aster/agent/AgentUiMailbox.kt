@@ -8,7 +8,7 @@ internal class AgentUiMailbox(private val token: String) {
     private var revision = 0L
     private var readRevision = 0L
     @Synchronized fun offer(value: String): Boolean {
-        if (value.length > 600000) return false
+        if (value.length > 4 * 1024 * 1024) return false
         val state = runCatching { JSONObject(value) }.getOrNull() ?: return false
         if (state.optString("workspace").isBlank() || state.optString("session").isBlank() ||
             state.optString("engine") !in setOf("pi", "gemini", "codex", "openclaude")) return false

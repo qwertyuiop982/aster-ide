@@ -98,9 +98,17 @@ internal fun codexAppearanceColors(left: String, right: String): ColorScheme {
     }, message = error) {
         ModelSettingsSection("界面样式", "布局切换保留所有功能。") {
             listOf("chat" to "对话式 · 默认", "classic" to "原样式").forEach { (id, title) ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = layout == id, onClick = { layout = id })
-                    TextButton(onClick = { layout = id }) { Text(title) }
+                Surface(onClick = { layout = id }, shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(title, style = MaterialTheme.typography.titleLarge)
+                                Text(if (id == "chat") "简洁对话，选项收纳于侧边栏" else "工作信息与快捷操作", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            RadioButton(selected = layout == id, onClick = null)
+                        }
+                        AgentLayoutPreview(id)
+                    }
                 }
             }
             Text("对话式：顶部模型与思考气泡，底部简洁输入；选项和会话记录统一放在侧边栏。", style = MaterialTheme.typography.bodySmall)
@@ -172,5 +180,26 @@ internal fun codexAppearanceColors(left: String, right: String): ColorScheme {
             Text("Ultra", color = ink, style = MaterialTheme.typography.titleMedium)
             Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(3.dp)).background(rail))
         }
+    }
+}
+
+@Composable private fun AgentLayoutPreview(layout: String) {
+    val outline = MaterialTheme.colorScheme.onSurfaceVariant
+    val blocks = MaterialTheme.colorScheme.surfaceContainerHighest
+    val accent = MaterialTheme.colorScheme.onSurface
+    Canvas(Modifier.fillMaxWidth().height(200.dp)) {
+        val w = size.width * 0.4f
+        val h = size.height * 0.92f
+        val x = (size.width - w) / 2
+        val y = (size.height - h) / 2
+        drawRoundRect(outline, Offset(x, y), androidx.compose.ui.geometry.Size(w, h), androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+        val pad = w * 0.08f
+        drawRoundRect(accent, Offset(x + pad, y + pad), androidx.compose.ui.geometry.Size(w * 0.55f, h * 0.035f), androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+        val sidebar = if (layout == "classic") w * 0.23f else 0f
+        if (sidebar > 0) drawRoundRect(blocks, Offset(x + pad, y + h * 0.18f), androidx.compose.ui.geometry.Size(sidebar, h * 0.59f), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+        repeat(4) { row ->
+            drawRoundRect(blocks, Offset(x + pad + sidebar, y + h * (0.23f + row * 0.12f)), androidx.compose.ui.geometry.Size(w - pad * 2 - sidebar, h * 0.075f), androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+        }
+        drawRoundRect(blocks, Offset(x + pad, y + h * 0.83f), androidx.compose.ui.geometry.Size(w - pad * 2, h * 0.1f), androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
     }
 }
