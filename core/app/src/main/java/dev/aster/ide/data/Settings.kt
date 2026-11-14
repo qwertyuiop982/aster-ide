@@ -112,7 +112,9 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             put("excludedDirs", next.excludedDirs)
             put("agentEngine", next.agentEngine); put("agentUseFree", next.agentUseFree); put("agentFreeTier", next.agentFreeTier)
             put("agentProfiles", JSONObject().apply {
-                next.agentProfiles.forEach { (id, p) -> put(id, JSONObject().put("endpoint", p.endpoint).put("model", p.model).put("contextWindow", p.contextWindow).put("maxTokens", p.maxTokens).put("thinkingLevel", p.thinkingLevel).put("thinkingMode", p.thinkingMode).put("thinkingBudget", p.thinkingBudget).put("protocol", p.protocol).put("reviewEnabled", p.reviewEnabled).put("reviewModel", p.reviewModel).put("enabledSkills", p.enabledSkills).put("mcpServers", p.mcpServers).put("mcpDefinitions", p.mcpDefinitions).put("subagentModels", p.subagentModels)) }
+                next.agentProfiles.forEach { (id, p) -> put(id, JSONObject().put("endpoint", p.endpoint).put("model", p.model).put("contextWindow", p.contextWindow).put("maxTokens", p.maxTokens).put("thinkingLevel", p.thinkingLevel).put("thinkingMode", p.thinkingMode).put("thinkingBudget", p.thinkingBudget).put("protocol", p.protocol).put("reviewEnabled", p.reviewEnabled).put("reviewModel", p.reviewModel).put("enabledSkills", p.enabledSkills).put("mcpServers", p.mcpServers).put("mcpDefinitions", p.mcpDefinitions).put("subagentModels", p.subagentModels)
+                    .put("models", p.models).put("activeApiId", p.activeApiId)
+                    .put("apiConfigurations", org.json.JSONArray(p.apiConfigurations.map { api -> JSONObject().put("id", api.id).put("name", api.name).put("endpoint", api.endpoint).put("model", api.model).put("models", api.models).put("protocol", api.protocol) }))) }
             })
             put("agentEndpoint", next.agentEndpoint); put("agentModel", next.agentModel)
             put("agentMode", next.agentMode); put("agentStreaming", next.agentStreaming)
@@ -132,7 +134,31 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
     }
 
     fun updateAgentProfile(engine: AgentEngine, change: (AgentProfile) -> AgentProfile) = update {
-        it.copy(agentProfiles = it.agentProfiles + (engine.id to change(it.agentProfile(engine))))
+        it.copy(agentProfiles = it.agentProfiles + (engine.id to change(it.agentProfile(engine)).retainActiveApi()))
+    }
+
+    fun selectAgentApi(engine: AgentEngine, id: String) = updateAgentProfile(engine) { profile ->
+        val retained = profile.retainActiveApi()
+        val api = retained.apiConfigurations.firstOrNull { it.id == id } ?: error("API 配置不存在")
+        retained.selectApi(api)
+    }
+
+    fun addAgentApi(engine: AgentEngine): String {
+        val id = java.util.UUID.randomUUID().toString()
+        updateAgentProfile(engine) { current ->
+            val existing = if (current.apiConfigurations.isEmpty()) listOf(dev.aster.ide.agent.AgentApiConfiguration("default", "默认 API", current.endpoint, current.model, current.models, current.protocol)) else current.retainActiveApi().apiConfigurations
+            val added = dev.aster.ide.agent.AgentApiConfiguration(id, "API ${existing.size + 1}", engine.endpoint)
+            current.copy(apiConfigurations = existing + added).selectApi(added)
+        }
+        return id
+    }
+
+    fun removeAgentApi(engine: AgentEngine, id: String) = updateAgentProfile(engine) { current ->
+        val existing = current.retainActiveApi().apiConfigurations
+        require(existing.size > 1) { "至少保留一份 API 配置" }
+        val remaining = existing.filterNot { it.id == id }
+        val next = current.copy(apiConfigurations = remaining)
+        if (current.activeApiId == id) next.selectApi(remaining.first()) else next
     }
 
     fun chooseUiStyle(style: UiStyle) = update { it.copy(uiStyle = style, uiStyleChosen = true) }
@@ -151,8 +177,15 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
         val profiles = mutableMapOf<String, AgentProfile>()
         val storedProfiles = j.optJSONObject("agentProfiles")
         AgentEngine.entries.forEach { engine -> storedProfiles?.optJSONObject(engine.id)?.let { p ->
+            val apis = p.optJSONArray("apiConfigurations")
+            val connections = (0 until (apis?.length() ?: 0)).mapNotNull { index ->
+                apis?.optJSONObject(index)?.let { api ->
+                    val id = api.optString("id")
+                    if (id.isBlank()) null else dev.aster.ide.agent.AgentApiConfiguration(id, api.optString("name", "API"), api.optString("endpoint", engine.endpoint), api.optString("model"), api.optString("models"), api.optString("protocol", "gemini"))
+                }
+            }.distinctBy { it.id }
             profiles[engine.id] = AgentProfile(p.optString("endpoint", engine.endpoint), p.optString("model"),
-                p.optInt("contextWindow", AgentContextPolicy.defaultWindow(engine)).coerceIn(8192, AgentContextPolicy.MAX_WINDOW), p.optInt("maxTokens", 4096).coerceIn(64, 65536), AgentThinkingPolicy.normalize(p.optString("thinkingLevel", "auto")), p.optString("thinkingMode", "legacy"), p.optInt("thinkingBudget", 1024), p.optString("protocol", "gemini").takeIf { it in setOf("gemini", "openai") } ?: "gemini", p.optBoolean("reviewEnabled", false), p.optString("reviewModel", ""), p.optString("enabledSkills", ""), p.optString("mcpServers", ""), p.optString("subagentModels", ""), p.optString("mcpDefinitions", "{}"))
+                p.optInt("contextWindow", AgentContextPolicy.defaultWindow(engine)).coerceIn(8192, AgentContextPolicy.MAX_WINDOW), p.optInt("maxTokens", 4096).coerceIn(64, 65536), AgentThinkingPolicy.normalize(p.optString("thinkingLevel", "auto")), p.optString("thinkingMode", "legacy"), p.optInt("thinkingBudget", 1024), p.optString("protocol", "gemini").takeIf { it in setOf("gemini", "openai") } ?: "gemini", p.optBoolean("reviewEnabled", false), p.optString("reviewModel", ""), p.optString("enabledSkills", ""), p.optString("mcpServers", ""), p.optString("subagentModels", ""), p.optString("mcpDefinitions", "{}"), p.optString("models", ""), p.optString("activeApiId", "").takeIf { id -> connections.any { it.id == id } } ?: "", connections)
         } }
         IdeSettings(
             agentEngine = AgentEngine.fromId(j.optString("agentEngine", "pi")).id, agentUseFree = j.optBoolean("agentUseFree", true), agentFreeTier = j.optString("agentFreeTier", "free").takeIf { it in setOf("free", "go") } ?: "free", agentProfiles = profiles,

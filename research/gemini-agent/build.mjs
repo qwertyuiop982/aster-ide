@@ -13,7 +13,15 @@ const result = await build({
   alias: { '@google/gemini-cli-core': resolve(vendor, 'packages/core/index.ts') },
   define: { 'process.env.CLI_VERSION': JSON.stringify('0.64.0'), __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' },
   banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); console.log = console.error; console.info = console.error; console.debug = console.error;' },
-  plugins: [{ name: 'aster-mcp-interaction-ui', setup(builder) {
+  plugins: [{ name: 'aster-agent-task-lifetime', setup(builder) {
+    builder.onLoad({ filter: /agents[/]local-executor[.]ts$/ }, args => {
+      const source = readFileSync(args.path, 'utf8');
+      const timer = /new DeadlineTimer\(\s*maxTimeMinutes \* 60 \* 1000,\s*'Agent timed out\.',\s*\)/;
+      if (!timer.test(source)) throw new Error('Pinned Gemini child deadline boundary changed');
+      const imports = 'import { TaskLifetime as AsterTaskLifetime } from ' + JSON.stringify(resolve(here, 'subagents.mjs')) + ';\n';
+      return { contents: imports + source.replace(timer, 'new AsterTaskLifetime()'), loader: 'ts' };
+    });
+  } }, { name: 'aster-mcp-interaction-ui', setup(builder) {
     builder.onLoad({ filter: /tools[/]mcp-client[.]ts$/ }, args => {
       const source = readFileSync(args.path, 'utf8');
       const anchor = '  mcpClient.registerCapabilities({';

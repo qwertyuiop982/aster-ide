@@ -13,6 +13,25 @@ enum class AgentEngine(val id: String, val label: String, val version: String, v
     }
 }
 
-data class AgentProfile(val endpoint: String, val model: String = "", val contextWindow: Int = 32768, val maxTokens: Int = 4096, val thinkingLevel: String = "auto", val thinkingMode: String = "legacy", val thinkingBudget: Int = 1024, val protocol: String = "gemini", val reviewEnabled: Boolean = false, val reviewModel: String = "", val enabledSkills: String = "", val mcpServers: String = "", val subagentModels: String = "", val mcpDefinitions: String = "{}")
+data class AgentApiConfiguration(
+    val id: String, val name: String, val endpoint: String,
+    val model: String = "", val models: String = "", val protocol: String = "gemini"
+)
+
+data class AgentProfile(val endpoint: String, val model: String = "", val contextWindow: Int = 32768, val maxTokens: Int = 4096, val thinkingLevel: String = "auto", val thinkingMode: String = "legacy", val thinkingBudget: Int = 1024, val protocol: String = "gemini", val reviewEnabled: Boolean = false, val reviewModel: String = "", val enabledSkills: String = "", val mcpServers: String = "", val subagentModels: String = "", val mcpDefinitions: String = "{}", val models: String = "", val activeApiId: String = "", val apiConfigurations: List<AgentApiConfiguration> = emptyList()) {
+    fun availableModels(): List<String> = parseAgentModels(listOf(model, models).joinToString(","))
+    fun selectApi(configuration: AgentApiConfiguration): AgentProfile = copy(
+        endpoint = configuration.endpoint, model = configuration.model, models = configuration.models,
+        protocol = configuration.protocol, activeApiId = configuration.id
+    )
+    fun retainActiveApi(): AgentProfile = if (activeApiId.isBlank()) this else copy(
+        apiConfigurations = apiConfigurations.map { if (it.id == activeApiId)
+            it.copy(endpoint = endpoint, model = model, models = models, protocol = protocol) else it }
+    )
+}
+
+/** Accept pasted comma-separated lists without sending a whole list as a model ID. */
+fun parseAgentModels(value: String): List<String> = value.split(',', '，', '\n', '\r')
+    .map(String::trim).filter(String::isNotEmpty).distinct()
 
 data class AgentEngineAvailability(val id: String, val available: Boolean, val reason: String, val version: String)

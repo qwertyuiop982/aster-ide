@@ -145,12 +145,27 @@ class NativeTransportTest(unittest.TestCase):
             def request(self, method, params):
                 captured[method] = params
                 return {'thread': {'id': 'fixture-thread'}}
+        wire = Wire()
         @contextmanager
         def fake_server(session, home, command, environment, transport):
             captured['command'] = command
-            yield Wire()
+            yield wire
+        def complete_turn(active_wire, *args, **kwargs):
+            active_wire.status = 'Submitted'
+            active_wire.summary = 'first real reply'
         with patch.object(codex, 'codex_binary', return_value=Path('/fixture/codex')), patch.object(runtime, 'native_server', fake_server):
-            codex.run_codex(session, config, prepare_only=True)
+            ready = codex.run_codex(session, config, prepare_only=True)
+            self.assertEqual(ready['status'], 'Ready')
+            self.assertFalse(ready['modelRequested'])
+            self.assertIn('initialize', captured)
+            self.assertNotIn('thread/start', captured)
+            self.assertNotIn('thread/resume', captured)
+            self.assertFalse(session.session_file.with_suffix('.codex-native.json').exists())
+            with patch.object(codex, 'execute_turn', side_effect=complete_turn) as execute:
+                reply = codex.run_codex(session, config)
+            self.assertEqual(reply['status'], 'Submitted')
+            self.assertEqual(reply['summary'], 'first real reply')
+            execute.assert_called_once()
         command = captured['command']
         overrides = dict(value.split('=', 1) for index, value in enumerate(command) if index and command[index - 1] == '-c')
         self.assertEqual(json.loads(overrides['model_reasoning_effort']), 'ultra')

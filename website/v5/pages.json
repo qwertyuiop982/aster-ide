@@ -1,0 +1,472 @@
+{
+  "zh": {
+    "why": {
+      "title": "为什么选择 Aster",
+      "intro": "把编辑、工具和模型协作放进同一个 Android 工作台。不是替代你所有的电脑工作，而是让手边的项目不必等到回到电脑前。",
+      "sections": [
+        {
+          "title": "少一些来回切换",
+          "paragraphs": [
+            "浏览项目、编辑代码、打开终端、查看模型对话与工具结果，都围绕同一个工作区进行。你可以使用 Aster 账户模型，也可以连接自己的供应商。"
+          ]
+        },
+        {
+          "title": "不同工具，各有所长",
+          "table": {
+            "headers": [
+              "使用方式",
+              "擅长的事情",
+              "需要考虑"
+            ],
+            "rows": [
+              [
+                "独立聊天工具",
+                "讨论、问答、生成片段",
+                "把代码带回项目、运行与验证通常要切换工具。"
+              ],
+              [
+                "独立移动编辑器",
+                "浏览文件、专注修改",
+                "终端和模型协作能力取决于具体产品与配置。"
+              ],
+              [
+                "Termux + 自选工具",
+                "高度自由的命令行环境",
+                "需要自己连接编辑器、语言服务与模型工作流。"
+              ],
+              [
+                "Aster",
+                "在 Android 工作区连接编辑、Agent 与终端",
+                "ARM64 Android 7.0+；模型服务、运行环境和设备权限仍需正确配置。"
+              ]
+            ]
+          },
+          "note": "这是工作流层面的概括，不是针对具体竞品的性能测试，也不代表所有产品具备相同功能。"
+        },
+        {
+          "title": "你可以做什么",
+          "items": [
+            "用代码编辑器浏览与修改项目，并按需安装语言服务。",
+            "在本地 Termux 环境运行开发工具，或连接远程终端 MCP。",
+            "使用 Pi、Codex、Gemini Agent，查看子代理进度与工具结果。",
+            "按需配置 Android 构建环境；通过浏览器与设备工具连接更多工作环节。"
+          ]
+        },
+        {
+          "title": "先了解边界",
+          "paragraphs": [
+            "Aster 是开发工作台，不保证任意桌面软件、项目或 Android ROM 都能直接运行。语言服务、SDK、网络模型和设备控制可能需要额外下载、网络、授权或第三方服务。重要代码请使用版本控制，并检查模型与命令执行结果。"
+          ],
+          "links": [
+            [
+              "help",
+              "查看更详细的功能与使用帮助"
+            ],
+            [
+              "privacy",
+              "查看隐私说明"
+            ]
+          ]
+        }
+      ]
+    },
+    "help": {
+      "title": "功能与使用帮助",
+      "intro": "从打开第一个项目，到把工具接起来。这里说明各项能力做什么、需要什么，以及遇到问题时先检查哪里。",
+      "sections": [
+        {
+          "title": "01 / 安装与首次启动",
+          "steps": [
+            "下载正式 APK。当前版本为 v1.06-aster，支持 Android 7.0 及以上的 ARM64 设备。按系统提示允许对应来源安装。",
+            "首次启动可以选择 VS Code 或 ACS 界面风格。导入或创建项目，按提示授予需要的文件权限。",
+            "初始化本地运行环境或安装开发工具时保持网络可用，并预留足够存储空间。不同项目所需 SDK 和依赖并不相同。"
+          ]
+        },
+        {
+          "title": "02 / 项目与代码编辑",
+          "paragraphs": [
+            "使用项目文件树定位文件，在编辑器中修改并保存。语言高亮、补全与诊断的具体表现取决于文件类型、语言服务和对应配置。",
+            "语言服务和工具链按需安装。项目无法识别时，先检查打开的项目根目录、依赖安装状态与语言服务设置。修改关键文件前建议提交 Git 或做好备份。"
+          ]
+        },
+        {
+          "title": "03 / 模型与 Agent",
+          "paragraphs": [
+            "可选择 Aster 账户模型，或配置自己的供应商、地址、模型与 API Key。标准 Agent 使用保留的 Pi、Codex 和 Gemini 引擎及 Aster 适配。",
+            "Agent 可读取所选项目上下文、调用工具并协作处理任务。子代理有独立对话与进度；请检查最终修改、工具结果与测试，不要把模型回复当作已验证的执行结果。",
+            "模型报错时，检查网络、模型可用性、供应商地址、凭据与账户用量。不要把密钥或不愿发送的文件加入上下文。"
+          ]
+        },
+        {
+          "title": "04 / 终端与运行环境",
+          "paragraphs": [
+            "内嵌 Termux 环境用于本地交互式命令执行。安装的包与语言工具保留各自上游声明。Android 系统与 CPU 架构会限制可运行的程序。",
+            "远程终端 MCP 在服务器上运行命令，不是在手机本地执行。需要认证与网络；远程文件、命令输入和输出会经过该服务。近期历史可保留，但服务重启不代表原进程会恢复。"
+          ]
+        },
+        {
+          "title": "05 / Android 构建与浏览器",
+          "paragraphs": [
+            "可按需配置 Android SDK 与构建工具。能否构建取决于项目要求、依赖与可用资源；SDK 下载同时受 Google 的相关条款约束。",
+            "内嵌浏览器工具基于 Qingzhou 的 BrowserEngine 与 WebViewEngine。网页行为会受到网站策略、Android WebView 版本和网络环境影响。"
+          ]
+        },
+        {
+          "title": "06 / 设备工具与 Shizuku",
+          "paragraphs": [
+            "设备工具依赖用户另行安装并启动的 Shizuku 应用。启动 Shizuku 后向 Aster 授权；它不是 Aster 内置的 root 服务。",
+            "操作失败时检查 Shizuku 是否仍在运行、Aster 是否获准访问，以及系统是否限制了后台进程。涉及系统设置或文件的操作请先确认影响。"
+          ]
+        },
+        {
+          "title": "07 / 下载或更新遇到问题",
+          "items": [
+            "官网下载通过 gh-proxy.org 转发 GitHub Release 资产。如果代理不可用，可从仓库 Release 页尝试直连；两者均不可用时等待网络恢复。",
+            "更新使用相同签名的正式 APK；不同签名的自行构建包不能直接覆盖现有安装。",
+            "反馈问题请附上应用版本、Android 版本、复现步骤及去除敏感信息的日志。不要上传密码、令牌或私人项目内容。"
+          ],
+          "links": [
+            [
+              "release",
+              "打开 v1.06-aster Release"
+            ],
+            [
+              "issues",
+              "反馈问题"
+            ],
+            [
+              "credits",
+              "了解产品积分"
+            ],
+            [
+              "privacy",
+              "隐私说明"
+            ]
+          ]
+        }
+      ]
+    },
+    "credits": {
+      "title": "产品积分",
+      "intro": "积分用于 Aster 账户模型的用量管理。它不是网站里的虚拟货币，也不因为浏览本页而消耗。",
+      "sections": [
+        {
+          "title": "当前 Free 模型服务价格调整",
+          "paragraphs": [
+            "Free Go 的价格调整规则为每 1000 token 计 10 积分。这是计费规则，不是额外模型。",
+            "当前两项模型 gpt-6.1-terra 与 glm-5.3-flash 均无额外价格调整。"
+          ],
+          "table": {
+            "headers": ["模型", "价格调整"],
+            "rows": [
+              ["gpt-6.1-terra", "无价格调整"],
+              ["glm-5.3-flash", "无价格调整"]
+            ]
+          },
+          "note": "模型可用性与实际扣减以服务端当前配置和结算记录为准。"
+        },
+        {
+          "title": "自定义供应商有什么不同",
+          "paragraphs": [
+            "使用自己的供应商和 API Key 时，请查看该供应商的价格、限额和账单。供应商的计费与 Aster 账户积分不是同一份记录；不要把“自定义”理解为模型服务免费。"
+          ]
+        },
+        {
+          "title": "如何查看与核对",
+          "steps": [
+            "在 App 的账户与模型设置中检查登录状态、模型来源、余额与当前档位说明。",
+            "开始较大任务前确认所选模型及规则，并根据需要控制上下文和工具输出。",
+            "如用量与预期不符，保留请求时间、模型名称和已脱敏的错误信息，提交问题。不要提供登录密码或 API Key。"
+          ]
+        },
+        {
+          "title": "计费规则说明",
+          "paragraphs": [
+            "以上是当前 Free 模型服务的调整规则，不代表所有账户模型、供应商或后续版本均适用。实际可用性及扣减请以 App 和服务端结算为准。"
+          ],
+          "links": [
+            ["help", "返回使用帮助"],
+            ["issues", "提交问题"]
+          ]
+        }
+      ]
+    },
+    "about": {
+      "title": "关于 Aster",
+      "intro": "一个围绕 Android 项目编辑、智能协作和交互式终端构建的开发工作台。",
+      "sections": [
+        {
+          "title": "项目与作者",
+          "paragraphs": [
+            "Aster 的公开仓库保留实现、版本发布记录和来源说明。问题反馈与项目进展请查看仓库；作者主页用于了解维护者的其他公开项目。"
+          ],
+          "links": [
+            [
+              "github",
+              "项目仓库"
+            ],
+            [
+              "author",
+              "作者 GitHub 主页"
+            ]
+          ]
+        },
+        {
+          "title": "关于这组手机",
+          "paragraphs": [
+            "首页的四部手机为独立绘制的概念化 3D 轮廓，参考 Xiaomi 17 Pro、折叠状态的 HUAWEI Mate XT 非凡大师、Pixel 11 Pro Fold 与 Galaxy S26 Ultra 的设计语言。它们不是用于规格核验的精确产品模型。",
+            "搜索素材含第三方概念图与产品示意，无法据此保证官方外观。没有将这些产品图片作为网站素材分发，也不表示这些厂商与 Aster 有合作关系。屏幕显示的是本次设计提供的 Aster 界面截图。"
+          ]
+        },
+        {
+          "title": "数据与开放来源",
+          "links": [
+            [
+              "privacy",
+              "隐私说明"
+            ],
+            [
+              "licenses",
+              "开源许可与第三方声明"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "en": {
+    "why": {
+      "title": "Why choose Aster",
+      "intro": "Editing, tools and AI collaboration in one Android workspace. Not a replacement for everything you do on a desktop—just a way to keep your project moving before you get back to one.",
+      "sections": [
+        {
+          "title": "Less switching, more context",
+          "paragraphs": [
+            "Browse a project, edit files, open a terminal and review model conversations and tool results around the same workspace. Use Aster account models or connect your own provider."
+          ]
+        },
+        {
+          "title": "Different tools, different strengths",
+          "table": {
+            "headers": [
+              "Workflow",
+              "Good at",
+              "Considerations"
+            ],
+            "rows": [
+              [
+                "Standalone chat tools",
+                "Questions, discussion and generated snippets",
+                "Moving code into a project, running it and verifying it often means switching tools."
+              ],
+              [
+                "Standalone mobile editors",
+                "Browsing files and focused edits",
+                "Terminal and model workflows depend on the product and configuration."
+              ],
+              [
+                "Termux + your own tools",
+                "A flexible command-line environment",
+                "You connect the editor, language services and model workflow yourself."
+              ],
+              [
+                "Aster",
+                "Connecting editing, agents and a terminal on Android",
+                "ARM64 Android 7.0+; model services, runtime tools and device permissions still need configuration."
+              ]
+            ]
+          },
+          "note": "A workflow-level comparison, not a benchmark of specific competitors or a claim that all products offer identical features."
+        },
+        {
+          "title": "What you can do",
+          "items": [
+            "Browse and edit projects, with language services installed as needed.",
+            "Run development tools in a local Termux environment or connect remote terminal MCP.",
+            "Work with Pi, Codex and Gemini agents and follow subagent progress and tool results.",
+            "Configure Android build tools as needed, with browser and device tools for additional workflows."
+          ]
+        },
+        {
+          "title": "Know the boundaries",
+          "paragraphs": [
+            "Aster does not promise that every desktop application, project or Android ROM will work unchanged. Language servers, SDKs, network models and device control may require downloads, connectivity, permissions or third-party services. Use version control and verify model output and executed commands."
+          ],
+          "links": [
+            [
+              "help",
+              "Explore features and help"
+            ],
+            [
+              "privacy",
+              "Read the privacy notice"
+            ]
+          ]
+        }
+      ]
+    },
+    "help": {
+      "title": "Features & help",
+      "intro": "From opening your first project to connecting your tools: what each capability does, what it needs and where to look when something goes wrong.",
+      "sections": [
+        {
+          "title": "01 / Install and get started",
+          "steps": [
+            "Download the release APK. Version v1.06-aster supports ARM64 devices running Android 7.0 or later. Allow installation from the relevant source when Android asks.",
+            "Choose the VS Code or ACS interface style on first launch. Open or create a project and grant the file permissions you need.",
+            "Keep a network connection and enough storage available when initializing the local runtime or installing tools. SDKs and dependencies vary by project."
+          ]
+        },
+        {
+          "title": "02 / Projects and code editing",
+          "paragraphs": [
+            "Find files in the project tree, edit and save them in the editor. Highlighting, completion and diagnostics depend on the file type, language service and configuration.",
+            "Language services and toolchains are installed on demand. If a project is not recognized, check its root folder, dependencies and language-service settings. Commit or back up important changes."
+          ]
+        },
+        {
+          "title": "03 / Models and agents",
+          "paragraphs": [
+            "Choose Aster account models or configure your own provider, endpoint, model and API key. The standard agent uses retained Pi, Codex and Gemini engines with Aster adapters.",
+            "Agents can use selected project context and tools. Subagents have their own conversations and progress. Review edits, tool results and tests: a model response is not proof that an action was executed or verified.",
+            "For model errors, check connectivity, model availability, the provider endpoint, credentials and account usage. Do not add keys or files you do not want to send to the context."
+          ]
+        },
+        {
+          "title": "04 / Terminal and runtime",
+          "paragraphs": [
+            "The embedded Termux environment runs local interactive commands. Installed packages and language tools retain upstream notices. Android and CPU architecture limit which programs can run.",
+            "Remote terminal MCP executes on a server, not your phone. It requires authentication and connectivity; remote files, command input and output pass through the service. Recent history may persist, but a service restart does not restore running processes."
+          ]
+        },
+        {
+          "title": "05 / Android builds and the browser",
+          "paragraphs": [
+            "Configure Android SDK and build tools as required. Build success depends on project requirements, dependencies and available resources; SDK downloads are also subject to Google’s terms.",
+            "Embedded browser tools use Qingzhou’s BrowserEngine and WebViewEngine. Website policies, Android WebView versions and network conditions affect behavior."
+          ]
+        },
+        {
+          "title": "06 / Device tools and Shizuku",
+          "paragraphs": [
+            "Device tools require the Shizuku app, separately installed and started by you. Grant Aster permission after starting it. Shizuku is not a root service bundled with Aster.",
+            "If an operation fails, check that Shizuku is running, Aster has access and Android has not restricted background processes. Confirm the consequences of system and file operations first."
+          ]
+        },
+        {
+          "title": "07 / Downloads, updates and troubleshooting",
+          "items": [
+            "Website downloads proxy GitHub Release assets through gh-proxy.org. If the proxy is unavailable, try the direct Release link; if both are blocked, wait for connectivity to recover.",
+            "Update with an official APK signed with the same key. A self-built APK with a different signature cannot directly replace an existing installation.",
+            "Report the app version, Android version, reproduction steps and sanitized logs. Never include passwords, tokens or private project content."
+          ],
+          "links": [
+            [
+              "release",
+              "Open the v1.06-aster Release"
+            ],
+            [
+              "issues",
+              "Report an issue"
+            ],
+            [
+              "credits",
+              "About product credits"
+            ],
+            [
+              "privacy",
+              "Privacy notice"
+            ]
+          ]
+        }
+      ]
+    },
+    "credits": {
+      "title": "Product credits",
+      "intro": "Credits track usage of Aster account models. They are not a website currency, and visiting this page does not spend them.",
+      "sections": [
+        {
+          "title": "Current Free model service adjustments",
+          "paragraphs": [
+            "The Free Go price adjustment is 10 credits per 1,000 tokens. This is a billing rule, not an additional model.",
+            "The two current models, gpt-6.1-terra and glm-5.3-flash, have no additional price adjustment."
+          ],
+          "table": {
+            "headers": ["Model", "Price adjustment"],
+            "rows": [
+              ["gpt-6.1-terra", "No price adjustment"],
+              ["glm-5.3-flash", "No price adjustment"]
+            ]
+          },
+          "note": "Availability and actual deductions follow the server's current configuration and settlement records."
+        },
+        {
+          "title": "Using your own provider",
+          "paragraphs": [
+            "When using your own provider and API key, consult that provider’s prices, limits and invoices. Provider billing and Aster account credits are separate records. A custom provider does not imply free model service."
+          ]
+        },
+        {
+          "title": "Check and reconcile usage",
+          "steps": [
+            "Check your sign-in state, model source, balance and current tier details in the app’s account and model settings.",
+            "Confirm the selected model and rules before a large task. Limit context and tool output where appropriate.",
+            "If usage looks unexpected, keep the request time, model name and sanitized error details when reporting it. Do not share a password or API key."
+          ]
+        },
+        {
+          "title": "Pricing and settlement",
+          "paragraphs": [
+            "These adjustments apply to the current Free model service only. Availability and deductions may change; confirm the active rules in the app and server settlement records."
+          ],
+          "links": [
+            ["help", "Back to help"],
+            ["issues", "Report an issue"]
+          ]
+        }
+      ]
+    },
+    "about": {
+      "title": "About Aster",
+      "intro": "A development workspace built around project editing, AI collaboration and an interactive terminal on Android.",
+      "sections": [
+        {
+          "title": "Project and author",
+          "paragraphs": [
+            "The public repository retains implementation, release records and provenance. Visit it for issues and project activity, or the author’s profile for other public work."
+          ],
+          "links": [
+            [
+              "github",
+              "Project repository"
+            ],
+            [
+              "author",
+              "Author’s GitHub profile"
+            ]
+          ]
+        },
+        {
+          "title": "About these devices",
+          "paragraphs": [
+            "The four independently drawn 3D silhouettes reference the design language of Xiaomi 17 Pro, HUAWEI Mate XT in its folded state, Pixel 11 Pro Fold and Galaxy S26 Ultra. These are conceptual visual models, not exact hardware representations.",
+            "Search results include third-party concepts and product illustrations, so official appearance cannot be guaranteed from them. Those images are not distributed with this site and no brand partnership is implied. Screens use the Aster interface screenshots supplied for this design."
+          ]
+        },
+        {
+          "title": "Data and open-source work",
+          "links": [
+            [
+              "privacy",
+              "Privacy notice"
+            ],
+            [
+              "licenses",
+              "Licenses and third-party notices"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

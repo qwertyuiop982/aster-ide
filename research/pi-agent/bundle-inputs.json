@@ -16651,8 +16651,19 @@
     ],
     "format": "esm"
   },
+  "../agent-engines/transport.mjs": {
+    "bytes": 2981,
+    "imports": [
+      {
+        "path": "node:readline",
+        "kind": "import-statement",
+        "external": true
+      }
+    ],
+    "format": "esm"
+  },
   "runner.ts": {
-    "bytes": 13261,
+    "bytes": 12218,
     "imports": [
       {
         "path": "../../vendor/pi/packages/agent/src/index.ts",
@@ -16680,9 +16691,9 @@
         "original": "../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts"
       },
       {
-        "path": "node:readline",
+        "path": "../agent-engines/transport.mjs",
         "kind": "import-statement",
-        "external": true
+        "original": "../agent-engines/transport.mjs"
       },
       {
         "path": "node:path",

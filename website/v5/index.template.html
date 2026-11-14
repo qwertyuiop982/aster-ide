@@ -1,73 +1,45 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="{{html_lang}}" {{language_attrs}}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f7f8f6">
-  <title>Aster — 把开发，装进口袋。</title>
-  <meta name="description" content="在 Android 上编辑项目，与 Pi、Codex、Gemini 协作，查看子代理进度并使用交互终端。">
-  <meta property="og:title" content="Aster — 把开发，装进口袋。">
-  <meta property="og:description" content="编辑项目、协作写代码、汇总结果并验证，都在 Android 工作台。">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>{{title}}</title>
+  <meta name="description" content="{{meta_description}}">
+  <meta property="og:title" content="{{title}}">
+  <meta property="og:description" content="{{meta_description}}">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://asteride.cn/">
-  <link rel="canonical" href="https://asteride.cn/">
+  <meta property="og:url" content="{{canonical_url}}">
+  <meta property="og:locale" content="{{og_locale}}">
+  <link rel="canonical" href="{{canonical_url}}">
+  {{alternate_links}}
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <script src="/assets/language.js?v={{asset_version}}"></script>
   <link rel="stylesheet" href="/assets/site.css?v={{asset_version}}">
   <script src="/assets/site.js?v={{asset_version}}" defer></script>
 </head>
-<body>
-  <a class="skip" href="#main">跳到主要内容</a>
-  <div class="site-shell">
-    <header class="header">
-      <a class="brand" href="/" aria-label="Aster 首页"><img src="/assets/mark.svg" width="30" height="30" alt=""><span>aster<span class="brand-dot">.</span></span></a>
-      <span class="header-note">你的随身开发工作台</span>
-      <a class="header-download" href="{{apk_url}}">下载 Aster <span aria-hidden="true">↗</span></a>
-    </header>
-    <main id="main" class="main">
-      <section class="intro" aria-labelledby="title">
-        <div class="intro-copy">
-          <span class="eyebrow"><span class="live-dot" aria-hidden="true"></span> MADE FOR ANDROID <span class="eyebrow-rule"></span> v{{version}}</span>
-          <h1 id="title">把开发，<br><span class="accent">装进口袋<span class="title-dot">。</span></span></h1>
-          <p class="description">编辑代码，与 Agent 协作，直接运行项目。<br>在 Android 上，接着把事情做完。</p>
-          <div class="actions"><a class="primary" href="{{apk_url}}">下载 Android APK <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></a><span class="requirements">Android 7.0+<br>ARM64 · {{apk_size}}</span></div>
-          <div class="feature-picker" role="tablist" aria-label="探索工作台">
-            <button id="tab-agent" role="tab" type="button" aria-selected="true" aria-controls="panel-agent" tabindex="0" data-tab="agent"><span class="tab-icon" aria-hidden="true">✳</span><span><strong>多模型 Agent</strong><small>独立会话，协作推进</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
-            <button id="tab-code" role="tab" type="button" aria-selected="false" aria-controls="panel-code" tabindex="-1" data-tab="code"><span class="tab-icon code-icon" aria-hidden="true">&lt;/&gt;</span><span><strong>代码编辑</strong><small>浏览项目，专注编辑</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
-            <button id="tab-terminal" role="tab" type="button" aria-selected="false" aria-controls="panel-terminal" tabindex="-1" data-tab="terminal"><span class="tab-icon terminal-icon" aria-hidden="true">&gt;_</span><span><strong>交互终端</strong><small>本地运行，远程协作</small></span><span class="tab-arrow" aria-hidden="true">↗</span></button>
-          </div>
-        </div>
-        <div class="showcase" aria-label="工作台交互示意">
-          <span class="ambient ambient-one" aria-hidden="true"></span><span class="ambient ambient-two" aria-hidden="true"></span>
-          <div class="floating-chip"><span class="chip-star" aria-hidden="true">✳</span> 灵感随时，就绪。</div>
-          <div class="workbench">
-            <div class="window-bar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="window-name">aster / workspace</span><span class="window-mark" aria-hidden="true">✳</span></div>
-            <div class="workspace-body">
-              <div id="panel-agent" class="workspace-panel" role="tabpanel" aria-labelledby="tab-agent">
-                <div class="panel-heading"><span class="mini-icon" aria-hidden="true">✳</span><span>从一个想法开始<small>AGENT WORKSPACE</small></span><span class="pill">Agent</span></div>
-                <div class="prompt">把这个任务拆开，并行检查代码与测试。<span class="prompt-avatar" aria-hidden="true">↗</span></div>
-                <div class="agent-message"><img src="/assets/mark.svg" width="23" height="23" alt=""><div><strong>主对话，掌握整体进度。</strong><p>子代理各自处理任务，随时切换查看对话与工具结果。</p></div></div>
-                <div class="task-list"><div><span class="check" aria-hidden="true">✓</span> 检查项目与实现<span class="task-meta">context</span></div><div><span class="check" aria-hidden="true">✓</span> 查看子代理进度<span class="task-meta">tools</span></div><div><span class="working" aria-hidden="true"></span> 汇总结果并验证<span class="task-meta">terminal</span></div></div>
-                <div class="model-row"><span>账户模型或自定义供应商。</span><span class="model-tags">Pi <i></i> Codex <i></i> Gemini</span></div>
-              </div>
-              <div id="panel-code" class="workspace-panel" role="tabpanel" aria-labelledby="tab-code" hidden>
-                <div class="editor-tabs"><span>✳</span> hello.kt <span class="editor-tab-meta">Kotlin</span></div>
-                <div class="code-sample" aria-label="Kotlin 代码示意"><div><span class="line-no">1</span><code><b>fun</b> main() {</code></div><div><span class="line-no">2</span><code>  <b>val</b> idea = <em>"Hello, Aster"</em></code></div><div><span class="line-no">3</span><code>  println(idea)</code></div><div><span class="line-no">4</span><code>}</code></div><div><span class="line-no">5</span><code></code></div><div><span class="line-no">6</span><code class="code-comment">// 下一行，写下你的想法。</code></div></div>
-                <div class="editor-status"><span><span class="status-small" aria-hidden="true"></span> 留在项目里，专注下一行。</span><span>UTF-8</span></div>
-                <div class="editor-caption"><strong>小屏幕，也有完整思路。</strong><p>浏览项目、编辑代码、按需连接语言服务，继续手边的工作。</p></div>
-              </div>
-              <div id="panel-terminal" class="workspace-panel" role="tabpanel" aria-labelledby="tab-terminal" hidden>
-                <div class="terminal-title"><span>&gt;_ terminal</span><span class="terminal-badge">交互式会话</span></div>
-                <div class="terminal-output"><p class="terminal-muted">~/my-project</p><p><span class="terminal-green">$</span> python hello.py</p><p class="terminal-green">Hello, Aster.</p><p class="terminal-muted terminal-gap"># 本地环境与远程终端 MCP</p><p><span class="terminal-green">$</span> <span class="cursor" aria-hidden="true"></span></p></div>
-                <div class="terminal-keys" aria-label="支持交互输入"><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>Tab</kbd><kbd>Esc</kbd><span>交互输入 · 查看输出</span></div>
-              </div>
-            </div>
-            <div class="window-footer"><span><span class="status-small" aria-hidden="true"></span> 代码 · Agent · 终端</span><span>工作台示意</span></div>
-          </div>
-          <div class="showcase-caption"><span class="caption-line" aria-hidden="true"></span> 一个工作台，更多可能。<span class="caption-spark" aria-hidden="true">✳</span></div>
-        </div>
-      </section>
+<body class="home-page">
+  <a class="skip" href="#main">{{skip}}</a>
+  <div class="home-shell">
+    <header class="home-header interface">{{language_switch}}</header>
+    <div id="phone-stage" class="phone-stage" role="group" tabindex="0" aria-label="{{scene_label}}" aria-describedby="scene-instructions" data-scene="loading">
+      <div class="phone-poster" aria-hidden="true">
+        <div class="poster-phone poster-xiaomi"><img src="/assets/screens/xiaomi.svg" alt="" width="360" height="800"></div>
+        <div class="poster-phone poster-huawei"><span class="poster-camera"></span></div>
+        <div class="poster-phone poster-samsung"><span class="poster-camera"></span></div>
+        <div class="poster-phone poster-pixel"><img src="/assets/screens/pixel.svg" alt="" width="360" height="800"></div>
+      </div>
+    </div>
+    <main id="main" class="hero interface">
+      <h1>Aster</h1>
+      <a class="download-button" href="{{apk_url}}" aria-label="{{download_aster}} v{{version}} ({{apk_size}})">{{download_short}}<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg></a>
     </main>
-    <footer class="footer"><span>© {{year}} Aster</span><span class="footer-motto">想到了，就开始<span aria-hidden="true"> ↗</span></span><a href="/privacy/">隐私</a></footer>
+    <p id="scene-instructions" class="visually-hidden">{{scene_instructions}}</p>
+    <div class="scene-controls interface" aria-label="{{scene_controls}}">
+      <button type="button" id="motion-toggle" aria-label="{{pause_rotation}}" aria-pressed="false" data-pause-label="{{pause_rotation}}" data-play-label="{{play_rotation}}" title="{{pause_rotation}}"><svg class="pause-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M7 5h3v14H7zm7 0h3v14h-3z"/></svg><svg class="play-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7z"/></svg></button>
+      <button type="button" id="scene-reset" aria-label="{{reset_view}}" title="{{reset_view}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg></button>
+    </div>
+    <footer class="home-footer interface"><nav class="footer-links" aria-label="{{footer_label}}">{{footer_links}}</nav></footer>
   </div>
 </body>
 </html>

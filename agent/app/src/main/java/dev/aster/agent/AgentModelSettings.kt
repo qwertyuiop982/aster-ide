@@ -30,8 +30,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.aster.ide.agent.AgentContextPolicy
 import dev.aster.ide.agent.AgentEngine
 import dev.aster.ide.agent.AgentThinkingPolicy
+import dev.aster.ide.agent.AgentApiConfiguration
+import dev.aster.ide.agent.AgentModelCatalog
+import dev.aster.ide.agent.parseAgentModels
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable internal fun ModelSettings(vm: AgentViewModel, engine: AgentEngine) {
+    val settings by vm.settings.flow.collectAsStateWithLifecycle()
+    key(engine, settings.agentProfile(engine).activeApiId) { ModelSettingsContent(vm, engine) }
+}
+
+@Composable private fun ModelSettingsContent(vm: AgentViewModel, engine: AgentEngine) {
     val accountSettings by vm.core.settings.flow.collectAsStateWithLifecycle()
     val permissionSettings by vm.settings.flow.collectAsStateWithLifecycle()
     if (engine == AgentEngine.PI && accountSettings.agentUseFree) {
@@ -51,14 +63,21 @@ import dev.aster.ide.agent.AgentThinkingPolicy
         }
         return
     }
-    val profile = vm.settings.value.agentProfile(engine)
+    val profile = permissionSettings.agentProfile(engine)
+    val connectionId = profile.activeApiId.ifBlank { "default" }
+    val apiChoices = profile.apiConfigurations.ifEmpty { listOf(AgentApiConfiguration("default", "默认 API", profile.endpoint, profile.model, profile.models, profile.protocol)) }
+    var apiName by remember(engine) { mutableStateOf(apiChoices.firstOrNull { it.id == connectionId }?.name ?: "API") }
+    var confirmDeleteApi by remember { mutableStateOf(false) }
+    var loadingModels by remember { mutableStateOf(false) }
+    val requests = rememberCoroutineScope()
+    LaunchedEffect(engine, connectionId) { vm.agent.secrets.select(engine) }
     var subagentModels by remember(engine) { mutableStateOf(profile.subagentModels) }
     var enabledSkills by remember(engine) { mutableStateOf(profile.enabledSkills) }
     var reviewEnabled by remember(engine) { mutableStateOf(profile.reviewEnabled) }
     var reviewModel by remember(engine) { mutableStateOf(profile.reviewModel) }
     var protocol by remember(engine) { mutableStateOf(profile.protocol) }
     var endpoint by remember(engine) { mutableStateOf(profile.endpoint) }
-    var model by remember(engine) { mutableStateOf(profile.model) }
+    var model by remember(engine) { mutableStateOf(profile.availableModels().joinToString(",")) }
     var key by remember(engine) { mutableStateOf("") }
     var context by remember(engine) { mutableStateOf(profile.contextWindow.toString()) }
     var tokens by remember(engine) { mutableStateOf(profile.maxTokens.toString()) }
@@ -70,23 +89,57 @@ import dev.aster.ide.agent.AgentThinkingPolicy
     val hasKey by vm.agent.secrets.hasKey.collectAsStateWithLifecycle()
     val outputConfigurable = AgentContextPolicy.outputConfigurable(engine)
     val minimum = AgentContextPolicy.minimum(engine)
-    val save: () -> Unit = {
+    val persist: () -> Boolean = {
         runCatching {
+            check(!vm.locked) { "请先停止当前任务再切换 API 配置" }
             val uri = java.net.URI(endpoint.trim())
             require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.rawFragment == null && uri.rawQuery == null) { "请输入不含查询参数、账号和片段的完整 API 基础地址" }
             val window = context.trim().toIntOrNull() ?: error("上下文窗口必须是整数 tokens")
             val output = if (outputConfigurable) tokens.trim().toIntOrNull() ?: error("最大输出必须是整数 tokens") else profile.maxTokens
+            val modelIds = parseAgentModels(model)
             AgentContextPolicy.validate(engine, window, output)
-            val nextProfile = profile.copy(subagentModels = subagentModels.trim(), mcpServers = vm.settings.value.agentProfile(engine).mcpServers, mcpDefinitions = vm.settings.value.agentProfile(engine).mcpDefinitions, enabledSkills = enabledSkills.trim(), reviewEnabled = reviewEnabled, reviewModel = reviewModel.trim(), protocol = protocol, endpoint = endpoint.trim(), model = model.trim(), contextWindow = window, maxTokens = output, thinkingLevel = thinking, thinkingMode = if (engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)) thinkingMode else if (thinking in setOf("auto", "off")) thinking else "strength", thinkingBudget = if (thinkingMode == "budget") thinkingBudget.toIntOrNull() ?: error("思考预算必须是整数") else thinkingBudget.toIntOrNull() ?: profile.thinkingBudget)
+            val nextProfile = profile.copy(subagentModels = subagentModels.trim(), mcpServers = vm.settings.value.agentProfile(engine).mcpServers, mcpDefinitions = vm.settings.value.agentProfile(engine).mcpDefinitions, enabledSkills = enabledSkills.trim(), reviewEnabled = reviewEnabled, reviewModel = reviewModel.trim(), protocol = protocol, endpoint = endpoint.trim(), model = modelIds.firstOrNull().orEmpty(), models = modelIds.joinToString(","), activeApiId = connectionId, apiConfigurations = apiChoices.map { if (it.id == connectionId) it.copy(name = apiName.trim().ifBlank { "API" }) else it }, contextWindow = window, maxTokens = output, thinkingLevel = thinking.trim(), thinkingMode = if (engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)) thinkingMode else if (thinking in setOf("auto", "off")) thinking else "strength", thinkingBudget = if (thinkingMode == "budget") thinkingBudget.toIntOrNull() ?: error("思考预算必须是整数") else thinkingBudget.toIntOrNull() ?: profile.thinkingBudget)
             AgentThinkingPolicy.validate(engine, nextProfile)
+            if (key.isNotBlank()) vm.agent.secrets.save(key.trim(), engine, connectionId)
             vm.settings.updateAgentProfile(engine) { nextProfile }
             vm.settings.update { it.copy(agentStreaming = streaming) }
-            if (key.isNotBlank()) vm.agent.secrets.save(key.trim(), engine)
-            key = ""; vm.showSettings = false
-        }.onFailure { validationError = it.message ?: "配置无效" }
+            vm.agent.secrets.select(engine)
+            key = ""; validationError = null
+        }.fold({ true }, { validationError = it.message ?: "配置无效"; false })
     }
+    val save: () -> Unit = { if (persist()) vm.showSettings = false }
+    if (confirmDeleteApi) AlertDialog(
+        onDismissRequest = { confirmDeleteApi = false },
+        title = { Text("删除 API 配置？") },
+        text = { Text("删除「$apiName」及其本地密钥，不影响其他 API 配置。") },
+        confirmButton = { TextButton(onClick = {
+            vm.settings.removeAgentApi(engine, connectionId)
+            vm.agent.secrets.save("", engine, connectionId)
+            vm.agent.secrets.select(engine)
+            confirmDeleteApi = false
+        }) { Text("删除") } },
+        dismissButton = { TextButton(onClick = { confirmDeleteApi = false }) { Text("取消") } }
+    )
     ModelSettingsPage("${engine.label} · 模型配置", { key = ""; vm.showSettings = false }, save, message = validationError) {
-        ModelSettingsSection("连接模型", "地址、模型名称和密钥按引擎分别保存。") {
+        ModelSettingsSection("API 配置", "多份地址、协议、模型和密钥独立保存，切换前保存当前编辑。") {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                apiChoices.forEach { api ->
+                    FilterChip(selected = api.id == connectionId, enabled = !vm.locked && !loadingModels, onClick = {
+                        if (api.id != connectionId && persist()) {
+                            vm.settings.selectAgentApi(engine, api.id)
+                            vm.agent.secrets.select(engine)
+                        }
+                    }, label = { Text(api.name + if (api.id == connectionId) " · 当前" else "") })
+                }
+            }
+            OutlinedTextField(apiName, { apiName = it }, label = { Text("配置名称") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(enabled = !vm.locked && !loadingModels, onClick = { if (persist()) { vm.settings.addAgentApi(engine); vm.agent.secrets.select(engine) } }) { Text("新增 API") }
+                TextButton(enabled = !vm.locked && !loadingModels && apiChoices.size > 1, onClick = { confirmDeleteApi = true }) { Text("删除当前配置") }
+            }
+            Text("密钥按配置使用 Android Keystore 加密保存，不写入普通设置或模型列表。", style = MaterialTheme.typography.bodySmall)
+        }
+        ModelSettingsSection("连接模型", "模型用英文逗号分隔，例如 model-a,model-b；点击对话上方模型名快速切换。") {
             Text("真实底层 ${engine.displayName} · ${engine.apiLabel}", style = MaterialTheme.typography.labelLarge)
             if (engine == AgentEngine.GEMINI) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,7 +150,27 @@ import dev.aster.ide.agent.AgentThinkingPolicy
                 Text(if (protocol == "openai") "使用 Chat Completions 基础地址；文本与工具调用，回复整段显示。" else "使用 Gemini generateContent 基础地址。", style = MaterialTheme.typography.bodySmall)
             }
             OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API 地址") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(model, { model = it }, label = { Text("模型名称") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(model, { model = it }, label = { Text("模型列表（model-a,model-b）") }, supportingText = { Text("第一个为当前模型；云端列表合并到这里，保存后可在顶部气泡切换。") }, modifier = Modifier.fillMaxWidth())
+            OutlinedButton(enabled = !loadingModels && !vm.locked && endpoint.isNotBlank(), onClick = {
+                val requestedEndpoint = endpoint.trim()
+                val requestedProtocol = protocol
+                val enteredKey = key.trim()
+                loadingModels = true; validationError = null
+                requests.launch {
+                    var usedKey = enteredKey
+                    try {
+                        val found = withContext(Dispatchers.IO) {
+                            if (usedKey.isBlank()) usedKey = vm.agent.secrets.read(engine, connectionId)
+                            AgentModelCatalog.fetch(engine, requestedEndpoint, requestedProtocol, usedKey)
+                        }
+                        if (endpoint.trim() == requestedEndpoint && protocol == requestedProtocol)
+                            model = (parseAgentModels(model) + found).distinct().joinToString(",")
+                    } catch (error: CancellationException) { throw error }
+                    catch (error: Exception) { validationError = AgentDiagnostics.redact(error.message ?: "获取模型列表失败", listOf(usedKey)) }
+                    finally { usedKey = ""; loadingModels = false }
+                }
+            }) { Text(if (loadingModels) "正在请求模型列表…" else "从云端获取模型列表") }
+            Text("仅向当前填写的 API 发起只读列表请求；不会发送对话或自动执行模型任务。", style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(key, { key = it }, label = { Text(if (hasKey) "API Key（留空保留）" else "API Key") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
             if (hasKey) TextButton(onClick = { vm.agent.secrets.save("", engine) }) { Text("清除已保存的 Key") }
         }
@@ -121,13 +194,22 @@ import dev.aster.ide.agent.AgentThinkingPolicy
             val dualThinking = engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)
             if (dualThinking) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("auto" to "自动", "budget" to "思考预算", "strength" to "思考强度", "off" to "关闭").filter { (id, _) -> val candidate = profile.copy(protocol = protocol, model = model.trim(), maxTokens = tokens.toIntOrNull() ?: profile.maxTokens); when (id) { "budget" -> AgentThinkingPolicy.supportsBudget(engine, candidate); "strength" -> AgentThinkingPolicy.supportsStrength(engine, candidate); "off" -> "off" in AgentThinkingPolicy.available(engine, candidate); else -> true } }.forEach { (id, label) ->
+                    (listOf("auto" to "自动", "budget" to "思考预算", "strength" to "思考强度", "off" to "关闭") + if (engine == AgentEngine.GEMINI) listOf("manual" to "手动填入") else emptyList()).filter { (id, _) -> val candidate = profile.copy(protocol = protocol, model = parseAgentModels(model).firstOrNull().orEmpty(), maxTokens = tokens.toIntOrNull() ?: profile.maxTokens); when (id) { "budget" -> AgentThinkingPolicy.supportsBudget(engine, candidate); "strength" -> AgentThinkingPolicy.supportsStrength(engine, candidate); "off" -> "off" in AgentThinkingPolicy.available(engine, candidate); else -> true } }.forEach { (id, label) ->
                         FilterChip(selected = thinkingMode == id, onClick = { thinkingMode = id; validationError = null }, label = { Text(label) })
                     }
                 }
                 if (thinkingMode == "budget") OutlinedTextField(thinkingBudget, { thinkingBudget = it; validationError = null }, label = { Text("思考预算（tokens）") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
-            val currentProfile = profile.copy(protocol = protocol, model = model.trim(), maxTokens = tokens.toIntOrNull() ?: profile.maxTokens)
+            if (engine == AgentEngine.GEMINI && thinkingMode == "manual") {
+                OutlinedTextField(thinking, { thinking = it; validationError = null }, label = { Text("手动思考等级（例如 high）") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text(if (protocol == "openai") "直接发送为 reasoning_effort，不按模型名称过滤；服务端不支持时显示错误。" else "直接发送为 thinkingConfig.thinkingLevel（转为大写），支持自定义模型别名；服务端不支持时显示错误。", style = MaterialTheme.typography.bodySmall)
+            }
+            val currentProfile = profile.copy(
+                protocol = protocol, model = parseAgentModels(model).firstOrNull().orEmpty(),
+                maxTokens = tokens.toIntOrNull() ?: profile.maxTokens,
+                thinkingLevel = thinking.trim(), thinkingMode = thinkingMode,
+                thinkingBudget = thinkingBudget.toIntOrNull() ?: profile.thinkingBudget
+            )
             val levels = AgentThinkingPolicy.available(engine, currentProfile).filter { !dualThinking || thinkingMode == "strength" && it !in setOf("auto", "off") }
             if (levels.isNotEmpty()) {
                 val selected = levels.indexOf(thinking).coerceAtLeast(0)

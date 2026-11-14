@@ -732,7 +732,7 @@
     }
     function panelChanged() {
       send("panel", { id: panelIsOpen() || !quick.hidden || (bubble == null ? void 0 : bubble.isOpen()) || (childNav == null ? void 0 : childNav.selected) || (childNav == null ? void 0 : childNav.isOpen) ? "open" : "" });
-      for (const node of root.querySelectorAll("[data-picker],.thinking-picker")) node.setAttribute("aria-expanded", String(node === thinking ? !!(bubble == null ? void 0 : bubble.isOpen()) : ["engine", "mode", "collaboration"].includes(node.dataset.picker) ? !quick.hidden && node.dataset.picker === quickMode : panelIsOpen() && node.dataset.picker === drawerMode));
+      for (const node of root.querySelectorAll("[data-picker],.thinking-picker")) node.setAttribute("aria-expanded", String(node === thinking ? !!(bubble == null ? void 0 : bubble.isOpen()) : ["model", "engine", "mode", "collaboration"].includes(node.dataset.picker) ? !quick.hidden && node.dataset.picker === quickMode : panelIsOpen() && node.dataset.picker === drawerMode));
     }
     const escapePanel = (event) => {
       if (event.key !== "Escape") return;
@@ -783,7 +783,7 @@
       quickAnchor = anchor;
       quickFocus = anchor || document.activeElement;
       quick.dataset.kind = kind;
-      quickTitle.textContent = kind === "collaboration" ? "子代理协作模式" : kind === "engine" ? "底层引擎" : "操作权限";
+      quickTitle.textContent = kind === "model" ? "选择模型" : kind === "collaboration" ? "子代理协作模式" : kind === "engine" ? "底层引擎" : "操作权限";
       quickBody.replaceChildren(selection(kind));
       quick.hidden = false;
       positionQuickPicker();
@@ -803,7 +803,7 @@
     document.addEventListener("scroll", positionQuickPicker, true);
     document.addEventListener("keydown", escapePanel);
     function openPanel(kind, anchor) {
-      if (["engine", "mode", "collaboration"].includes(kind)) {
+      if (["model", "engine", "mode", "collaboration"].includes(kind)) {
         openQuickPicker(kind, anchor);
         return;
       }
@@ -886,22 +886,27 @@
     const modeChoices = [{ id: "ask", label: "问答", detail: "只读", icon: "message-square" }, { id: "plan", label: "规划", detail: "只读 · 任务清单", icon: "list-checks" }, { id: "execute", label: "执行", detail: "暂存修改 · 命令需审批", icon: "wrench" }];
     const collaborationChoices = [{ id: "extreme", label: "极端", detail: "配合 Ultra · 主代理首批派发，子代理递归协作", icon: "sparkles" }, { id: "team", label: "团队", detail: "主代理只编排整合，全部执行委派子代理", icon: "layers" }, { id: "assist", label: "辅助", detail: "根据任务大小适当委派", icon: "sliders-horizontal" }, { id: "off", label: "关闭", detail: "不注入协作提示词，代理工具保留", icon: "circle" }];
     function selection(kind) {
-      const choices = kind === "collaboration" ? collaborationChoices : kind === "engine" ? engineChoices.map((item) => {
+      const choices = kind === "model" ? (state.models || []).map((id) => ({ id, label: id, detail: id === state.model ? "当前模型" : "下一次任务使用" })) : kind === "collaboration" ? collaborationChoices : kind === "engine" ? engineChoices.map((item) => {
         const availability2 = (state.engines || []).find((engine) => engine.id === item.id);
         return { ...item, detail: !(availability2 == null ? void 0 : availability2.checked) ? "尚未检查" : availability2.available ? "本地资源可用" : availability2.reason || "未安装" };
       }) : kind === "mode" ? modeChoices : state.thinkingChoices || [{ id: "auto", label: "自动", detail: "引擎默认" }];
-      const value = kind === "collaboration" ? state.collaborationMode || "assist" : kind === "engine" ? state.engine : kind === "mode" ? state.mode : state.thinkingLevel || "auto";
-      const cacheKey = JSON.stringify([choices, value, state.thinkingNote || ""]);
+      const value = kind === "model" ? state.model : kind === "collaboration" ? state.collaborationMode || "assist" : kind === "engine" ? state.engine : kind === "mode" ? state.mode : state.thinkingLevel || "auto";
+      const cacheKey = JSON.stringify([choices, value, state.thinkingNote || "", state.modelSelectable]);
       const cached = preparedSelections.get(kind);
       if ((cached == null ? void 0 : cached.key) === cacheKey) return cached.node;
       const container = el("div", "selection-content");
-      container.append(choiceList({ collaboration: "子代理协作模式", engine: "底层引擎", mode: "操作权限", thinking: "思考等级" }[kind], choices, value, (id) => {
+      if (kind !== "model" || state.modelSelectable !== false) container.append(choiceList({ model: "选择模型", collaboration: "子代理协作模式", engine: "底层引擎", mode: "操作权限", thinking: "思考等级" }[kind], choices, value, (id) => {
         if (state.busy) return;
-        if (["engine", "mode", "collaboration"].includes(kind)) closeQuickPicker();
+        if (["model", "engine", "mode", "collaboration"].includes(kind)) closeQuickPicker();
         else closePanel();
-        request(kind === "thinking" ? "thinking" : kind, { id });
+        request(kind === "thinking" ? "thinking" : kind, kind === "model" ? { text: id } : { id });
       }));
-      if (kind === "thinking" && ["gemini", "openclaude"].includes(state.engine)) container.replaceChildren(button("思考预算 / 思考强度", () => nativeRequest("settings"), "menu-action", "sliders-horizontal"));
+      if (kind === "model") {
+        if (state.modelSelectable === false) container.append(el("p", "selection-note", "免费服务的模型由账号方案决定。"));
+        else if (!choices.length) container.append(el("p", "selection-note", "尚未配置模型。支持逗号分隔，也可以从云端获取列表。"));
+        container.append(button("管理 API / 获取云端模型", () => nativeRequest("settings"), "menu-action", "settings-2"));
+      }
+      if (kind === "thinking" && ["gemini", "openclaude"].includes(state.engine)) container.replaceChildren(button("思考预算 / 思考强度 / 手动填入", () => nativeRequest("settings"), "menu-action", "sliders-horizontal"));
       if (kind === "thinking" && state.thinkingNote) container.append(el("p", "selection-note", state.thinkingNote));
       preparedSelections.set(kind, { key: cacheKey, node: container });
       return container;
@@ -1001,9 +1006,10 @@
     const mode = picker("执行", "mode");
     mode.setAttribute("aria-label", "操作权限");
     const modeLabel = mode;
-    const model = button("配置模型", () => nativeRequest("settings"), "model-selector");
+    const model = picker("配置模型", "model");
+    model.classList.add("model-selector");
     const modelText = model.querySelector("span");
-    model.append(icon("chevron-down"));
+    model.setAttribute("aria-label", "选择模型");
     const thinking = button("自动", () => {
     }, "thinking-picker picker-button", "sliders-horizontal");
     thinking.setAttribute("aria-haspopup", "dialog");

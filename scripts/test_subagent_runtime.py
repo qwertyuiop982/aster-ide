@@ -181,5 +181,44 @@ class SubagentRuntimeTests(unittest.TestCase):
         self.assertFalse((BRIDGE / 'agent_vendor/aster_subagents.py').exists())
 
 
+    def test_default_tasks_survive_two_days_and_still_cancel(self):
+        with patch.object(runner.time, 'monotonic', return_value=100):
+            self.parent.configure_deadline()
+        self.assertIsNone(self.parent.deadline)
+        with patch.object(runner.time, 'monotonic', return_value=172900):
+            self.parent.check_cancelled()
+            self.parent.cancel()
+            with self.assertRaises(runner.UserInterruption):
+                self.parent.check_cancelled()
+
+    def test_explicit_child_deadline_is_inherited_and_enforced(self):
+        self.parent.deadline = None
+        def run(child):
+            with patch.object(runner.time, 'monotonic', return_value=100):
+                child.configure_deadline()
+                self.assertEqual(child.deadline, 130)
+            with patch.object(runner.time, 'monotonic', return_value=131):
+                with self.assertRaises(runner.TimeExceeded):
+                    child.check_cancelled()
+        with patch.object(runner.AgentSession, 'run', run):
+            self.child(self.request(timeoutSeconds=30))
+
+    def test_default_child_has_no_implicit_deadline(self):
+        self.parent.deadline = None
+        def run(child):
+            child.configure_deadline()
+            self.assertIsNone(child.deadline)
+            with patch.object(runner.time, 'monotonic', return_value=10**12):
+                child.check_cancelled()
+        with patch.object(runner.AgentSession, 'run', run):
+            self.child()
+
+    def test_collaboration_wait_outlives_old_31_minute_limit(self):
+        self.parent.deadline = None
+        def wait(timeout):
+            self.parent.accept_client_result(self.parent.client_request, {'ok': True})
+        with patch.object(self.parent.approval, 'wait', side_effect=wait), patch.object(runner.time, 'monotonic', side_effect=[0, 4000, 4001]):
+            self.assertTrue(self.parent.client_tool('subagent', {'action': 'run', 'prompt': 'work'})['ok'])
+
 if __name__ == '__main__':
     unittest.main()

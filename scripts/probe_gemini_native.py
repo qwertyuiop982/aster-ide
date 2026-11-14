@@ -33,6 +33,7 @@ for line in sys.stdin:
 def main():
     requests, failures, events = [], [], []
     progress = [0]
+    child_progress = [0]
     with tempfile.TemporaryDirectory(prefix='aster-native-gemini-') as folder:
         base = Path(folder)
         project = base / 'project'
@@ -59,6 +60,7 @@ def main():
                     path = lambda name: str(session.stage / name)
                     echo = next((name for name in names if 'echo' in name and 'fixture' in name), None)
                     actions = [
+                        ('invoke_agent', {'agent_name': 'codebase_investigator', 'prompt': 'Read seed.txt and report the native-seed value.'}),
                         ('read_file', {'file_path': path('seed.txt')}),
                         ('write_file', {'file_path': path('created.txt'), 'content': 'native-written\n'}),
                         ('run_shell_command', {'command': 'printf native-shell; printf x >> shell-once.txt', 'description': 'Native shell round trip'}),
@@ -67,7 +69,18 @@ def main():
                         (echo, {'value': 'roundtrip'}),
                         ('activate_skill', {'name': 'fixture-skill'}),
                     ]
-                    if index < len(actions):
+                    if 'complete_task' in names:
+                        child_index = child_progress[0]
+                        assert child_index < 2, 'Native child failed to finish'
+                        if child_index == 0:
+                            name, args = 'read_file', {'file_path': path('seed.txt')}
+                        else:
+                            assert 'native-seed' in json.dumps(body), 'Child did not receive the native read result'
+                            name, args = 'complete_task', {'report': {'SummaryOfFindings': 'child found native-seed', 'ExplorationTrace': ['Read seed.txt'], 'RelevantLocations': []}}
+                        child_progress[0] += 1
+                        message = {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'child-' + str(child_index), 'type': 'function', 'function': {'name': name, 'arguments': json.dumps(args)}}]}
+                        reason = 'tool_calls'
+                    elif index < len(actions):
                         name, args = actions[index]
                         assert name in names, ('missing tool', name, sorted(names))
                         message = {'role': 'assistant', 'content': None, 'tool_calls': [{'id': 'native-' + str(index), 'type': 'function', 'function': {'name': name, 'arguments': json.dumps(args)}}]}
@@ -114,7 +127,16 @@ def main():
             assert not {'terminal', 'subagent', 'run_command', 'finish', 'mcp'} & set(native), native
             failed = [event for event in events if event.get('kind') == 'tool_result' and json.loads(event['text']).get('ok') is False]
             assert not failed, failed
-            receipt = {'engine': result['engine'], 'status': result['status'], 'requests': len(requests), 'retry503': True,
+            children = [event for event in events if event.get('kind') == 'subagent_event']
+            assert children, 'Native child events were not forwarded'
+            assert len({event['subagentId'] for event in children}) == 1
+            kinds = {event['event']['kind'] for event in children}
+            assert {'started', 'tool', 'tool_result', 'message_end', 'result'} <= kinds, kinds
+            assert children[-1]['event']['status'] == 'Submitted', children[-1]
+            assert 'child found native-seed' in json.dumps(children)
+            assert child_progress[0] == 2
+
+            receipt = {'engine': result['engine'], 'status': result['status'], 'requests': len(requests), 'retry503': True, 'nativeSubagentVisible': True, 'childEvents': len(children),
                        'realNativeTools': native, 'fileProposal': True, 'shellExecutedOnce': True, 'nativeUserInput': True, 'nativeMcpRoundTrip': True}
             print(json.dumps(receipt, ensure_ascii=False))
         finally:

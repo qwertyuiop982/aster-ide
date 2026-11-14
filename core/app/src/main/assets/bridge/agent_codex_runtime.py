@@ -19,7 +19,11 @@ MAX_SERVERS = 2
 def _close(entry):
     entry['wire'].close_interactions()
     process = entry['wire'].process
-    if process.poll() is None:
+    with suppress(OSError):
+        process.stdin.close()
+    try:
+        process.wait(timeout=0.6)
+    except subprocess.TimeoutExpired:
         with suppress(ProcessLookupError, PermissionError):
             os.killpg(process.pid, signal.SIGTERM)
         try:
@@ -27,11 +31,26 @@ def _close(entry):
         except subprocess.TimeoutExpired:
             with suppress(ProcessLookupError, PermissionError):
                 os.killpg(process.pid, signal.SIGKILL)
-            with suppress(subprocess.TimeoutExpired):
-                process.wait(timeout=0.6)
-    for stream in (process.stdin, process.stdout, entry['errors']):
+            process.wait(timeout=1.5)
+    with suppress(ProcessLookupError, PermissionError):
+        os.killpg(process.pid, signal.SIGKILL)
+    for stream in (process.stdout, entry['errors']):
         with suppress(OSError):
             stream.close()
+
+
+def close_scope(base, workspace, session_id=None):
+    with _LOCK:
+        selected = [(key, entry) for key, entry in _SERVERS.items()
+                    if entry['wire'].session.base.resolve() == base.resolve()
+                    and entry['wire'].session.workspace.resolve() == workspace.resolve()
+                    and (session_id is None or entry['wire'].session.session_id == session_id)]
+        if any(entry['busy'] for _, entry in selected):
+            raise ValueError('请先停止或等待原引擎任务完成')
+        for key, entry in selected:
+            _close(entry)
+            _SERVERS.pop(key)
+        return len(selected)
 
 
 def close_all():

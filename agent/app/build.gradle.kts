@@ -33,8 +33,10 @@ val bundleAgentUi by tasks.registering(Exec::class) {
     outputs.file(rootProject.file("agent/design/UI-BUNDLE.json"))
 }
 tasks.named("preBuild").configure { dependsOn(bundleAgentUi) }
-
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)

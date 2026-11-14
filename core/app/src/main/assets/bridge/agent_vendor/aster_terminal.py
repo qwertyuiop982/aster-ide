@@ -343,6 +343,14 @@ class TerminalRegistry:
             item.close()
         return len(items)
 
+    def close_engine(self, base, workspace, engine):
+        prefix = (str(Path(base).resolve()), str(Path(workspace).resolve()), engine)
+        with self.lock:
+            items = [item for (owner, _), item in self.items.items() if owner[:3] == prefix]
+        for item in items:
+            item.close()
+        return len(items)
+
     def close_all(self):
         with self.lock:
             items = list(self.items.values())

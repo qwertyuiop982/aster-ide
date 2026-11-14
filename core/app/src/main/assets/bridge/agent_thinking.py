@@ -57,6 +57,13 @@ def _legacy_thinking(engine, configuration):
 
 def resolve_thinking(engine, configuration):
     mode = configuration.get("thinkingMode", "legacy")
+    if mode == 'manual':
+        level = configuration.get('thinkingLevel')
+        if engine != 'gemini' or not isinstance(level, str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_.-]{0,63}', level):
+            raise ValueError('Invalid manual Gemini thinking level')
+        if configuration.get('protocol') == 'openai':
+            return {'mode': mode, 'level': level, 'effort': level}
+        return {'mode': mode, 'level': level, 'gemini': {'thinkingLevel': level.upper()}}
     if configuration.get("thinkingLevel") == "ultra" and engine != "codex":
         raise ValueError("Ultra is only supported by Codex")
     if engine == 'gemini' and configuration.get('protocol') == 'openai':

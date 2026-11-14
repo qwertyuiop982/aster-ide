@@ -68,3 +68,6 @@ signing.properties
 **/*.test.tsx
 **/*.test.js
 **/*.spec.ts
+
+# Keep application regressions in the source package.
+!/agent/app/src/test/

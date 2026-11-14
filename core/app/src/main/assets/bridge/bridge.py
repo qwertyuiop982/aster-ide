@@ -416,27 +416,48 @@ class Handler(socketserver.StreamRequestHandler):
                 import agent_runner
                 accepted = agent_runner.control(request, cancel=op == 'agent_cancel')
                 packet(self.wfile, {'ok': True, 'accepted': accepted})
+            elif op == 'agent_engine_stop':
+                from agent_engines import engine_info
+                engine_id = str(request.get('engineId', ''))
+                engine_info(engine_id)
+                from agent_engine_runtime import close_scope as close_graph_scope, stopping_engine
+                from agent_codex_runtime import close_scope as close_codex_scope
+                from aster_terminal import TERMINALS
+                with stopping_engine(BASE, root, engine_id):
+                    closed = close_codex_scope(BASE, root) if engine_id == 'codex' else close_graph_scope(BASE, root, engine_id)
+                    terminals = TERMINALS.close_engine(BASE, root, engine_id)
+                packet(self.wfile, {'ok': True, 'stopped': True, 'closed': closed, 'terminals': terminals})
             elif op == 'agent_terminal_close':
                 from aster_terminal import TERMINALS, conversation_scope
-                scope = conversation_scope(BASE, root, str(request.get('engineId', 'pi')), str(request.get('sessionId', '')))
+                engine_id = str(request.get('engineId', 'pi'))
+                session_id = str(request.get('sessionId', ''))
+                scope = conversation_scope(BASE, root, engine_id, session_id)
                 closed = TERMINALS.close_scope(scope)
+                from agent_engine_runtime import close_scope as close_graph_scope
+                from agent_codex_runtime import close_scope as close_codex_scope
+                closed += close_codex_scope(BASE, root, session_id) if engine_id == 'codex' else close_graph_scope(BASE, root, engine_id, session_id)
                 packet(self.wfile, {'ok': True, 'closed': closed})
             elif op == 'agent_warmup':
                 import agent_runner
                 session = agent_runner.AgentSession(str(request.get('job')), root, BASE, request, environment(request.get('options')), lambda event: None)
                 session.deadline = time.monotonic() + 60
-                try:
-                    session.prepare()
-                    if session.engine_id == 'codex' and (request.get('configuration') or {}).get('model'):
-                        from agent_codex import run_codex
-                        run_codex(session, request['configuration'], prepare_only=True)
-                    else:
+                from agent_engine_runtime import engine_operation
+                with engine_operation(session):
+                    try:
                         from agent_engines import require_available
                         require_available(session.engine_id, BASE, Path(__file__).parent / 'agent_vendor', session.environment)
-                    packet(self.wfile, {'ok': True, 'ready': True, 'modelRequested': False})
-                finally:
-                    if session.stage_lock is not None:
-                        session.stage_lock.close()
+                        from agent_native import sync_mcp_configuration
+                        sync_mcp_configuration(session, request.get('configuration') or {})
+                        session.prepare()
+                        if session.engine_id == 'codex' and (request.get('configuration') or {}).get('model'):
+                            from agent_codex import run_codex
+                            run_codex(session, request['configuration'], prepare_only=True)
+                        elif session.engine_id in ('pi', 'gemini'):
+                            session.run_graph(None, request.get('configuration') or {}, prepare_only=True)
+                        packet(self.wfile, {'ok': True, 'ready': True, 'modelRequested': False})
+                    finally:
+                        if session.stage_lock is not None:
+                            session.stage_lock.close()
             elif op == 'put':
                 data = base64.b64decode(request.get('data', ''), validate=True)
                 if len(data) > MAX_FILE:

@@ -209,12 +209,33 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         prompt = value; preferences.edit().putString("prompt", value).apply(); changed()
     }
     fun selectEngine(id: String) = action {
+        val target = AgentEngine.entries.firstOrNull { it.id == id } ?: error("未知引擎")
+        if (target == agent.selectedEngine.value) return@action
         warming?.join()
-        agent.selectEngine(AgentEngine.entries.firstOrNull { it.id == id } ?: error("未知引擎")); webPanelOpen = false
+        agent.selectEngine(target)
+        webPanelOpen = false
+        if (agent.profile.model.isBlank() || agent.profile.endpoint.isBlank()) {
+            showSettings = true
+            return@action
+        }
+        withForeground {
+            val prepared = prepareProjectAccess()
+            ensureRuntime()
+            core.bridge.sync(prepared, core.repo)
+            agent.prewarm(prepared)
+        }
+    }
+    fun selectModel(value: String) = action {
+        warming?.join()
+        val engine = agent.selectedEngine.value
+        check(!(engine == AgentEngine.PI && core.settings.value.agentUseFree)) { "免费服务的模型由账号方案决定" }
+        val profile = settings.value.agentProfile(engine)
+        require(value in profile.availableModels()) { "模型不在当前 API 的已保存列表中" }
+        settings.updateAgentProfile(engine) { it.copy(model = value) }
+        webPanelOpen = false
         prewarmWorkspace()
     }
     fun detachWorkspace() = action {
-        check(!locked) { "请先停止当前任务" }
         warming?.join()
         val chat = core.repo.conversationWorkspace()
         agent.selectWorkspace(chat.id)
@@ -283,14 +304,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun setThinking(id: String) = action {
         val engine = agent.selectedEngine.value
-        val thinkingMode = when {
-            id == "auto" || id == "off" -> id
-            id in setOf("none", "max", "ultra") -> "strength"
-            AgentThinkingPolicy.supportsStrength(engine, agent.profile) -> "strength"
-            else -> "legacy"
-        }
-        val profile = agent.profile.copy(thinkingLevel = id, thinkingMode = thinkingMode)
-        AgentThinkingPolicy.validate(engine, profile)
+        val profile = AgentThinkingPolicy.selectLevel(engine, agent.profile, id)
         settings.updateAgentProfile(engine) { profile }
     }
 
@@ -502,7 +516,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             // A closing WebView may deliver final UI-only events after a session switch.
             if (request.optString("command") in setOf("panel", "draft") &&
                 (request.optString("workspace") != current.id || request.optString("session") != agent.conversation.value?.id || request.optString("engine") != agent.selectedEngine.value.id)) return
-            AgentWebProtocol.validate(request, current.id, agent.conversation.value?.id.orEmpty(), agent.selectedEngine.value.id)
+            AgentWebProtocol.validate(request, current.id, agent.conversation.value?.id.orEmpty(), agent.selectedEngine.value.id, agent.profile.thinkingMode)
             when (request.getString("command")) {
                 "send" -> send(request.getString("text"))
                 "compact" -> send("", true)
@@ -510,6 +524,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 "new" -> newConversation()
                 "history" -> selectConversation(request.getString("id"))
                 "engine" -> selectEngine(request.getString("id"))
+                "model" -> selectModel(request.getString("text"))
                 "mode" -> setMode(request.getString("id"))
                 "thinking" -> setThinking(request.getString("id"))
                 "thinking_budget" -> setThinkingBudget(request.getInt("value"))
@@ -549,7 +564,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         }
         return JSONObject().put("workspace", workspace?.id.orEmpty()).put("workspaceName", workspace?.name.orEmpty())
             .put("session", agent.conversation.value?.id.orEmpty()).put("title", agent.conversation.value?.title ?: "新会话")
-            .put("engine", engine.id).put("model", agent.profile.model).put("mode", agent.mode.value.id)
+            .put("engine", engine.id).put("model", agent.profile.model).put("models", JSONArray(agent.profile.availableModels()))
+            .put("modelSelectable", !(engine == AgentEngine.PI && core.settings.value.agentUseFree)).put("mode", agent.mode.value.id)
             .put("permissionMode", settings.value.agentPermissionMode).put("commandsUnchecked", settings.value.agentPermissionMode == "native" && settings.value.agentNativeCommandsUnchecked)
             .put("reducedMotion", core.settings.value.reducedMotion || !core.settings.value.animations)
             .put("longTaskMode", settings.value.agentLongTaskMode)

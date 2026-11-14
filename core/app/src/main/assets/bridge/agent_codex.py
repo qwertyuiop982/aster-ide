@@ -9,6 +9,7 @@ import select
 import time
 
 from agent_engines import codex_binary
+from agent_codex_recovery import invalid_continuation, rebuild_prompt, execute_turn
 
 NL = bytes([10])
 
@@ -147,6 +148,8 @@ class CodexTransport:
         self.native_outputs = {}
         self.native_started = set()
         self.messages = {}
+        self.continuation_error = False
+        self.recovery_notes = []
 
     def begin_turn(self, session):
         self.session = session
@@ -159,6 +162,8 @@ class CodexTransport:
         self.pending_call = None
         self.stop_deadline = None
         self.interrupt_sent = False
+        self.continuation_error = False
+        self.recovery_notes.clear()
         self.messages.clear()
         self.question_items.clear()
         self.native_started.clear()
@@ -629,6 +634,8 @@ class CodexTransport:
                 result = {'ok': item.get('status') not in ('failed', 'declined', 'interrupted'), 'native': True,
                           'item': item, 'output': self.native_outputs.pop(identifier, '')}
                 self.session.emit('tool_result', callId=identifier, name=name, text=json.dumps(self.session.redact_event(result), ensure_ascii=False)[:24000])
+                self.recovery_notes.append({'tool': name, 'status': item.get('status'), 'result': json.dumps(self.session.redact_event(result), ensure_ascii=False)[-2000:]})
+                self.recovery_notes = self.recovery_notes[-8:]
                 self.native_items.pop(identifier, None)
             elif kind == 'contextCompaction' and not child:
                 identifier = str(item.get('id', ''))
@@ -661,6 +668,7 @@ class CodexTransport:
             self.emit_context()
         elif method == 'error':
             error = params.get('error') or {}
+            self.continuation_error = self.continuation_error or invalid_continuation(error)
             self.session.emit('error', text=str(error.get('message', error))[:1600], recoverable=True)
         elif method == 'turn/completed':
             turn = params.get('turn') or {}
@@ -676,6 +684,7 @@ class CodexTransport:
             else:
                 self.status = 'Cancelled' if native_status == 'interrupted' else 'Failed'
             if turn.get('error'):
+                self.continuation_error = self.continuation_error or invalid_continuation(turn['error'])
                 self.session.emit('error', text=str(turn['error'].get('message', turn['error']))[:1600], recoverable=True)
 
 
@@ -799,6 +808,10 @@ def run_codex(session, configuration, *, prepare_only=False):
                 wire.request('initialize', {'clientInfo': {'name': 'aster', 'title': 'Aster Codex', 'version': '1.0.5'}, 'capabilities': {'experimentalApi': True}})
                 wire.send({'method': 'initialized', 'params': {}})
                 wire.initialized = True
+            if prepare_only:
+                # Empty threads may have no rollout on disk yet. The first real
+                # task owns thread creation; prewarming only starts app-server.
+                return {'engine': session.engine_info['name'], 'status': 'Ready', 'modelRequested': False}
             developer = str(session.request.get("systemPrompt") or SYSTEM) + chr(10) + MODE_PROMPTS[session.mode] + chr(10) + session.project_instructions()
             developer += chr(10) + 'Use the native Codex tool registry for every operation. Prefer unified_exec/exec_command and write_stdin for Android-compatible shell work, apply_patch for file changes, update_plan for plans, view_image for images, request_user_input and request_permissions for interaction, tool_search for deferred tools, get_context_remaining and new_context for context management, native MCP resource tools, and native multi-agent tools. Do not call an Aster dynamic namespace. All edits are in the staged cwd and remain proposals until the user applies the preview. The shell is Termux bash on Android; use the supplied local environment, cwd and runtime workspace roots.'
             developer += chr(10) + 'User-enabled MCP servers are loaded by the native Codex MCP registry when configured in the project; use native mcp_resource tools and native approvals.'
@@ -820,23 +833,49 @@ def run_codex(session, configuration, *, prepare_only=False):
                        'approvalPolicy': 'never' if session.permission_mode == 'native' and session.native_commands_unchecked else 'untrusted', 'sandbox': 'danger-full-access' if session.permission_mode == 'native' else ('workspace-write' if session.mode == 'execute' else 'read-only'),
                        'developerInstructions': developer,
                        'environments': [{'environmentId': 'local', 'cwd': str(session.stage), 'runtimeWorkspaceRoots': [str(session.stage)]}]}
-            if pointer.exists():
-                saved = json.loads(pointer.read_text())
+            saved = json.loads(pointer.read_text()) if pointer.exists() else {}
+            rebuild_pending = bool(saved.get('rebuildContext'))
+            def save_pointer():
+                temp = pointer.with_suffix('.tmp')
+                temp.write_text(json.dumps({'threadId': wire.thread_id, 'compactions': wire.compactions, 'rebuildContext': rebuild_pending}))
+                temp.chmod(0o600)
+                temp.replace(pointer)
+            def restart_thread():
+                nonlocal rebuild_pending
+                session.check_cancelled()
+                session.emit('status', text='上游续接上下文失效，正在用可见对话恢复任务', step=session.steps)
+                session.checkpoint_proposal()
+                for message_id, text in wire.messages.items():
+                    session.emit('message_end', messageId=message_id, text=text)
+                wire.begin_turn(session)
+                wire.thread_id = ''
+                wire.child_threads.clear()
+                wire.child_turns.clear()
+                wire.child_completed.clear()
+                wire.pending_child_events.clear()
+                result = wire.request('thread/start', {**options})
+                wire.thread_id = result['thread']['id']
+                wire.compactions = 0
+                wire.context_tokens = 0
+                wire.context_source = 'unknown'
+                wire.thread_options = options
+                rebuild_pending = True
+                save_pointer()
+            if saved:
                 wire.thread_id = saved['threadId']
                 wire.compactions = saved.get('compactions', 0)
                 if getattr(wire, 'thread_options', None) != options:
-                    wire.request('thread/resume', {**options, 'threadId': wire.thread_id})
+                    try:
+                        wire.request('thread/resume', {**options, 'threadId': wire.thread_id})
+                    except RuntimeError as error:
+                        if not invalid_continuation(error):
+                            raise
+                        restart_thread()
             else:
                 result = wire.request('thread/start', {**options})
                 wire.thread_id = result['thread']['id']
             wire.thread_options = options
-            def save_pointer():
-                temp = pointer.with_suffix('.tmp')
-                temp.write_text(json.dumps({'threadId': wire.thread_id, 'compactions': wire.compactions}))
-                temp.replace(pointer)
             save_pointer()
-            if prepare_only:
-                return {'engine': session.engine_info['name'], 'status': 'Ready', 'modelRequested': False}
             if session.request.get('compactOnly'):
                 before = wire.compactions
                 wire.request('thread/compact/start', {'threadId': wire.thread_id})
@@ -847,12 +886,12 @@ def run_codex(session, configuration, *, prepare_only=False):
             else:
                 task = str(session.request.get('task', '')) + chr(10) + 'Editor context: ' + str(session.request.get('context', ''))
                 effort = thinking_settings(configuration).get('model_reasoning_effort')
-                response = wire.request('turn/start', {'threadId': wire.thread_id, 'input': [{'type': 'text', 'text': task}], 'environments': options['environments'],
-                    **({'effort': effort} if effort is not None else {})})
-                wire.turn_id = response['turn']['id']
-                while not wire.native_completed or wire.has_interactions() or wire.has_active_children():
-                    wire.poll()
-                    wire.drain_interactions()
+                was_rebuilt = rebuild_pending
+                if rebuild_pending:
+                    task = rebuild_prompt(session, wire, task)
+                execute_turn(wire, session, options, task, effort, restart_thread, already_rebuilt=was_rebuilt)
+                if wire.status == 'Submitted':
+                    rebuild_pending = False
             save_pointer()
             return {'engine': session.engine_info['name'], 'status': wire.status, 'summary': wire.summary, 'steps': session.steps}
         except (UserInterruption, TimeExceeded):
@@ -864,8 +903,6 @@ def run_codex(session, configuration, *, prepare_only=False):
                     wire.poll(check_cancelled=False)
             raise
         finally:
-            if wire.thread_id:
+            if wire.thread_id and 'save_pointer' in locals():
                 with contextlib.suppress(OSError):
-                    temporary = pointer.with_suffix('.tmp')
-                    temporary.write_text(json.dumps({'threadId': wire.thread_id, 'compactions': wire.compactions}))
-                    temporary.replace(pointer)
+                    save_pointer()

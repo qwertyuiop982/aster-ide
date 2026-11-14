@@ -12,13 +12,14 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class AgentSecretStore(context: Context) {
+class AgentSecretStore(context: Context, private val configurationId: (AgentEngine) -> String = { "" }) {
     private val preferences = context.getSharedPreferences("aster-agent-secret", Context.MODE_PRIVATE)
     private val configured = MutableStateFlow(preferences.contains("encrypted-key"))
     val hasKey = configured.asStateFlow()
     private val alias = "Aster.Agent.ApiKey"
     private var selected = AgentEngine.PI
-    private fun slot(engine: AgentEngine) = engine.secretSlot
+    private fun slot(engine: AgentEngine, id: String = configurationId(engine)) =
+        if (id.isBlank() || id == "default") engine.secretSlot else engine.secretSlot + ":" + id
     @Synchronized fun select(engine: AgentEngine) { selected = engine; configured.value = preferences.contains(slot(engine)) }
 
     private fun key(): SecretKey {
@@ -29,17 +30,22 @@ class AgentSecretStore(context: Context) {
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
         }.generateKey()
     }
-    @Synchronized fun save(value: String, engine: AgentEngine = selected) {
-        if (value.isBlank()) { preferences.edit().remove(slot(engine)).apply(); if (selected == engine) configured.value = false; return }
+    @Synchronized fun save(value: String, engine: AgentEngine = selected, id: String = configurationId(engine)) {
+        val target = slot(engine, id)
+        if (value.isBlank()) {
+            preferences.edit().remove(target).apply()
+            if (slot(selected) == target) configured.value = false
+            return
+        }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
         val packed = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
-        preferences.edit().putString(slot(engine), packed).apply()
-        if (selected == engine) configured.value = true
+        preferences.edit().putString(target, packed).apply()
+        if (slot(selected) == target) configured.value = true
     }
-    @Synchronized fun read(engine: AgentEngine = selected): String {
-        val packed = preferences.getString(slot(engine), null) ?: return ""
+    @Synchronized fun read(engine: AgentEngine = selected, id: String = configurationId(engine)): String {
+        val packed = preferences.getString(slot(engine, id), null) ?: return ""
         val (iv, ciphertext) = packed.split(':', limit = 2)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))

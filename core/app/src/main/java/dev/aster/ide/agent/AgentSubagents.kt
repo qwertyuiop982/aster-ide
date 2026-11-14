@@ -88,7 +88,7 @@ internal class AgentSubagents(
             .put("collaborationMode", parentConfiguration.optString("collaborationMode", "assist"))
             .put("mcpServers", parentConfiguration.optString("mcpServers"))
             .put("enabledSkills", parentConfiguration.optJSONArray("enabledSkills") ?: JSONArray())
-        return Task(choice, prompt, system, config, integer(value, "timeout", 300, 15..900))
+        return Task(choice, prompt, system, config, integer(value, "timeout", 0, 0..Int.MAX_VALUE))
     }
 
     private suspend fun run(task: Task): JSONObject {
@@ -167,7 +167,7 @@ internal class AgentSubagents(
                         @Suppress("UNREACHABLE_CODE") JSONObject()
                     }
                     try {
-                        withTimeout(task.timeout * 1000L + 15000) { reader.await() }
+                        if (task.timeout == 0) reader.await() else withTimeout(task.timeout * 1000L + 15000) { reader.await() }
                     } finally {
                         withContext(NonCancellable) {
                             withTimeoutOrNull(2500) { runCatching { bridge.rpc("agent_cancel", workspace, JSONObject().put("job", identifier), 2000) } }

@@ -52,7 +52,8 @@ fun AgentPermissionControls(settings: IdeSettings, enabled: Boolean,
             FilterChip(settings.agentPermissionMode == "native", { onMode("native") }, enabled = enabled, label = { Text("原生") })
         }
         if (settings.agentPermissionMode == "native") {
-            Text("工具直接执行，项目在原目录修改，不创建项目副本或备份。", style = MaterialTheme.typography.bodySmall)
+            Text("不设项目目录白名单，可访问 Android 授予本应用的全部目录，包括应用私有目录。修改立即写入当前工作目录；已导入项目使用私有副本，不会自动切回原目录。", style = MaterialTheme.typography.bodySmall)
+            Text("这不会绕过 Android 沙箱、Root 或其他应用的私有目录权限；需要修改原目录时请显式授权并打开。", style = MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("命令无审查", Modifier.weight(1f))
                 Switch(settings.agentNativeCommandsUnchecked, onUnchecked, enabled = enabled)

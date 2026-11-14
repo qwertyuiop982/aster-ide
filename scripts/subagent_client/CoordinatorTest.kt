@@ -39,7 +39,7 @@ fun main(args: Array<String>) = runBlocking {
         JSONObject().put("action", "parallel").put("tasks", JSONArray((0..4).map { tasks.getJSONObject(0) })),
         JSONObject().put("action", "run").put("model_id", "missing").put("prompt", "no request"),
         JSONObject().put("action", "run").put("prompt", "invalid thinking").put("thinking_level", "unsupported"),
-        JSONObject().put("action", "run").put("prompt", "invalid timeout").put("timeout", 14),
+        JSONObject().put("action", "run").put("prompt", "invalid timeout").put("timeout", -1),
         JSONObject().put("action", "parallel").put("tasks", JSONArray().put(tasks.getJSONObject(0)).put(JSONObject().put("prompt", " ")))
     )) {
         var rejected = false

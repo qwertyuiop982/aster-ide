@@ -22,10 +22,11 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
     private val clientTools = dev.aster.client.automation.ClientTools(context.applicationContext)
     private val account = dev.aster.ide.account.AccountRepository.get(context)
     private val accountSettings = dev.aster.core.CoreRuntime.get(context).settings
-    val secrets = AgentSecretStore(context)
+    val secrets = AgentSecretStore(context) { engine -> settings.value.agentProfile(engine).activeApiId }
     private val store = AgentConversationStore(File(context.filesDir, storageDirectory))
     private val persistence = Mutex()
     private val selecting = Mutex()
+    private val engineLifecycle = Mutex()
     private val nativeQuestions = Mutex()
     private val endedInteractions = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var nativeAnswer: CompletableDeferred<JSONObject>? = null
@@ -133,56 +134,77 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         checkpoint(); persistNow()
     }
     suspend fun selectWorkspace(identifier: String) = withContext(Dispatchers.IO) {
-        selecting.withLock {
-            if (workspaceId == identifier && conversationId.isNotBlank()) return@withLock
-            check(!running) { "请先停止 Agent" }
-            persistNow()
-            workspaceId = identifier
-            val entries = store.list(identifier)
-            mutableConversations.value = entries
-            val selected = store.selected(identifier) ?: entries.firstOrNull()?.id
-            val restored = selected?.let { store.load(identifier, it) }
-            if (restored != null) { restore(restored); store.select(identifier, restored.id) } else createConversation()
+        engineLifecycle.withLock {
+            selecting.withLock selection@ {
+                if (workspaceId == identifier && conversationId.isNotBlank()) return@selection
+                check(!running) { "请先停止 Agent" }
+                persistNow()
+                stopEngineRuntime()
+                workspaceId = identifier
+                val entries = store.list(identifier)
+                mutableConversations.value = entries
+                val selected = store.selected(identifier) ?: entries.firstOrNull()?.id
+                val restored = selected?.let { store.load(identifier, it) }
+                if (restored != null) { restore(restored); store.select(identifier, restored.id) } else createConversation()
+            }
         }
     }
     suspend fun newConversation() = withContext(Dispatchers.IO) {
-        selecting.withLock {
-            check(!running && workspaceId.isNotBlank()) { "请等待 Agent 完成" }
-            persistNow(); createConversation()
+        engineLifecycle.withLock {
+            selecting.withLock {
+                check(!running && workspaceId.isNotBlank()) { "请等待 Agent 完成" }
+                persistNow(); createConversation()
+            }
+        }
+    }
+    private suspend fun stopEngineRuntime() {
+        if (workspaceId.isBlank()) return
+        val result = bridge.rpc("agent_engine_stop", workspaceId,
+            JSONObject().put("engineId", mutableEngine.value.id), timeoutMillis = 30000)
+        check(result.optBoolean("ok") && result.optBoolean("stopped")) {
+            result.optString("error", "原引擎未能退出，请重试切换")
         }
     }
     suspend fun selectEngine(engine: AgentEngine) = withContext(Dispatchers.IO) {
-        selecting.withLock {
-            check(!running && workspaceId.isNotBlank()) { "请等待 Agent 完成" }
-            if (mutableEngine.value == engine) return@withLock
-            persistNow()
-            mutableEngine.value = engine; secrets.select(engine)
-            settings.update { it.copy(agentEngine = engine.id) }
-            val selected = store.list(workspaceId).firstOrNull { it.engineId == engine.id }
-            val saved = selected?.let { store.load(workspaceId, it.id) }
-            if (saved == null) createConversation() else { restore(saved); store.select(workspaceId, saved.id) }
+        engineLifecycle.withLock {
+            selecting.withLock selection@ {
+                check(!running && workspaceId.isNotBlank()) { "请等待 Agent 完成" }
+                if (mutableEngine.value == engine) return@selection
+                persistNow()
+                stopEngineRuntime()
+                mutableEngine.value = engine; secrets.select(engine)
+                settings.update { it.copy(agentEngine = engine.id) }
+                val selected = store.list(workspaceId).firstOrNull { it.engineId == engine.id }
+                val saved = selected?.let { store.load(workspaceId, it.id) }
+                if (saved == null) createConversation() else { restore(saved); store.select(workspaceId, saved.id) }
+            }
         }
     }
     suspend fun selectConversation(identifier: String) = withContext(Dispatchers.IO) {
-        selecting.withLock {
-            check(!running) { "请等待 Agent 完成" }
-            if (identifier == conversationId) return@withLock
-            persistNow()
-            val snapshot = store.load(workspaceId, identifier) ?: error("会话无法恢复")
-            restore(snapshot); store.select(workspaceId, identifier)
+        engineLifecycle.withLock {
+            selecting.withLock selection@ {
+                check(!running) { "请等待 Agent 完成" }
+                if (identifier == conversationId) return@selection
+                persistNow()
+                val snapshot = store.load(workspaceId, identifier) ?: error("会话无法恢复")
+                if (AgentEngine.fromId(snapshot.engineId) != mutableEngine.value) stopEngineRuntime()
+                restore(snapshot); store.select(workspaceId, identifier)
+            }
         }
     }
     suspend fun deleteConversation(identifier: String) = withContext(Dispatchers.IO) {
-        selecting.withLock {
-            check(!running) { "请等待 Agent 完成" }
-            val closing = store.load(workspaceId, identifier)
-            if (closing != null) runCatching {
-                bridge.rpc("agent_terminal_close", workspaceId, JSONObject().put("sessionId", identifier).put("engineId", closing.engineId), timeoutMillis = 2500)
+        engineLifecycle.withLock {
+            selecting.withLock {
+                check(!running) { "请等待 Agent 完成" }
+                val closing = store.load(workspaceId, identifier)
+                if (closing != null) runCatching {
+                    bridge.rpc("agent_terminal_close", workspaceId, JSONObject().put("sessionId", closing.runtimeSessionId).put("engineId", closing.engineId), timeoutMillis = 15000)
+                }
+                deleted.add(workspaceId + ":" + identifier)
+                persistence.withLock { store.delete(workspaceId, identifier) }
+                if (identifier == conversationId) createConversation()
+                mutableConversations.value = store.list(workspaceId)
             }
-            deleted.add(workspaceId + ":" + identifier)
-            persistence.withLock { store.delete(workspaceId, identifier) }
-            if (identifier == conversationId) createConversation()
-            mutableConversations.value = store.list(workspaceId)
         }
     }
     fun setMode(mode: AgentMode) {
@@ -294,21 +316,39 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
 
     /** Starts only local resources; never sends a model request or runs a user tool. */
     suspend fun prewarm(workspace: Workspace) = withContext(Dispatchers.IO) {
-        if (running || workspace.id != workspaceId || runtimeSessionId.isBlank()) return@withContext
-        val selected = mutableEngine.value
-        val configuration = profile
-        if (configuration.model.isBlank() || configuration.endpoint.isBlank()) return@withContext
-        val request = JSONObject().put("job", "warm-" + UUID.randomUUID()).put("engineId", selected.id)
-            .put("sessionId", runtimeSessionId).put("proposalRevision", proposalRevision).put("mode", mutableMode.value.id)
-            .put("stagedChanges", AgentJson.changes(mutableChanges.value)).put("options", bridge.options())
-            .put("excludedDirs", JSONArray(settings.value.excludedDirs.split(',').map(String::trim).filter(String::isNotEmpty)))
-            .put("configuration", runtimeConfiguration(configuration, secrets.read(selected), false))
-        bridge.rpc("agent_warmup", workspace.id, request, timeoutMillis = 65000)
+        engineLifecycle.withLock {
+            if (running || workspace.id != workspaceId || runtimeSessionId.isBlank()) return@withLock
+            val selected = mutableEngine.value
+            val usingFree = accountSettings.value.agentUseFree && selected == AgentEngine.PI
+            val projectProfile = settings.value.agentProfile(selected)
+            val configuration = if (usingFree) dev.aster.ide.account.FreeAgentProfile.value(accountSettings.value.agentFreeTier).copy(
+                mcpServers = projectProfile.mcpServers, mcpDefinitions = projectProfile.mcpDefinitions
+            ) else projectProfile
+            if (configuration.model.isBlank() || configuration.endpoint.isBlank()) return@withLock
+            val request = JSONObject().put("job", "warm-" + UUID.randomUUID()).put("engineId", selected.id)
+                .put("sessionId", runtimeSessionId).put("proposalRevision", proposalRevision).put("mode", mutableMode.value.id)
+                .put("stagedChanges", AgentJson.changes(mutableChanges.value)).put("options", bridge.options())
+                .put("excludedDirs", JSONArray(settings.value.excludedDirs.split(',').map(String::trim).filter(String::isNotEmpty)))
+                .put("configuration", runtimeConfiguration(configuration, if (usingFree) "" else secrets.read(selected), usingFree))
+            val result = bridge.rpc("agent_warmup", workspace.id, request, timeoutMillis = 65000)
+            check(result.optBoolean("ok") && result.optBoolean("ready")) {
+                result.optString("error", "新引擎启动失败，请重试")
+            }
+        }
     }
 
     suspend fun run(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean = false, onAccepted: () -> Unit = {}) = withContext(Dispatchers.IO) {
         check(!running) { "Agent 已在运行" }
         selectWorkspace(workspace.id)
+        // Keep startup and cleanup in the same lifecycle as engine selection.
+        engineLifecycle.withLock {
+            check(!running) { "Agent 已在运行" }
+            check(workspaceId == workspace.id) { "工作区已切换，请重新发送" }
+            runSelected(workspace, task, context, overlays, compactOnly, onAccepted)
+        }
+    }
+
+    private suspend fun runSelected(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean, onAccepted: () -> Unit) = coroutineScope {
         val preferences = settings.value
         val selected = mutableEngine.value
         val usingFree = accountSettings.value.agentUseFree && selected == AgentEngine.PI
@@ -329,9 +369,6 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         if (!compactOnly) append("user", task)
         log.clear()
         val identifier = UUID.randomUUID().toString()
-        job = identifier
-        mutableState.value = AgentState(running = true, status = "连接 Agent")
-        checkpoint()
         val request = JSONObject().put("job", identifier).put("engineId", selected.id).put("sessionId", runtimeSessionId).put("proposalRevision", proposalRevision).put("compactOnly", compactOnly).put("task", task).put("context", context).put("overlays", overlays).put("history", history)
             .put("mode", mutableMode.value.id).put("tasks", AgentJson.tasks(mutableTasks.value)).put("stagedChanges", AgentJson.changes(previousChanges))
             .put("options", bridge.options()).put("excludedDirs", JSONArray(preferences.excludedDirs.split(",").map(String::trim).filter(String::isNotEmpty)))
@@ -355,9 +392,11 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         val coordinator = AgentSubagents(bridge, workspace.id, identifier, mutableMode.value, primaryConfiguration, candidates, ::subagentEvent) { name, args ->
             executeClientTool(name, args)
         }
-        subagents = coordinator
-
         try {
+            job = identifier
+            mutableState.value = AgentState(running = true, status = "连接 Agent")
+            checkpoint()
+            subagents = coordinator
             bridge.open("agent", workspace.id, request, 10000).use { active ->
                 connection = active
                 if (cancelRequested) throw CancellationException("Agent 已停止")
@@ -373,7 +412,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                     when (event.optString("kind")) {
                         "status" -> mutableState.update { it.copy(status = if (it.userInput != null || it.approval != null) it.status else event.optString("text"), step = event.optInt("step")) }
                         "subagent_status" -> log.append(event.optString("text") + "\n")
-                        "subagent_event" -> subagentEvent(event.optString("label"), event.getJSONObject("event").put("subagentId", event.optString("subagentId")).put("engineId", "codex"))
+                        "subagent_event" -> subagentEvent(event.optString("label"), event.getJSONObject("event").put("subagentId", event.optString("subagentId")).put("engineId", selected.id))
                         "context" -> mutableContext.value = AgentContextState(event.optInt("tokens").coerceAtLeast(0), event.optInt("contextWindow", configuration.contextWindow).coerceAtLeast(1), event.optInt("compactions").coerceAtLeast(0), AgentContextPolicy.source(event.optString("source")), System.currentTimeMillis())
                         "message" -> append(event.optString("role", "assistant"), event.optString("text"))
                         "message_start" -> streamed(event.getString("messageId"), "", true)

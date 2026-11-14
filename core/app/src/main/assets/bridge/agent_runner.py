@@ -403,12 +403,12 @@ class AgentSession:
                     remaining = min(self.deadline or float('inf'), self.root_session.deadline or float('inf')) - time.monotonic() - 3
                     arguments = {**arguments, 'timeoutSeconds': max(1, min(int(arguments.get('timeoutSeconds', 540)), int(remaining) if remaining != float('inf') else 540))}
                 self.emit('client_tool', requestId=self.client_request, name=name, arguments=arguments)
-                deadline = time.monotonic() + (1860 if name == 'subagent' else arguments.get('timeoutSeconds', 540) + 5 if name == 'user_input' else 45)
+                deadline = None if name == 'subagent' else time.monotonic() + (arguments.get('timeoutSeconds', 540) + 5 if name == 'user_input' else 45)
                 while self.client_result is None:
                     self.check_cancelled()
                     if name == 'user_input' and self.interaction_expired():
                         return {'ok': True, 'dismissed': True, 'answers': {}}
-                    if time.monotonic() >= deadline:
+                    if deadline is not None and time.monotonic() >= deadline:
                         if name == 'user_input':
                             return {'ok': True, 'dismissed': True, 'timedOut': True, 'answers': {}}
                         raise TimeoutError('Android client tool timed out')
@@ -518,8 +518,6 @@ class AgentSession:
         timeout = bounded_integer(timeout, "timeout（秒）", 1, 3600)
         if not self.approve_command(command, timeout):
             return {"ok": False, "error": "用户未批准此命令"}
-        if self.deadline is not None:
-            self.deadline = max(self.deadline, time.monotonic() + timeout + 30)
         self.check_cancelled()
         with tempfile.TemporaryFile() as output:
             process = subprocess.Popen([self.command_shell(), "--noprofile", "--norc", "-c", command], cwd=self.stage, env=self.environment,
@@ -628,7 +626,7 @@ class AgentSession:
             self.emit('status', text='项目 Skill：' + (', '.join(name for name, _, _ in enabled) or '未启用') + '；已发现：' + ', '.join(available), step=self.steps)
         return "\n\n".join(parts)
 
-    def run_graph(self, model, configuration):
+    def run_graph(self, model, configuration, *, prepare_only=False):
         free_mode = self.engine_id == "pi" and bool(configuration.get("freeMode"))
         thinking = resolve_thinking(self.engine_id, configuration)
         node = shutil.which("node", path=self.environment.get("PATH"))
@@ -667,98 +665,87 @@ class AgentSession:
             system += "\n\n" + collaboration
         child_env = dict(self.environment, ASTER_AGENT_HOME=str(self.session_directory.parent))
         child_env.pop("NODE_OPTIONS", None)
-        with tempfile.TemporaryFile() as errors:
-            process = subprocess.Popen([node, "--max-old-space-size=256", str(VENDOR / self.engine_info["bundle"])], cwd=self.stage, env=child_env,
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, start_new_session=True)
-            self.engine_process = process
-            buffer = b""
-            try:
-                def send(value):
-                    process.stdin.write((json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode())
-                    process.stdin.flush()
-                from agent_task_mode import prioritize_question_tools
-                host_tools = prioritize_question_tools(self, self.tools if self.request.get('isSubagent') else TOOLS)
-                if self.engine_id == 'gemini':
-                    host_tools = [item for item in host_tools if item['function']['name'] in {'desktop', 'browser'}]
-                send({"type": "start", "system": system, "task": task + "\n\nCurrent editor context:\n" + context + plan,
-                      "history": self.request.get("history", [])[-60:], "tools": host_tools, "allowedTools": sorted(self.allowed_tools),
-                      "sessionId": self.session_id, "stage": str(self.stage), "mode": self.mode,
-                      "nativeTools": sorted(__import__("agent_native").GEMINI_TOOLS if self.engine_id != "gemini" else {name for name in __import__("agent_native").GEMINI_TOOLS if __import__("agent_native").native_available(self, name)}),
-                      "nativeMcpServers": native_mcp, "nativePermissions": self.permission_mode == "native", "commandsUnchecked": self.native_commands_unchecked,
-                      "engineHome": str(self.base / "agent-native" / self.engine_id / self.session_id),
-                      "sdkPath": str(self.base / "agent-engines/openclaude/sdk.mjs"),
-                      "configuration": configuration if self.engine_id != "pi" else {}, "thinking": thinking, "thinkingLevel": thinking["level"],
-                      "sessionFile": str(self.session_file), "workspace": str(self.workspace), "model": configuration.get("model", "aster"),
-                      "freeMode": free_mode, "maxToolCalls": 64 if free_mode else None,
-                      "maxSteps": 64 if free_mode else -1,
-                      "maxTokens": configuration.get("maxTokens", 4096), "contextWindow": configuration.get("contextWindow", 32768),
-                      "compactOnly": bool(self.request.get("compactOnly"))})
-                while True:
-                    self.check_cancelled()
-                    ready, _, _ = select.select([process.stdout], [], [], 0.1)
-                    if not ready:
-                        if process.poll() is not None:
-                            errors.seek(max(0, os.fstat(errors.fileno()).st_size - 1600))
-                            raise RuntimeError(self.engine_info['name'] + " 引擎退出：" + errors.read(1600).decode(errors="replace"))
-                        continue
-                    chunk = os.read(process.stdout.fileno(), 32768)
-                    if not chunk:
-                        self.check_cancelled()
-                        errors.seek(0)
-                        raise RuntimeError(self.engine_info['name'] + " 引擎连接中断：" + errors.read(1600).decode(errors="replace"))
-                    buffer += chunk
-                    if len(buffer) > 4 * MAX_TEXT:
-                        raise ValueError("Agent 请求超过 4 MiB，请缩小上下文窗口或先压缩会话")
-                    while b"\n" in buffer:
-                        line, buffer = buffer.split(b"\n", 1)
-                        value = json.loads(line)
-                        if value.get("type") == "event":
-                            kind = value.pop("kind")
-                            value.pop("type", None)
-                            self.emit(kind, **value)
-                            continue
-                        if value.get("type") == "result":
-                            if value.get("engine") != self.engine_info["name"]:
-                                raise ValueError("Agent 引擎版本不匹配")
-                            self.steps = max(self.steps, int(value.get("steps", 0)))
-                            self.tokens = max(self.tokens, int(value.get("tokens", 0)))
-                            return value
-                        if value.get("type") == "error":
-                            raise RuntimeError(value.get("error", "Pi 执行失败"))
-                        if value.get("type") != "request":
-                            raise ValueError("Agent 引擎协议无效")
-                        payload = value.get("payload") or {}
-                        try:
-                            if value.get("method") == "model":
-                                self.summarizing = payload.get("purpose") == "compaction"
-                                if not self.summarizing:
-                                    self.steps = int(payload["step"])
-                                    self.emit("status", text="正在思考", step=self.steps)
-                                if model is None:
-                                    raise ValueError("This engine owns its native model transport")
-                                result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"), maxTokens=payload.get("maxTokens"))
-                            elif value.get("method") == "native_tool":
-                                from agent_native import native_rpc
-                                result = native_rpc(self, payload)
-                            elif value.get("method") == "tool":
-                                result = ProjectEnvironment(self).execute(payload)
-                                if payload.get("name") not in READ_TOOLS and payload.get("name") != "update_plan":
-                                    self.checkpoint_proposal()
-                                self.emit("tool_result", name=str(payload.get("name", "")), text=json.dumps(self.redact_event(result), ensure_ascii=False)[:12000])
-                            else:
-                                raise ValueError("Agent 引擎请求无效")
-                            send({"type": "response", "id": value["id"], "result": result})
-                        except (UserInterruption, TimeExceeded):
-                            raise
-                        except Exception as error:
-                            send({"type": "response", "id": value["id"], "error": str(error)[:1600]})
-                        finally:
-                            self.summarizing = False
-            finally:
-                kill_group(process)
-                self.engine_process = None
-                process.stdin.close()
-                process.stdout.close()
+        from agent_task_mode import prioritize_question_tools
+        host_tools = prioritize_question_tools(self, self.tools if self.request.get('isSubagent') else TOOLS)
+        if self.engine_id == 'gemini':
+            host_tools = [item for item in host_tools if item['function']['name'] in {'desktop', 'browser'}]
+        start = {"type": "start", "system": system, "task": task + "\n\nCurrent editor context:\n" + context + plan,
+                 "history": self.request.get("history", [])[-60:], "tools": host_tools, "allowedTools": sorted(self.allowed_tools),
+                 "sessionId": self.session_id, "stage": str(self.stage), "mode": self.mode,
+                 "nativeTools": sorted(__import__("agent_native").GEMINI_TOOLS if self.engine_id != "gemini" else {name for name in __import__("agent_native").GEMINI_TOOLS if __import__("agent_native").native_available(self, name)}),
+                 "nativeMcpServers": native_mcp, "nativePermissions": self.permission_mode == "native", "commandsUnchecked": self.native_commands_unchecked,
+                 "engineHome": str(self.base / "agent-native" / self.engine_id / self.session_id),
+                 "sdkPath": str(self.base / "agent-engines/openclaude/sdk.mjs"),
+                 "configuration": configuration if self.engine_id != "pi" else {}, "thinking": thinking, "thinkingLevel": thinking["level"],
+                 "sessionFile": str(self.session_file), "workspace": str(self.workspace), "model": configuration.get("model", "aster"),
+                 "freeMode": free_mode, "maxToolCalls": 64 if free_mode else None, "maxSteps": 64 if free_mode else -1,
+                 "maxTokens": configuration.get("maxTokens", 4096), "contextWindow": configuration.get("contextWindow", 32768),
+                 "compactOnly": bool(self.request.get("compactOnly")), "prepareOnly": prepare_only}
+        from agent_engine_runtime import graph_server
+        command = [node, "--max-old-space-size=256", str(VENDOR / self.engine_info["bundle"])]
+        with graph_server(self, command, child_env, start) as host:
+            host.send(start)
+            completed = None
+            persistent = self.engine_id in ('pi', 'gemini')
+            while True:
+                value = host.receive(self)
+                if not isinstance(value, dict):
+                    raise ValueError("Agent 引擎协议无效")
+                if value.get("type") == "error":
+                    raise RuntimeError(value.get("error", "Agent 执行失败"))
+                if value.get("type") == "idle":
+                    if not persistent or completed is None:
+                        raise ValueError("Agent 引擎在结果之前结束了本轮任务")
+                    return completed
+                if completed is not None:
+                    raise ValueError("Agent 引擎在结果之后仍有未完成的操作")
+                if value.get("type") == "event":
+                    kind = value.pop("kind")
+                    value.pop("type", None)
+                    self.emit(kind, **value)
+                    continue
+                if value.get("type") == "result":
+                    if value.get("engine") != self.engine_info["name"]:
+                        raise ValueError("Agent 引擎版本不匹配")
+                    if prepare_only and (value.get("status") != "Ready" or value.get("modelRequested") is not False):
+                        raise ValueError("Agent 引擎未完成本地预热")
+                    self.steps = max(self.steps, int(value.get("steps", 0)))
+                    self.tokens = max(self.tokens, int(value.get("tokens", 0)))
+                    if not persistent:
+                        return value
+                    completed = value
+                    continue
+                if value.get("type") != "request":
+                    raise ValueError("Agent 引擎协议无效")
+                if prepare_only:
+                    raise ValueError("引擎预热不能请求模型或执行用户工具")
+                payload = value.get("payload") or {}
+                try:
+                    if value.get("method") == "model":
+                        self.summarizing = payload.get("purpose") == "compaction"
+                        if not self.summarizing:
+                            self.steps = int(payload["step"])
+                            self.emit("status", text="正在思考", step=self.steps)
+                        if model is None:
+                            raise ValueError("This engine owns its native model transport")
+                        result = model.query(payload["messages"], purpose=payload.get("purpose"), tools=payload.get("tools"), reasoning=payload.get("reasoning"), maxTokens=payload.get("maxTokens"))
+                    elif value.get("method") == "native_tool":
+                        from agent_native import native_rpc
+                        result = native_rpc(self, payload)
+                    elif value.get("method") == "tool":
+                        result = ProjectEnvironment(self).execute(payload)
+                        if payload.get("name") not in READ_TOOLS and payload.get("name") != "update_plan":
+                            self.checkpoint_proposal()
+                        self.emit("tool_result", name=str(payload.get("name", "")), text=json.dumps(self.redact_event(result), ensure_ascii=False)[:12000])
+                    else:
+                        raise ValueError("Agent 引擎请求无效")
+                    host.send({"type": "response", "id": value["id"], "result": result})
+                except (UserInterruption, TimeExceeded):
+                    raise
+                except Exception as error:
+                    host.send({"type": "response", "id": value["id"], "error": str(error)[:1600]})
+                finally:
+                    self.summarizing = False
 
     def review_changes(self, configuration, result):
         if self.permission_mode == "native" or not configuration.get('reviewEnabled') or result.get('status') != 'Submitted' or self.mode != 'execute' or not self.changes():
@@ -791,14 +778,17 @@ class AgentSession:
         finally:
             self.request, self.mode, self.allowed_tools, self.tools, self.session_id, self.session_file = original
 
+    def configure_deadline(self):
+        # No implicit wall-clock quota. An explicit timeout still follows the child.
+        from aster_terminal import bounded_integer
+        timeout = bounded_integer(self.request.get('timeoutSeconds', 0), '任务 timeout', 0, 2147483647)
+        own = time.monotonic() + timeout if timeout else None
+        parent = self.root_session.deadline if self.root_session is not self else None
+        self.deadline = min(own, parent) if own is not None and parent is not None else own if own is not None else parent
+
     def run(self):
-        if self.request.get('isSubagent'):
-            from aster_terminal import bounded_integer
-            timeout = bounded_integer(self.request.get('timeoutSeconds', 300), '子代理 timeout', 15, 900)
-            self.deadline = min(self.root_session.deadline or float('inf'), time.monotonic() + timeout)
-        else:
-            self.deadline = time.monotonic() + 1800
         try:
+            self.configure_deadline()
             self.emit("status", text="准备任务", step=0)
             configuration = self.request.get("configuration") or {}
             require_available(self.engine_id, self.base, VENDOR, self.environment)
@@ -914,7 +904,9 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
         threading.Thread(target=monitor, name="Aster-agent-connection", daemon=True).start()
     try:
         send({"ok": True, "job": identifier, "engineId": session.engine_id, "engine": session.engine_info["name"]})
-        session.run()
+        from agent_engine_runtime import engine_operation
+        with engine_operation(session):
+            session.run()
     finally:
         finished.set()
         if parent is not None:

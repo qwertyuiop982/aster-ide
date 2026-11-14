@@ -3,7 +3,7 @@
   "version": "0.28.2",
   "target": "chrome61",
   "format": "iife",
-  "sha256": "97f493d3212de725ca1a9d12a60b4c93822c01b9ba2435303265f16f7774d92a",
+  "sha256": "985e9d4ca685ee438bb657f6f048ee6c455595d48fc01efe6dbfde2454485670",
   "inputs": {
     "agent/app/src/main/assets/agent/icons.js": "5d761bd1e9f184bb71943340e4b9874059b3098a95e07fd9e3b9dd19da42fe70",
     "agent/app/src/main/assets/agent/dom.js": "f59b2cca11956fd60f2afb7f1bacbe0ca38324e853d25e835b73b96bca8ff164",
@@ -12,7 +12,7 @@
     "agent/app/src/main/assets/agent/bubbles.js": "b76357e57c4dc662aa4a7761eb81cb2fe80312c0deaed9717f105eab4e05380a",
     "agent/app/src/main/assets/agent/choices.js": "8027f1470f11f0cbcb0b3826c492ff1a40316032e26bdfdbbf835b33b5a34f5c",
     "agent/app/src/main/assets/agent/patterns.js": "04e1246d25885a7e0398f88fcbac8fe12374ac3c812f2c6f0aeecc8bf45561f2",
-    "agent/app/src/main/assets/agent/components.js": "5ff45625b6e658c88d82d43b7711ff807bb2cb94e8693ee9a1a4d525a2b6b1be",
+    "agent/app/src/main/assets/agent/components.js": "b7f8f1f9395805527660da43de77a026b7489dbb4e5f4340c2adad474835864e",
     "agent/app/src/main/assets/agent/engines/codex.js": "177b99d9b358c7bb7ea99daa76983765cb239dc08e793a4c5549a71ceccb81c5",
     "agent/app/src/main/assets/agent/engines/openclaude.js": "1c2ff9a81326f5f1e9c1a8848a068d944ecece01f53180571a34986908159cec",
     "agent/app/src/main/assets/agent/engines/gemini.js": "ed3cb7f38a8f40648dd5f238216f77e6fd28e707587a3982856faf3df10501e6",

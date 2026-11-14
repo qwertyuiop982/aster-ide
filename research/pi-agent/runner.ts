@@ -5,40 +5,10 @@ import { AssistantMessageEventStream, getCurrentSystemPrompt, getCurrentTools, T
 import { SessionManager, buildSessionProjection } from '../../vendor/pi/packages/coding-agent/src/core/session-manager.ts';
 import { convertToLlm } from '../../vendor/pi/packages/coding-agent/src/core/messages.ts';
 import { prepareCompaction, compact, estimateProjectedContextTokens } from '../../vendor/pi/packages/coding-agent/src/core/compaction/compaction.ts';
-import { createInterface } from 'node:readline';
+import { run, rpc, output } from '../agent-engines/transport.mjs';
 import { dirname } from 'node:path';
 
 export const ENGINE = 'Pi Coding Agent 1.3.0';
-const pending = new Map();
-let sequence = 0;
-let begin;
-const started = new Promise(resolve => { begin = resolve; });
-const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
-function output(value) { process.stdout.write(JSON.stringify(value) + '\n'); }
-function rpc(method, payload) {
-  const id = ++sequence;
-  return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
-    output({ type: 'request', id, method, payload });
-  });
-}
-input.on('line', line => {
-  try {
-    const value = JSON.parse(line);
-    if (value.type === 'start') { begin(value); return; }
-    const waiter = pending.get(value.id);
-    if (!waiter) return;
-    pending.delete(value.id);
-    if (value.error) waiter.reject(new Error(value.error)); else waiter.resolve(value.result);
-  } catch (error) {
-    for (const waiter of pending.values()) waiter.reject(error);
-    pending.clear();
-  }
-});
-input.on('close', () => {
-  for (const waiter of pending.values()) waiter.reject(new Error('Agent transport closed'));
-  pending.clear();
-});
 const usage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } });
 function assistant(model, text = '') {
@@ -65,8 +35,11 @@ function toOpenAI(context) {
   return messages;
 }
 
-async function main() {
-  const config = await started;
+async function main(config) {
+  if (config.prepareOnly) {
+    output({ type: 'result', engine: ENGINE, status: 'Ready', modelRequested: false });
+    return;
+  }
   const freeMode = config.freeMode === true;
   const maxToolCalls = freeMode ? 64 : Infinity;
   let toolCalls = 0;
@@ -219,7 +192,4 @@ async function main() {
   output({ type: 'event', kind: 'context', tokens: contextTokens(), contextWindow, compactions, source: 'hybrid' });
   output({ type: 'result', engine: ENGINE, status, summary, steps, toolCalls });
 }
-main().catch(error => {
-  output({ type: 'error', error: String(error.message || error) });
-  process.exitCode = 1;
-}).finally(() => input.close());
+await run(main, { persistent: true });

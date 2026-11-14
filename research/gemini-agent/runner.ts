@@ -16,10 +16,15 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { run, rpc, emit, output } from '../agent-engines/transport.mjs';
+import { subagentReporter } from './subagents.mjs';
+import { configureNativePaths } from './native-paths.mjs';
 
 const ENGINE = 'Gemini CLI 0.64.0';
 
-await run(async start => {
+async function createEngine(initialStart) {
+  // Tool wrappers read the current turn while Config, MCP clients and the native
+  // Gemini conversation stay resident until the host closes this process.
+  let start = initialStart;
   const options = start.configuration;
   const protocol = options.protocol || 'gemini';
   if (!['gemini', 'openai'].includes(protocol)) throw new Error('Unknown Gemini API protocol');
@@ -66,6 +71,7 @@ await run(async start => {
     fileFiltering: { enableFileWatcher: false },
     policyEngineConfig: { defaultDecision: PolicyDecision.ALLOW, approvalMode },
   });
+  configureNativePaths(config, nativePermissions);
   const pointer = start.sessionFile + '.native.json';
   const saved = existsSync(pointer) ? JSON.parse(readFileSync(pointer, 'utf8')) : null;
   let summary = '';
@@ -142,6 +148,7 @@ await run(async start => {
       const originalBuild = nativeTool.build;
       nativeTool.build = function(params, ...rest) {
         const invocation = originalBuild.call(this, params, ...rest);
+        const child = nativeTool.name === 'invoke_agent' ? subagentReporter(emit, params, config.getAgentRegistry().getDefinition(params.agent_name)?.modelConfig?.model || options.model) : null;
         const execute = invocation.execute.bind(invocation);
         const confirm = invocation.shouldConfirmExecute.bind(invocation);
         let ticket;
@@ -206,10 +213,16 @@ await run(async start => {
           try {
             await admit();
             if (!confirmed) await invocation.shouldConfirmExecute(executeArgs[0]?.abortSignal);
+            child?.start();
+            if (child && executeArgs[0]) {
+              const original = executeArgs[0];
+              executeArgs[0] = { ...original, updateOutput: progress => { child.update(progress); original.updateOutput?.(progress); } };
+            }
             result = await execute(...executeArgs);
           } catch (error) {
             result = failure(error);
           }
+          child?.finish(result, executeArgs[0]?.abortSignal?.aborted === true);
           await complete(result);
           return result;
         };
@@ -239,49 +252,70 @@ await run(async start => {
       await client.resumeChat(convertSessionToClientHistory(conversation.messages), { conversation, filePath: saved.file });
       client.discardTrailingUnansweredToolCallTurn();
     }
-    if (start.compactOnly) {
-      status = 'Submitted';
-      emit('status', { text: '正在压缩 Gemini 上下文', step: 0 });
-      const info = await client.tryCompressChat(start.sessionId, true);
-      if (info.compressionStatus === CompressionStatus.COMPRESSED || info.compressionStatus === CompressionStatus.CONTENT_TRUNCATED) summary = 'Gemini 上下文已压缩';
-      else if (info.compressionStatus === CompressionStatus.NOOP) summary = '当前上下文无需压缩';
-      else throw new Error('Gemini context compression failed: ' + info.compressionStatus);
-    } else {
-      const session = new LegacyAgentSession({ config, promptId: start.sessionId });
-      for await (const event of session.sendStream({ message: { content: [{ type: 'text', text: start.task }] } })) {
-        if (event.type === 'message' && event.role === 'agent') {
-          const text = event.content.filter(part => part.type === 'text').map(part => part.text).join('');
-          if (text) {
-            if (!messageId) { messageId = randomUUID(); emit('message_start', { messageId }); }
-            messageText += text; emit('message_delta', { messageId, text });
+    async function turn(request) {
+      start = request;
+      summary = ''; finished = false; tokens = 0; steps = 0;
+      status = 'Failed'; nativeEnded = false; messageId = ''; messageText = '';
+      if (start.prepareOnly) {
+        output({ type: 'result', engine: ENGINE, status: 'Ready', modelRequested: false });
+        return;
+      }
+      if (start.compactOnly) {
+        status = 'Submitted';
+        emit('status', { text: '正在压缩 Gemini 上下文', step: 0 });
+        const info = await client.tryCompressChat(start.sessionId, true);
+        if (info.compressionStatus === CompressionStatus.COMPRESSED || info.compressionStatus === CompressionStatus.CONTENT_TRUNCATED) summary = 'Gemini 上下文已压缩';
+        else if (info.compressionStatus === CompressionStatus.NOOP) summary = '当前上下文无需压缩';
+        else throw new Error('Gemini context compression failed: ' + info.compressionStatus);
+      } else {
+        const session = new LegacyAgentSession({ config, promptId: start.sessionId });
+        for await (const event of session.sendStream({ message: { content: [{ type: 'text', text: start.task }] } })) {
+          if (event.type === 'message' && event.role === 'agent') {
+            const text = event.content.filter(part => part.type === 'text').map(part => part.text).join('');
+            if (text) {
+              if (!messageId) { messageId = randomUUID(); emit('message_start', { messageId }); }
+              messageText += text; emit('message_delta', { messageId, text });
+            }
+          } else if (event.type === 'tool_request') {
+            closeMessage(); emit('status', { text: 'Gemini 正在执行工具', step: steps });
+          } else if (event.type === 'usage') {
+            steps++;
+            emit('status', { text: 'Gemini 正在思考', step: steps });
+            tokens += (event.inputTokens || 0) + (event.outputTokens || 0);
+            emit('usage', { tokens });
+          } else if (event.type === 'error') {
+            emit('error', { text: event.message, recoverable: true });
+            if (event.fatal) status = 'Failed';
+          } else if (event.type === 'agent_end') {
+            nativeEnded = true;
+            if (event.reason === 'completed') status = 'Submitted';
+            else if (event.reason === 'max_turns') status = 'LimitsExceeded';
+            else if (event.reason === 'aborted') status = 'Cancelled';
+            else status = 'Failed';
           }
-        } else if (event.type === 'tool_request') {
-          closeMessage(); emit('status', { text: 'Gemini 正在执行工具', step: steps });
-        } else if (event.type === 'usage') {
-          steps++;
-          emit('status', { text: 'Gemini 正在思考', step: steps });
-          tokens += (event.inputTokens || 0) + (event.outputTokens || 0);
-          emit('usage', { tokens });
-
-        } else if (event.type === 'error') {
-          emit('error', { text: event.message, recoverable: true });
-          if (event.fatal) status = 'Failed';
-        } else if (event.type === 'agent_end') {
-          nativeEnded = true;
-          if (event.reason === 'completed') status = 'Submitted';
-          else if (event.reason === 'max_turns') status = 'LimitsExceeded';
-          else if (event.reason === 'aborted') status = 'Cancelled';
-          else if (event.reason !== 'completed') status = 'Failed';
+          checkpoint();
         }
-        checkpoint();
+        closeMessage();
+        if (!nativeEnded || (status === 'Submitted' && !summary.trim() && !finished)) {
+          status = 'Failed';
+          emit('error', { text: 'Gemini 未返回完整的原生结束事件或有效回复；请重试。', recoverable: true });
+        }
       }
-      closeMessage();
-      if (!nativeEnded || (status === 'Submitted' && !summary.trim() && !finished)) {
-        status = 'Failed';
-        emit('error', { text: 'Gemini 未返回完整的原生结束事件或有效回复；请重试。', recoverable: true });
-      }
+      checkpoint(); contextUsage();
+      output({ type: 'result', engine: ENGINE, status, summary, steps, tokens });
     }
-    checkpoint(); contextUsage();
-    output({ type: 'result', engine: ENGINE, status, summary, steps, tokens });
-  } finally { await config.dispose(); }
-});
+    return { turn, dispose: async () => {
+      try { checkpoint(); }
+      finally { await config.dispose(); }
+    } };
+  } catch (error) {
+    await config.dispose();
+    throw error;
+  }
+}
+
+let resident;
+await run(async start => {
+  resident ||= await createEngine(start);
+  await resident.turn(start);
+}, { persistent: true, dispose: () => resident?.dispose() });

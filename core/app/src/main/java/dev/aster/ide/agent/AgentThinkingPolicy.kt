@@ -4,7 +4,8 @@ import java.util.Locale
 
 /** Options exposed by pinned transports, not a guarantee of provider support. */
 object AgentThinkingPolicy {
-    val modes = setOf("auto", "off", "budget", "strength", "legacy")
+    val modes = setOf("auto", "off", "budget", "strength", "legacy", "manual")
+    private val manualLevel = Regex("[A-Za-z][A-Za-z0-9_.-]{0,63}")
     fun supportsBudget(engine: AgentEngine, profile: AgentProfile): Boolean =
         engine == AgentEngine.OPENCLAUDE ||
         engine == AgentEngine.GEMINI && profile.protocol != "openai" && profile.model.contains("gemini-2.5", true) && available(engine, profile).size > 1
@@ -24,6 +25,7 @@ object AgentThinkingPolicy {
         else if (profile.thinkingLevel in setOf("auto", "off")) profile.thinkingLevel
         else if (supportsStrength(engine, profile)) "strength" else "budget"
     fun summary(profile: AgentProfile): String = when (profile.thinkingMode) {
+        "manual" -> "手动 " + profile.thinkingLevel
         "budget" -> "预算 " + profile.thinkingBudget
         "strength" -> "强度 " + label(profile.thinkingLevel)
         "off" -> "关闭"
@@ -31,7 +33,8 @@ object AgentThinkingPolicy {
         else -> "自动"
     }
     val levels = setOf("auto", "off", "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
-    fun normalize(value: String) = value.takeIf { it in levels } ?: "auto"
+    fun isManualLevel(value: String): Boolean = manualLevel.matches(value)
+    fun normalize(value: String) = value.takeIf { it in levels || isManualLevel(it) } ?: "auto"
     fun label(value: String) = when (value) {
         "off" -> "关闭"; "none" -> "none"; "minimal" -> "极低"; "low" -> "低"; "medium" -> "中"; "high" -> "高"; "xhigh" -> "极高"; "max" -> "max"; "ultra" -> "Ultra"; else -> "auto"
     }
@@ -55,7 +58,23 @@ object AgentThinkingPolicy {
             }
         }
     }
+    fun selectLevel(engine: AgentEngine, profile: AgentProfile, level: String): AgentProfile {
+        val mode = when {
+            level == "auto" || level == "off" -> level
+            engine == AgentEngine.GEMINI && profile.thinkingMode == "manual" -> "manual"
+            level in setOf("none", "max", "ultra") -> "strength"
+            supportsStrength(engine, profile) -> "strength"
+            else -> "legacy"
+        }
+        return profile.copy(thinkingLevel = level, thinkingMode = mode).also { validate(engine, it) }
+    }
+
     fun validate(engine: AgentEngine, profile: AgentProfile) {
+        if (profile.thinkingMode == "manual") {
+            require(engine == AgentEngine.GEMINI) { "手动思考参数仅适用于 Gemini" }
+            require(isManualLevel(profile.thinkingLevel)) { "请输入 1–64 位思考等级（字母开头，可含数字、下划线、点和短横线）" }
+            return // Explicit provider override: do not guess support from a model alias.
+        }
         require(profile.thinkingLevel !in setOf("ultra", "max", "none") || engine == AgentEngine.CODEX) { "max、none 与 Ultra 仅适用于 Codex" }
         require(profile.thinkingMode in modes) { "未知思考模式" }
         when (profile.thinkingMode) {
@@ -90,6 +109,7 @@ object AgentThinkingPolicy {
         else -> budget(engine, profile, level)?.let { if (engine == AgentEngine.OPENCLAUDE) label(level) + "强度 · 固定预算模型：$it tokens" else "思考预算 $it tokens" } ?: (label(level) + "强度")
     }
     fun note(engine: AgentEngine, profile: AgentProfile): String = when {
+        engine == AgentEngine.GEMINI && profile.thinkingMode == "manual" -> "下一次任务将发送手动填写的思考等级；服务端若拒绝会显示请求错误。"
         engine == AgentEngine.GEMINI && available(engine, profile) == listOf("auto") -> "未识别此模型的思考参数，使用引擎默认。"
         engine == AgentEngine.OPENCLAUDE -> "按所选模式直接发送预算或强度参数；服务端若拒绝会显示请求错误。"
         else -> "下一次任务使用 · 服务端模型支持范围可能更小。"

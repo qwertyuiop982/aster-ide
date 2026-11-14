@@ -104,10 +104,10 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     }
 
     suspend fun nativeWorkspace(workspace: Workspace): Workspace = withContext(Dispatchers.IO) {
-        val current = if (!workspace.direct && workspace.source != null) {
-            workspace.copy(directory = AgentStorageAccess.directory(context, Uri.parse(workspace.source)), direct = true)
-                .also { metadata(it) }
-        } else workspace
+        // A SAF import is an intentional app-private working copy. Native engine
+        // permissions must not silently switch it back to the provider's tree.
+        // Opening the original directory remains an explicit openDirectTree action.
+        val current = workspace
         if (current.direct) {
             check(AgentStorageAccess.granted(context)) { "原目录文件授权已失效，请在工具权限中重新授权" }
         }
