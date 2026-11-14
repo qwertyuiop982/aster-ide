@@ -151,16 +151,28 @@
       "intro": "积分用于 Aster 账户模型的用量管理。它不是网站里的虚拟货币，也不因为浏览本页而消耗。",
       "sections": [
         {
-          "title": "当前 Free 模型服务价格调整",
+          "title": "当前 Free 模型与价格",
           "paragraphs": [
-            "Free Go 的价格调整规则为每 1000 token 计 10 积分。这是计费规则，不是额外模型。",
-            "当前两项模型 gpt-6.1-terra 与 glm-5.3-flash 均无额外价格调整。"
+            "Free Go 使用 gpt-6.1-terra，每 1000 token 计 5 积分。",
+            "Free 使用 glm-5.3-flash，价格保持不变：每 1000 token 计 1 积分。"
           ],
           "table": {
-            "headers": ["模型", "价格调整"],
+            "headers": [
+              "服务",
+              "模型",
+              "计费"
+            ],
             "rows": [
-              ["gpt-6.1-terra", "无价格调整"],
-              ["glm-5.3-flash", "无价格调整"]
+              [
+                "Free Go",
+                "gpt-6.1-terra",
+                "5 积分 / 1000 token"
+              ],
+              [
+                "Free",
+                "glm-5.3-flash",
+                "1 积分 / 1000 token（不变）"
+              ]
             ]
           },
           "note": "模型可用性与实际扣减以服务端当前配置和结算记录为准。"
@@ -185,8 +197,14 @@
             "以上是当前 Free 模型服务的调整规则，不代表所有账户模型、供应商或后续版本均适用。实际可用性及扣减请以 App 和服务端结算为准。"
           ],
           "links": [
-            ["help", "返回使用帮助"],
-            ["issues", "提交问题"]
+            [
+              "help",
+              "返回使用帮助"
+            ],
+            [
+              "issues",
+              "提交问题"
+            ]
           ]
         }
       ]
@@ -386,16 +404,28 @@
       "intro": "Credits track usage of Aster account models. They are not a website currency, and visiting this page does not spend them.",
       "sections": [
         {
-          "title": "Current Free model service adjustments",
+          "title": "Current Free models and pricing",
           "paragraphs": [
-            "The Free Go price adjustment is 10 credits per 1,000 tokens. This is a billing rule, not an additional model.",
-            "The two current models, gpt-6.1-terra and glm-5.3-flash, have no additional price adjustment."
+            "Free Go uses gpt-6.1-terra and costs 5 points per 1,000 tokens.",
+            "Free uses glm-5.3-flash. Its price remains unchanged at 1 point per 1,000 tokens."
           ],
           "table": {
-            "headers": ["Model", "Price adjustment"],
+            "headers": [
+              "Service",
+              "Model",
+              "Price"
+            ],
             "rows": [
-              ["gpt-6.1-terra", "No price adjustment"],
-              ["glm-5.3-flash", "No price adjustment"]
+              [
+                "Free Go",
+                "gpt-6.1-terra",
+                "5 points / 1,000 tokens"
+              ],
+              [
+                "Free",
+                "glm-5.3-flash",
+                "1 point / 1,000 tokens (unchanged)"
+              ]
             ]
           },
           "note": "Availability and actual deductions follow the server's current configuration and settlement records."
@@ -420,8 +450,14 @@
             "These adjustments apply to the current Free model service only. Availability and deductions may change; confirm the active rules in the app and server settlement records."
           ],
           "links": [
-            ["help", "Back to help"],
-            ["issues", "Report an issue"]
+            [
+              "help",
+              "Back to help"
+            ],
+            [
+              "issues",
+              "Report an issue"
+            ]
           ]
         }
       ]

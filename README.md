@@ -1,4 +1,4 @@
-# Aster 1.0.5
+# Aster v1.06-aster
 
 Aster is an Android ARM64 development workbench with a Compose interface, code editor, embedded Termux environment, language services, native Android builds and Pi/Codex/Gemini agents. The first launch offers VS Code and ACS interface styles.
 
@@ -7,7 +7,7 @@ Aster is an Android ARM64 development workbench with a Compose interface, code e
 - Device tools call the separately installed, running **Shizuku app** through `dev.rikka.shizuku:api` and `provider` 13.1.5. Install/start Shizuku and grant Aster permission. Shizuku's server and API source trees are not included in this repository.
 - Use Aster account models or configure your own provider and API key.
 
-Get the APK, compact corresponding source, checksums and validation record from [GitHub Releases](https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.0.5). Website download buttons use GitHub Release assets through the existing gh-proxy.org proxy; direct GitHub asset URLs remain available.
+Get the APK, compact corresponding source, checksums and validation record from [GitHub Releases](https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.06-aster). Website download buttons use GitHub Release assets through the existing gh-proxy.org proxy; direct GitHub asset URLs remain available.
 
 ## Build
 
@@ -19,7 +19,7 @@ cd aster-ide
 ./gradlew :app:assembleRelease
 ```
 
-The repository contains no `.so`, generated build intermediates, test or example source trees. Gradle prepares native runtime dependencies and builds the two Codex programs into the ignored `build/native/` directory. A fresh native build additionally needs Rust 1.95.0, its `aarch64-linux-android` target, `ar`, `readelf`, `zstd` and network access. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup and caching. The Termux bootstrap and pinned .deb dependencies are fetched and checksum-verified at build time; the separate native-dependencies Release asset retains them when upstream rolling repositories remove old versions.
+The published source excludes `.so` files and generated build intermediates. Gradle prepares native runtime dependencies and builds the two Codex programs into the ignored `build/native/` directory. A fresh native build additionally needs Rust 1.95.0, its `aarch64-linux-android` target, `ar`, `readelf`, `zstd` and network access. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup and caching. The Termux bootstrap and pinned .deb dependencies are fetched and checksum-verified at build time; the separate native-dependencies Release asset retains them when upstream rolling repositories remove old versions.
 
 The release build enables R8/resource shrinking and produces an unsigned APK. Sign your own builds with your own key; release signing keys are excluded. A different signing key cannot replace an existing Aster installation without migration.
 
@@ -28,3 +28,5 @@ The release build enables R8/resource shrinking and produces an unsigned APK. Si
 [PUBLIC-RELEASE.md](PUBLIC-RELEASE.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [client/SOURCES.json](client/SOURCES.json) describe source provenance and component licenses. Third-party licenses remain in their respective directories and APK notice assets. `SOURCE-CLEANUP.json` records the compact-source scope. Restricted OpenClaude SDK material is excluded.
 
 [website/](website/) contains the static product site. It can be published on GitHub Pages; APKs and source archives are GitHub Release assets. No server deployment is required.
+
+The account and model gateway source is in [services/account](services/account/README.md). Free Go uses gpt-6.1-terra at 5 points per 1,000 tokens; Free uses glm-5.3-flash at its unchanged 1 point per 1,000 tokens. Model credentials remain in private server configuration.

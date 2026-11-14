@@ -11,10 +11,11 @@ function run(options = {}) {
   const redirects = [];
   const writes = [];
   const handlers = {};
+  const classes = new Set();
   const root = { lang: options.htmlLanguage || 'zh-CN', dataset: {
     autoLanguage: options.automatic === false ? 'false' : 'true',
     page: options.page || 'home', titleZh: '页面未找到 — Aster', titleEn: 'Page not found — Aster',
-  } };
+  }, classList: { toggle(name, force) { if (force) classes.add(name); else classes.delete(name); return classes.has(name); }, contains(name) { return classes.has(name); } } };
   const document = { documentElement: root, title: '页面未找到 — Aster',
     querySelector(selector) {
       const locale = selector.includes('"zh-CN"') ? 'zh' : 'en';
@@ -27,11 +28,12 @@ function run(options = {}) {
     hash: url.hash, replace(target) { redirects.push(target); } } };
   Object.defineProperty(window, 'localStorage', { get() {
     if (options.blocked) throw new Error('Storage disabled');
-    return { getItem: () => options.saved || null, setItem: (key, value) => writes.push([key, value]) };
+    return { getItem: key => key === 'aster.theme' ? options.savedTheme || null : options.saved || null,
+      setItem: (key, value) => writes.push([key, value]) };
   } });
   vm.runInNewContext(source, { window, document, URL, URLSearchParams,
     navigator: { languages: options.languages || [options.device || 'en-US'], language: options.device || 'en-US' } });
-  return { root, document, handlers, redirects, writes };
+  return { root, document, handlers, redirects, writes, classes };
 }
 
 function test(name, verify) {
@@ -49,6 +51,27 @@ for (const device of ['en-US', 'en-GB', 'de-DE', 'ja-JP']) {
 test('Primary device language wins over fallback languages', () => assert.equal(run({ languages: ['en-US', 'zh-CN'] }).root.lang, 'en'));
 test('Manual preference overrides device language', () => assert.equal(run({ device: 'en-US', saved: 'zh' }).root.lang, 'zh-CN'));
 test('Invalid saved preference is ignored', () => assert.equal(run({ device: 'en-US', saved: 'invalid' }).root.lang, 'en'));
+test('Dark theme is the default', () => assert.equal(run().root.classList.contains('theme-light'), false));
+test('Saved theme does not affect document pages', () => assert.equal(run({ page: 'privacy', savedTheme: 'light' }).root.classList.contains('theme-light'), false));
+test('Saved white theme is applied before rendering', () => assert.equal(run({ savedTheme: 'light' }).root.classList.contains('theme-light'), true));
+test('Theme button toggles white mode and saves preference', () => {
+  const result = run();
+  const attrs = {};
+  const button = { dataset: { lightLabel: 'Switch to white', darkLabel: 'Switch to dark' },
+    setAttribute(name, value) { attrs[name] = value; } };
+  result.handlers.click({ target: { closest: selector => selector === 'button[data-theme-toggle]' ? button : null } });
+  assert.equal(result.root.classList.contains('theme-light'), true);
+  assert.deepEqual(result.writes, [['aster.theme', 'light']]);
+  assert.equal(attrs['aria-pressed'], 'true');
+  assert.equal(attrs['aria-label'], 'Switch to dark');
+});
+test('Theme toggle remains usable when storage is blocked', () => {
+  const result = run({ blocked: true });
+  const button = { dataset: { lightLabel: 'Switch to white', darkLabel: 'Switch to dark' }, setAttribute() {} };
+  result.handlers.click({ target: { closest: selector => selector === 'button[data-theme-toggle]' ? button : null } });
+  assert.equal(result.root.classList.contains('theme-light'), true);
+  assert.deepEqual(result.writes, []);
+});
 test('Query and fragment survive same-origin language navigation', () => {
   assert.equal(run({ path: '/?campaign=launch#main', device: 'en-US' }).redirects[0], 'https://preview.example/en/?campaign=launch#main');
 });
@@ -75,11 +98,11 @@ test('404 manual query overrides path language', () => assert.equal(run({ path: 
 test('Storage disabled still allows automatic language selection', () => assert.equal(run({ blocked: true }).root.lang, 'en'));
 test('Manual language click saves preference without preventing navigation', () => {
   const result = run();
-  result.handlers.click({ target: { closest: () => ({ dataset: { language: 'zh' } }) } });
+  result.handlers.click({ target: { closest: selector => selector === 'a[data-language]' ? ({ dataset: { language: 'zh' } }) : null } });
   assert.deepEqual(result.writes, [['aster.language', 'zh']]);
 });
 test('Manual language click works with blocked storage', () => {
   const result = run({ blocked: true });
-  assert.doesNotThrow(() => result.handlers.click({ target: { closest: () => ({ dataset: { language: 'zh' } }) } }));
+  assert.doesNotThrow(() => result.handlers.click({ target: { closest: selector => selector === 'a[data-language]' ? ({ dataset: { language: 'zh' } }) : null } }));
 });
 console.log(passed + ' language behavior checks passed.');

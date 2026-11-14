@@ -68,7 +68,7 @@ function noiseTexture() {
   t.repeat.set(2, 4); t.anisotropy = 8; allTextures.add(t); return t;
 }
 function studioEnvironment(renderer) {
-  // Softboxes are visible in device reflections only; the page itself stays black.
+  // Softboxes appear in device reflections; the transparent canvas leaves the CSS falloff visible.
   const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#131416'; ctx.fillRect(0, 0, 1024, 512);
@@ -260,10 +260,10 @@ export async function startScene(stage) {
   const lifetime = new AbortController();
   const on = (target, type, listener, options = {}) => target.addEventListener(type, listener, { ...options, signal: lifetime.signal });
   const canvas = document.createElement('canvas'); canvas.setAttribute('aria-hidden', 'true');
-  const context = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance' });
+  const context = canvas.getContext('webgl2', { alpha: true, antialias: true, powerPreference: 'high-performance' });
   if (!context) throw new Error('WebGL2 unavailable');
-  const renderer = new THREE.WebGLRenderer({ canvas, context, alpha: false, antialias: true });
-  renderer.setClearColor(0x000000, 1); renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const renderer = new THREE.WebGLRenderer({ canvas, context, alpha: true, antialias: true });
+  renderer.setClearColor(0x000000, 0); renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
   const env = studioEnvironment(renderer), scene = new THREE.Scene(); scene.environment = env.texture;
   scene.environmentIntensity = 1.4;
