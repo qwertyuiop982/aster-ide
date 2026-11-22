@@ -33,12 +33,12 @@ class LspManager(
 
     fun uri(path: String): String {
         val current = workspace ?: error("项目未打开")
-        return URI("file", "", "${bridge.remoteRoot}/${current.id}/$path", null).toASCIIString()
+        return URI("file", "", "${bridge.projectRoot(current.id)}/$path", null).toASCIIString()
     }
     fun relative(uri: String): String? = runCatching {
         val current = workspace ?: return null
         val path = URI(uri).path
-        val root = "${bridge.remoteRoot}/${current.id}/"
+        val root = "${bridge.projectRoot(current.id)}/"
         path.takeIf { it.startsWith(root) }?.removePrefix(root)
     }.getOrNull()
 
@@ -70,7 +70,7 @@ class LspManager(
                 val fresh = LspClient(connection, scope, settings.value.requestTimeout, config,
                     { method, params -> notification(spec.id, method, params) }, { onLog("${spec.id}: $it") })
                 try {
-                    val rootUri = URI("file", "", "${bridge.remoteRoot}/${current.id}", null).toASCIIString()
+                    val rootUri = URI("file", "", bridge.projectRoot(current.id), null).toASCIIString()
                     fresh.initialize(rootUri, current.name, JSONObject(pref.initializationOptions))
                     servers[spec.id] = Server(fresh, System.nanoTime())
                     onStatus(spec.id, "就绪")

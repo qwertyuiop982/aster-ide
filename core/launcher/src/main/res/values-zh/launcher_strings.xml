@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aster_app_name">Aster 账户版</string>
+    <string name="launcher_current_mode">当前：%1$s</string>
+    <string name="launcher_home">返回首页</string>
+    <string name="launcher_switch_failed_title">暂时无法切换</string>
+    <string name="launcher_switch_failed">切换工作模式失败。</string>
+    <string name="launcher_ide_busy">请先停止或等待 IDE 当前任务完成。</string>
+    <string name="launcher_mode_ide">IDE 模式</string>
+    <string name="launcher_mode_agent">Agent 模式</string>
+    <string name="launcher_ide_subtitle">编辑 · 构建 · 终端 · 辅助 Agent</string>
+</resources>

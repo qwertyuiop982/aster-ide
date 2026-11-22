@@ -37,9 +37,7 @@ data class IdeSettings(
     val largeFileKB: Int = 512,
     val maxFileMB: Int = 8,
     val scrollback: Int = 2000,
-    val port: Int = 8768,
     val npmRegistry: String = "https://registry.npmmirror.com",
-    val termuxMirror: String = "ustc",
     val autoRuntime: Boolean = true,
     val editorCacheSize: Int = 3,
     val githubProxy: Boolean = true,
@@ -105,8 +103,8 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             put("formatOnSave", next.formatOnSave); put("lspEnabled", next.lspEnabled); put("diagnostics", next.diagnostics)
             put("lspDebounce", next.lspDebounce); put("requestTimeout", next.requestTimeout); put("maxServers", next.maxServers)
             put("maxTabs", next.maxTabs); put("largeFileKB", next.largeFileKB); put("maxFileMB", next.maxFileMB)
-            put("scrollback", next.scrollback); put("port", next.port); put("npmRegistry", next.npmRegistry)
-            put("termuxMirror", next.termuxMirror); put("githubProxy", next.githubProxy); put("sdkPath", next.sdkPath)
+            put("scrollback", next.scrollback); put("npmRegistry", next.npmRegistry)
+            put("githubProxy", next.githubProxy); put("sdkPath", next.sdkPath)
             put("sdkBuildTools", next.sdkBuildTools); put("sdkJdk", next.sdkJdk); put("sdkNdk", next.sdkNdk); put("sdkCmdlineTools", next.sdkCmdlineTools)
             put("buildMemory", next.buildMemory); put("buildWorkers", next.buildWorkers); put("buildCommand", next.buildCommand)
             put("excludedDirs", next.excludedDirs)
@@ -200,9 +198,8 @@ class SettingsStore(context: Context, preferenceName: String = "aster-settings",
             lspDebounce = j.optInt("lspDebounce", 250).coerceIn(100, 1000), requestTimeout = j.optInt("requestTimeout", 8).coerceIn(2, 30),
             maxServers = j.optInt("maxServers", 3).coerceIn(1, 5), maxTabs = j.optInt("maxTabs", 12).coerceIn(4, 24),
             largeFileKB = j.optInt("largeFileKB", 512).coerceIn(128, 2048), maxFileMB = j.optInt("maxFileMB", 8).coerceIn(1, 12),
-            scrollback = j.optInt("scrollback", 2000).coerceIn(500, 10000), port = j.optInt("port", 8768).coerceIn(1024, 65535),
+            scrollback = j.optInt("scrollback", 2000).coerceIn(500, 10000),
             npmRegistry = j.optString("npmRegistry", "https://registry.npmmirror.com"),
-            termuxMirror = if (j.optInt("settingsVersion") < 2) "ustc" else j.optString("termuxMirror", "ustc").let { if (it == "tsinghua") "ustc" else it },
             autoRuntime = j.optBoolean("autoRuntime", true), editorCacheSize = j.optInt("editorCacheSize", 3).coerceIn(1, 4),
             githubProxy = j.optBoolean("githubProxy", true), sdkPath = j.optString("sdkPath", "/data/data/com.termux/files/home/android-sdk"),
             sdkBuildTools = j.optString("sdkBuildTools", "35.0.1").takeIf { it in listOf("35.0.1", "34.0.4") } ?: "35.0.1",

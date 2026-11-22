@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 internal object AgentExplicitContext {
     const val LIMIT = 12000
     const val FILE_BYTES = 65536
-    private const val OMITTED = "\n[Excerpt truncated; use workspace tools for omitted portions.]"
+    private const val OMITTED = "\n[Excerpt truncated.]"
     data class FileText(val path: String, val text: String)
     /** Uses API-24-compatible InputStream reads, not Android API 33 readNBytes. */
     fun readUtf8(input: InputStream): String {
@@ -25,13 +25,14 @@ internal object AgentExplicitContext {
         require((0 until size).none { bytes[it] == 0.toByte() }) { "请选择文本文件" }
         return Charsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes, 0, size)).toString()
     }
-    fun compose(project: String, prompt: String, files: List<FileText>): String {
-        require(prompt.length <= 8000 && files.size <= 8)
+    fun compose(project: String, prompt: String, files: List<FileText>, bound: Boolean = true): String {
+        require(prompt.length <= 8000 && files.size <= 16)
         require(files.all { it.path.length in 1..512 })
-        val output = StringBuilder().append("Project: ").append(project.take(200))
+        val output = StringBuilder(if (bound) "Project: " + project.take(200) else
+            "No project workspace is bound. This is a general conversation. Do not assume a project or inspect project files unless the user asks.")
         if (prompt.isNotBlank()) output.append("\nUser instructions:\n").append(prompt)
         if (files.isNotEmpty()) {
-            output.append("\nSelected files (use workspace tools for omitted portions):\n")
+            output.append("\nSelected files:\n")
             files.forEach { output.append("- ").append(it.path).append('\n') }
         }
         val ceiling = LIMIT - OMITTED.length

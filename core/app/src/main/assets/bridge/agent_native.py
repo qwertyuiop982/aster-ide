@@ -102,20 +102,20 @@ def before_native_tool(session, payload):
             raise ValueError('This project skill has not been enabled in Aster')
     session.consume_tool_budget()
     session.steps += 1
-    session.emit('tool', name=name, text=json.dumps(session.redact_event(args), ensure_ascii=False)[:12000])
+    call_id = uuid.uuid4().hex
+    session.emit('tool', callId=call_id, name=name, text=json.dumps(session.redact_event(args), ensure_ascii=False)[:12000])
     if name in COMMAND:
         command = args.get('command')
         if not isinstance(command, str) or not command.strip():
             raise ValueError('Native shell command is empty')
         if not session.approve_command(command, 0 if args.get('is_background') else 120):
-            session.emit('tool_result', name=name, text=json.dumps({'ok': False, 'error': 'Command was not approved'}))
+            session.emit('tool_result', callId=call_id, name=name, text=json.dumps({'ok': False, 'error': 'Command was not approved'}))
             return {'ok': False, 'error': 'Command was not approved'}
     if server or name == 'invoke_agent':
         description = ('MCP ' + server + ' · ' + str(name)) if server else ('Gemini ' + name + ' · ' + json.dumps(session.redact_event(args), ensure_ascii=False)[:1000])
         if not session.approve_external(description):
-            session.emit('tool_result', name=name, text=json.dumps({'ok': False, 'error': 'Operation was not approved'}))
+            session.emit('tool_result', callId=call_id, name=name, text=json.dumps({'ok': False, 'error': 'Operation was not approved'}))
             return {'ok': False, 'error': 'Operation was not approved'}
-    call_id = uuid.uuid4().hex
     calls = getattr(session, '_native_calls', None)
     if calls is None:
         session._native_calls = calls = {}
@@ -145,7 +145,7 @@ def after_native_tool(session, payload):
         session.emit('plan', tasks=session.tasks)
     from aster_diagnostics import clean_runtime_output
     summary = '用户交互已返回；回答不写入活动日志。' if name == 'ask_user' else clean_runtime_output(payload.get('summary', ''))
-    session.emit('tool_result', name=name, text=json.dumps({'ok': not failed, 'native': True, 'output': str(summary)[:12000]}, ensure_ascii=False))
+    session.emit('tool_result', callId=payload.get('callId'), name=name, text=json.dumps({'ok': not failed, 'native': True, 'output': str(summary)[:12000]}, ensure_ascii=False))
     return {'ok': True}
 
 

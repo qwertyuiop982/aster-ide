@@ -19,47 +19,63 @@ import dev.aster.ide.data.IdeSettings
     installing: Boolean, directory: String, tools: Map<String, String>,
     updateSettings: ((IdeSettings) -> IdeSettings) -> Unit,
     onConnect: (Boolean) -> Unit, onInstall: (String) -> Unit, onLogs: () -> Unit,
-    onCopyDirectory: () -> Unit, onPort: (Int) -> Unit, onMessage: (String) -> Unit
+    onCopyDirectory: () -> Unit, onMessage: (String) -> Unit, port: Int,
+    showAutoRuntime: Boolean = true
 ) {
+    var showInventory by remember { mutableStateOf(false) }
+    val canInstall = !connecting && !installing
     Column(Modifier.fillMaxWidth()) {
         SectionLabel("Termux")
-        ValueRow("模块", "Termux 0.118.3 + PRoot 5.1.107.96")
+        ValueRow("运行方式", "原生 · 应用私有路径")
         ValueRow("Bootstrap", if (runtime.bootstrapInstalled) "已解包" else "已内置 · 未检测")
         ValueRow("桥接状态", if (connected && !connecting) "已连接" else runtime.message)
+        ValueRow("本地桥接端口", port.takeIf { it in 1..65535 }?.toString() ?: "系统分配")
         if (connecting || installing) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
-        SettingSwitch("启动时先准备编译环境", settings.autoRuntime) { updateSettings { s -> s.copy(autoRuntime = it) } }
+        if (showAutoRuntime) SettingSwitch("IDE 启动时准备编译环境", settings.autoRuntime) { updateSettings { s -> s.copy(autoRuntime = it) } }
         ActionRow(Icons.Outlined.Description, "查看环境安装日志") { onLogs() }
         ActionRow(Icons.Outlined.PowerSettingsNew, if (connected) "连接内置编译环境" else "初始化并启动内置环境", enabled = !connecting) { onConnect(true) }
         ActionRow(Icons.Outlined.ContentCopy, "复制私有运行目录") { onCopyDirectory() }
         ActionRow(Icons.Outlined.Refresh, "检测本地连接", enabled = !connecting) { onConnect(false) }
-        FieldSetting("本地端口", settings.port.toString()) { value ->
-        val port = value.toIntOrNull()
-        if (port == null || port !in 1024..65535) onMessage("端口必须在 1024–65535 之间")
-        else onPort(port)
-        }
         SectionLabel("工具链")
-        ActionRow(Icons.Outlined.InstallMobile, "安装基础编译工具", enabled = !connecting && !installing) { onInstall("base") }
+        ActionRow(Icons.Outlined.InstallMobile, "基础编译工具", enabled = canInstall) { onInstall("base") }
+        Line()
+        BuildEnvironmentPresets.entries.forEach { preset ->
+            val count = preset.executables.count { !tools[it].isNullOrBlank() }
+            val status = when {
+                tools.isEmpty() -> "未检查"
+                count == preset.executables.size -> "已安装"
+                count == 0 -> "未安装"
+                else -> "已安装 $count / ${preset.executables.size}"
+            }
+            ActionRow(Icons.Outlined.Build, preset.title, enabled = canInstall, detail = status) { onInstall(preset.id) }
+            Line()
+        }
+        if (tools.isNotEmpty()) {
+            ActionRow(if (showInventory) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                if (showInventory) "收起已检测的命令" else "已检测的命令") { showInventory = !showInventory }
+            if (showInventory) tools.toSortedMap().forEach { (tool, path) ->
+                ValueRow(tool, if (path.isBlank()) "未安装" else "已安装")
+            }
+        }
+        SectionLabel("Android 工具链")
         ValueRow("SDK / NDK 运行平台", "Android · Bionic · arm64")
-        ValueRow("安装器", "内嵌 idesetup.py")
         ChoiceRow("Build Tools", settings.sdkBuildTools, listOf("35.0.1" to "35.0.1", "34.0.4" to "34.0.4")) { value -> updateSettings { it.copy(sdkBuildTools = value) } }
         ChoiceRow("JDK", settings.sdkJdk, listOf("17" to "17 · Android 开发推荐", "21" to "21")) { value -> updateSettings { it.copy(sdkJdk = value) } }
         ChoiceRow("Android 原生 NDK", settings.sdkNdk, listOf("29.0.14206865" to "r29", "28.2.13676358" to "r28c", "27.3.13750724" to "r27d", "0" to "跳过")) { value -> updateSettings { it.copy(sdkNdk = value) } }
         SettingSwitch("安装命令行工具", settings.sdkCmdlineTools) { value -> updateSettings { it.copy(sdkCmdlineTools = value) } }
-        ActionRow(Icons.Outlined.Android, "安装 Android 原生 SDK / NDK", enabled = !connecting && !installing) { onInstall("android") }
+        ActionRow(Icons.Outlined.Android, "安装 Android 原生 SDK / NDK", enabled = canInstall) { onInstall("android") }
         FieldSetting("Termux 中的 Android SDK 路径", settings.sdkPath) { value -> if ('\n' in value || !value.startsWith('/')) onMessage("需要绝对路径") else updateSettings { it.copy(sdkPath = value) } }
-        tools.forEach { (tool, path) -> ValueRow(tool, if (path.isBlank()) "未安装" else "已安装") }
         SectionLabel("构建资源")
         ChoiceRow("最大堆内存", settings.buildMemory.toString(), listOf(256,512,768,1024,1536,2048,3072,4096).map { it.toString() to "$it MiB" }) { value -> updateSettings { it.copy(buildMemory = value.toInt()) } }
         ChoiceRow("并行 worker", settings.buildWorkers.toString(), (1..8).map { it.toString() to it.toString() }) { value -> updateSettings { it.copy(buildWorkers = value.toInt()) } }
         SectionLabel("软件源")
-        ChoiceRow("Termux APT", settings.termuxMirror, listOf("ustc" to "中科大 USTC", "official" to "保留当前源")) { updateSettings { s -> s.copy(termuxMirror = it) } }
+        ValueRow("Termux APT", "使用现有源")
         FieldSetting("npm registry", settings.npmRegistry) { value -> if (value.startsWith("https://") && value.none(Char::isWhitespace)) updateSettings { it.copy(npmRegistry = value) } else onMessage("请输入 HTTPS registry 地址") }
         SettingSwitch("GitHub 文件下载加速", settings.githubProxy) { updateSettings { s -> s.copy(githubProxy = it) } }
         ValueRow("代理", "gh-proxy.org")
-        SectionLabel("路径映射")
-        ValueRow("Guest files", "/data/data/com.termux/files")
-        ValueRow("Private files", directory + "/files")
-        ValueRow("独立 APK / Root", "不需要")
+        SectionLabel("目录")
+        Text("$directory/files", Modifier.fillMaxWidth().padding(bottom = 12.dp), fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -103,10 +119,14 @@ import dev.aster.ide.data.IdeSettings
         textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), shape = RoundedCornerShape(6.dp),
         trailingIcon = { IconButton(onClick = { change(draft.trim()) }, enabled = draft != value) { Icon(Icons.Outlined.Save, "保存 $label") } })
 }
-@Composable private fun ActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+@Composable private fun ActionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean = true,
+    detail: String? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = enabled, onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.3f)); Spacer(Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f), modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f))
+            if (detail != null) Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Icon(Icons.Outlined.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

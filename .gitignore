@@ -71,3 +71,4 @@ signing.properties
 
 # Keep application regressions in the source package.
 !/agent/app/src/test/
+!/core/app/src/test/

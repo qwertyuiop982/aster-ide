@@ -1,5 +1,7 @@
 package dev.aster.agent
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -93,39 +95,36 @@ internal fun codexAppearanceColors(left: String, right: String): ColorScheme {
     val leftColor = codexAppearanceColor(left)
     val rightColor = codexAppearanceColor(right, AgentAppearance.DEFAULT_RIGHT)
     val motion = motionSettings.animations && !motionSettings.reducedMotion
-    ModelSettingsPage("界面配置", { vm.showAppearance = false }, {
+    ModelSettingsPage(stringResource(R.string.agent_settings_appearance), { vm.showAppearance = false }, {
         runCatching { vm.saveCodexAppearance(left, right, all, layout) }.onFailure { error = it.message }
     }, message = error) {
-        ModelSettingsSection("界面样式", "布局切换保留所有功能。") {
-            listOf("chat" to "对话式 · 默认", "classic" to "原样式").forEach { (id, title) ->
-                Surface(onClick = { layout = id }, shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(title, style = MaterialTheme.typography.titleLarge)
-                                Text(if (id == "chat") "简洁对话，选项收纳于侧边栏" else "工作信息与快捷操作", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            RadioButton(selected = layout == id, onClick = null)
-                        }
-                        AgentLayoutPreview(id)
+        ModelSettingsSection(R.string.agent_style_layout, R.string.agent_style_layout_detail) {
+            listOf("chat" to stringResource(R.string.agent_style_chat), "classic" to stringResource(R.string.agent_style_classic)).forEach { (id, title) ->
+                Surface(onClick = { layout = id }, shape = RoundedCornerShape(8.dp),
+                    color = if (layout == id) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        RadioButton(selected = layout == id, onClick = null)
+                        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
-            Text("对话式：顶部模型与思考气泡，底部简洁输入；选项和会话记录统一放在侧边栏。", style = MaterialTheme.typography.bodySmall)
+            AgentLayoutPreview(layout)
         }
         if (codex) {
-        ModelSettingsSection("Codex · 双色星云", "从左到右，缓慢流动。") {
+        ModelSettingsSection(R.string.agent_style_nebula, R.string.agent_style_nebula_detail) {
             NebulaPreview(leftColor, rightColor, motion)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(selected = selected == 0, onClick = { selected = 0 }, label = { Text("左侧颜色") },
+                FilterChip(selected = selected == 0, onClick = { selected = 0 }, label = { Text(stringResource(R.string.agent_style_left)) },
                     leadingIcon = { Box(Modifier.size(16.dp).clip(RoundedCornerShape(6.dp)).background(leftColor)) }, modifier = Modifier.weight(1f))
-                FilterChip(selected = selected == 1, onClick = { selected = 1 }, label = { Text("右侧颜色") },
+                FilterChip(selected = selected == 1, onClick = { selected = 1 }, label = { Text(stringResource(R.string.agent_style_right)) },
                     leadingIcon = { Box(Modifier.size(16.dp).clip(RoundedCornerShape(6.dp)).background(rightColor)) }, modifier = Modifier.weight(1f))
             }
             val text = if (selected == 0) left else right
             val color = if (selected == 0) leftColor else rightColor
             val update: (String) -> Unit = { value -> if (selected == 0) left = value else right = value; error = null }
-            OutlinedTextField(text, { update(it.take(7)) }, label = { Text(if (selected == 0) "左侧 · #RRGGBB" else "右侧 · #RRGGBB") },
+            OutlinedTextField(text, { update(it.take(7)) }, label = { Text(if (selected == 0) stringResource(R.string.agent_style_left_hex) else stringResource(R.string.agent_style_right_hex)) },
                 isError = !AgentAppearance.isColor(text), singleLine = true, modifier = Modifier.fillMaxWidth())
             listOf("R" to color.red, "G" to color.green, "B" to color.blue).forEachIndexed { index, (label, value) ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -139,21 +138,20 @@ internal fun codexAppearanceColors(left: String, right: String): ColorScheme {
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { val previous = left; left = right; right = previous; error = null }) { Text("交换左右") }
-                TextButton(onClick = { left = AgentAppearance.DEFAULT_LEFT; right = AgentAppearance.DEFAULT_RIGHT; error = null }) { Text("恢复默认") }
+                TextButton(onClick = { val previous = left; left = right; right = previous; error = null }) { Text(stringResource(R.string.agent_style_swap)) }
+                TextButton(onClick = { left = AgentAppearance.DEFAULT_LEFT; right = AgentAppearance.DEFAULT_RIGHT; error = null }) { Text(stringResource(R.string.agent_style_reset)) }
             }
         }
-        ModelSettingsSection("应用范围", "保存后立即生效。") {
+        ModelSettingsSection(R.string.agent_style_scope, R.string.agent_style_scope_detail) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("应用到整个 Codex", style = MaterialTheme.typography.titleSmall)
-                    Text(if (all) "整屏连续渐变，面板继承所在位置的底色" else "仅 Ultra 气泡使用双色星云", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.agent_style_whole), style = MaterialTheme.typography.titleSmall)
+                    Text(if (all) stringResource(R.string.agent_style_whole_detail) else stringResource(R.string.agent_style_ultra_detail), style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(all, { all = it })
             }
         }
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
 

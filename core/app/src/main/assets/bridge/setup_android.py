@@ -32,7 +32,7 @@ def installer_arguments(options):
         raise RuntimeError('Android SDK/NDK installation must run in the embedded Termux environment')
     result = ['-i', str(sdk.parent), '--sdk-root', str(sdk), '-s', options.build_tools, '-j', options.jdk,
               '-n', options.ndk, '-a', 'aarch64', '-y', '--managed-runtime',
-              '-p', shlex.join([apt, '-o', 'Acquire::Retries=1', '-o', 'Acquire::https::Timeout=30', '-o', 'DPkg::Lock::Timeout=30'])]
+              '-p', shlex.quote(apt)]
     if options.skip_cmdline_tools:
         result.append('-c')
     return result

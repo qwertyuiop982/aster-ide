@@ -30,7 +30,7 @@ def ensure_platform(sdk, api=35):
         return destination
     print('Installing Android API resources ' + str(api) + '…', flush=True)
     request = urllib.request.Request(REPOSITORY + 'repository2-1.xml', headers={'User-Agent': 'Aster/0.1.4'})
-    with urllib.request.urlopen(request, timeout=45) as response:
+    with urllib.request.urlopen(request) as response:
         index = ET.fromstring(response.read(8 * 1024 * 1024))
     package = next(item for item in index if local(item.tag) == 'remotePackage' and item.attrib.get('path') == 'platforms;android-' + str(api))
     archive = next(item for item in child(package, 'archives') if child(item, 'host-os') is None)
@@ -43,7 +43,7 @@ def ensure_platform(sdk, api=35):
     with tempfile.TemporaryDirectory(prefix='.aster-platform-', dir=sdk) as temporary:
         temporary = Path(temporary)
         file = temporary / 'platform.zip'
-        with urllib.request.urlopen(REPOSITORY + filename, timeout=60) as response, file.open('wb') as output:
+        with urllib.request.urlopen(REPOSITORY + filename) as response, file.open('wb') as output:
             shutil.copyfileobj(response, output, 256 * 1024)
         if checksum is not None:
             digest = hashlib.new(kind)

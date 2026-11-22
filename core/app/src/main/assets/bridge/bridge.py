@@ -36,10 +36,14 @@ MAX_FILE = 12 * 1024 * 1024
 INSTALL_LOCK = threading.Lock()
 JOBS_LOCK = threading.Lock()
 JOBS = {}
+CHILDREN_LOCK = threading.Lock()
+CHILDREN = set()
+SHUTTING_DOWN = False
 CATALOG = {}
 TOKEN = ''
 BASE = Path.home() / '.aster'
 WORKSPACES = BASE / 'workspaces'
+WORKSPACE_BINDINGS = os.environ.get('ASTER_WORKSPACE_BINDINGS')
 BIN = BASE / 'bin'
 LIMIT = threading.BoundedSemaphore(24)
 PROCESSES = threading.BoundedSemaphore(8)
@@ -65,12 +69,54 @@ def receive(stream):
     return value
 
 
-def workspace(identifier):
-    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', str(identifier)):
+def workspace(identifier, *, use_binding=True, require_binding=False):
+    identifier = str(identifier)
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', identifier):
         raise ValueError('Invalid workspace ID')
-    root = WORKSPACES / str(identifier)
+    if use_binding and WORKSPACE_BINDINGS:
+        try:
+            bindings = json.loads(Path(WORKSPACE_BINDINGS).read_text(encoding='utf-8'))
+        except FileNotFoundError:
+            bindings = {}
+        if identifier in bindings:
+            target = Path(bindings[identifier])
+            if not target.is_absolute() or not target.is_dir() or not os.access(target, os.R_OK | os.X_OK):
+                raise PermissionError('绑定的项目目录已不可访问，请重新授权')
+            return target.resolve(strict=True)
+        if require_binding and identifier != 'agent-chat':
+            raise PermissionError('原生模式需要已授权的项目目录')
+    root = WORKSPACES / identifier
     root.mkdir(parents=True, exist_ok=True)
-    return root.resolve()
+    resolved = root.resolve()
+    if resolved != WORKSPACES.resolve() / identifier:
+        raise ValueError('工作区缓存目录不能指向其他位置')
+    return resolved
+
+
+def workspace_for_request(op, request):
+    identifier = request.get('workspace', 'default')
+    if op in ('agent', 'agent_warmup', 'agent_terminal_close', 'agent_engine_stop'):
+        mode = (request.get('configuration') or {}).get('permissionMode')
+        if mode is None and op in ('agent_terminal_close', 'agent_engine_stop'):
+            review = workspace(identifier, use_binding=False)
+            try:
+                native = workspace(identifier)
+            except PermissionError:
+                return (review,)
+            return (review, native) if native != review else (review,)
+        root = workspace(identifier, use_binding=mode == 'native', require_binding=mode == 'native')
+        return (root,) if op in ('agent_terminal_close', 'agent_engine_stop') else root
+    return workspace(identifier, use_binding=op not in ('put', 'remove'))
+
+
+def runtime_path(value):
+    # Saved SDK locations from a previous version may still use the guest prefix.
+    runtime_files = os.environ.get('ASTER_PRIVATE_FILES')
+    if runtime_files and value:
+        for alias in ('/data/data/com.termux/files', '/data/user/0/com.termux/files'):
+            if value == alias or value.startswith(alias + '/'):
+                return runtime_files + value[len(alias):]
+    return value
 
 
 def safe_path(root, relative):
@@ -89,7 +135,7 @@ def environment(options=None):
     env.update(TERM='xterm-256color', COLORTERM='truecolor', LANG='C.UTF-8', PYTHONUNBUFFERED='1', DEBIAN_FRONTEND='noninteractive')
     env['npm_config_update_notifier'] = 'false'
     options = options or {}
-    sdk = options.get('sdk') or str(Path.home() / 'android-sdk')
+    sdk = runtime_path(options.get('sdk')) or str(Path.home() / 'android-sdk')
     record = None
     if env.get('PREFIX'):
         env.pop('ASTER_AAPT2', None)
@@ -160,6 +206,39 @@ def terminate(process):
         process.wait(timeout=0.5)
 
 
+def start_child(argv, **kwargs):
+    with CHILDREN_LOCK:
+        if SHUTTING_DOWN:
+            raise RuntimeError('Bridge is shutting down')
+        process = subprocess.Popen(argv, start_new_session=True, **kwargs)
+        CHILDREN.add(process)
+        return process
+
+
+def stop_child(process):
+    with CHILDREN_LOCK:
+        if process not in CHILDREN:
+            return
+        CHILDREN.remove(process)
+    terminate(process)
+
+
+def stop_runtime():
+    global SHUTTING_DOWN
+    with CHILDREN_LOCK:
+        SHUTTING_DOWN = True
+        children = list(CHILDREN)
+    runner = sys.modules.get('agent_runner')
+    if runner is not None:
+        with runner.SESSIONS_LOCK:
+            sessions = [session for session in runner.SESSIONS.values() if session.root_session is session]
+        for session in sessions:
+            with contextlib.suppress(Exception):
+                session.cancel()
+    for child in children:
+        stop_child(child)
+
+
 def stream_process(argv, root, out, job_id, options=None):
     with JOBS_LOCK:
         control = JOBS.get(job_id)
@@ -173,8 +252,8 @@ def stream_process(argv, root, out, job_id, options=None):
     try:
         if control.cancelled.is_set():
             return 130
-        process = subprocess.Popen(argv, cwd=root, env=environment(options), stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+        process = start_child(argv, cwd=root, env=environment(options), stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         with JOBS_LOCK:
             control.process = process
         if control.cancelled.is_set():
@@ -191,10 +270,11 @@ def stream_process(argv, root, out, job_id, options=None):
         tail = decode.decode(filter_output.feed(final=True), final=True)
         if tail:
             packet(out, {'type': 'output', 'text': tail})
-        return process.wait()
+        code = process.wait()
+        return 130 if control.cancelled.is_set() else code
     finally:
         if process is not None:
-            terminate(process)
+            stop_child(process)
             process.stdout.close()
         with JOBS_LOCK:
             if control.process is process:
@@ -205,7 +285,7 @@ def stream_process(argv, root, out, job_id, options=None):
 
 def fetch(url, destination):
     req = urllib.request.Request(url, headers={'User-Agent': 'AsterIDE/0.1'})
-    with urllib.request.urlopen(req, timeout=45) as response, destination.open('wb') as out:
+    with urllib.request.urlopen(req) as response, destination.open('wb') as out:
         total = 0
         while True:
             part = response.read(256 * 1024)
@@ -220,7 +300,7 @@ def fetch(url, destination):
 
 def web_text(url):
     req = urllib.request.Request(url, headers={'User-Agent': 'AsterIDE/0.1'})
-    with urllib.request.urlopen(req, timeout=35) as response:
+    with urllib.request.urlopen(req) as response:
         return response.read(4 * 1024 * 1024).decode('utf-8')
 
 
@@ -259,11 +339,10 @@ def wrapper(name, script):
     file.chmod(0o700)
 
 
-def install_special(kind, out, job_id, options):
-    proxy = options.get('proxy', True)
+def install_special(kind, proxy):
     dest = BASE / 'servers' / kind
     dest.mkdir(parents=True, exist_ok=True)
-    packet(out, {'type': 'output', 'text': f'\nDownloading {kind} from upstream…\n'})
+    print(f'\nDownloading {kind} from upstream…', flush=True)
     if kind == 'kotlin':
         release = json.loads(web_text('https://api.github.com/repos/fwcd/kotlin-language-server/releases/latest'))
         asset = next(a for a in release['assets'] if a['name'] == 'server.zip')
@@ -292,10 +371,24 @@ def install_special(kind, out, job_id, options):
         phar = fetch(github(asset['browser_download_url'], proxy), dest / 'phpactor.phar')
         wrapper('phpactor', 'exec php ' + shlex.quote(str(phar)) + ' "$@"')
     elif kind == 'solargraph':
-        code = stream_process(['gem', 'install', 'solargraph', '--no-document'], BASE, out, job_id, options)
-        if code:
-            return code
+        return subprocess.call(['gem', 'install', 'solargraph', '--no-document'])
     return 0
+
+
+ENVIRONMENT_PACKAGES = {
+    'env-python': {'packages': ['python', 'python-pip']},
+    'env-node': {'packages': ['nodejs-lts'], 'npm': ['typescript']},
+    'env-cpp': {'packages': ['clang', 'make', 'cmake', 'ninja', 'pkg-config']},
+    'env-rust': {'packages': ['rust']},
+    'env-go': {'packages': ['golang']},
+    'env-jvm': {'packages': ['kotlin']},
+    'env-cli': {'packages': ['git', 'ripgrep', 'fd', 'jq', 'tree', 'zip', 'unzip']},
+}
+ENVIRONMENT_TOOLS = (
+    'python', 'pip', 'node', 'npm', 'tsc', 'clang', 'clang++', 'make', 'cmake', 'ninja',
+    'pkg-config', 'rustc', 'cargo', 'go', 'java', 'javac', 'kotlinc', 'gradle',
+    'git', 'rg', 'fd', 'jq', 'tree', 'zip', 'unzip', 'aapt2',
+)
 
 
 def install(server_id, out, job_id, options):
@@ -308,33 +401,27 @@ def install(server_id, out, job_id, options):
             item = {'packages': ['libc++', 'nodejs-lts', 'git', 'ripgrep', 'openssl', 'openssl-tool', 'ca-certificates']}
         elif server_id == 'android':
             item = {'packages': ['python', 'gradle', 'tar', 'unzip', 'xz-utils', 'jq', 'wget', 'aria2', 'libcurl']}
+        elif server_id == 'env-jvm':
+            version = '21' if options.get('sdkJdk') == '21' else '17'
+            item = dict(ENVIRONMENT_PACKAGES[server_id], packages=['openjdk-' + version, 'kotlin'])
+        elif server_id in ENVIRONMENT_PACKAGES:
+            item = ENVIRONMENT_PACKAGES[server_id]
         else:
             item = CATALOG.get(server_id)
             if not item:
                 raise ValueError('Unknown server')
         apt = shutil.which('apt-get')
-        if not apt or not shutil.which('pkg') or not os.environ.get('PREFIX'):
+        if not apt or not os.environ.get('PREFIX'):
             raise RuntimeError('Installation must run inside Termux')
-        mirror = options.get('mirror', 'ustc')
-        if mirror in ('ustc', 'tsinghua'):
-            prefix = Path(os.environ['PREFIX'])
-            sources = prefix / 'etc/apt/sources.list'
-            backup = sources.with_suffix('.list.aster-backup')
-            if sources.exists() and not backup.exists():
-                shutil.copyfile(sources, backup)
-            temporary = sources.with_suffix('.list.aster-tmp')
-            temporary.write_text('deb https://mirrors.ustc.edu.cn/termux/termux-main stable main\n')
-            temporary.replace(sources)
-        # pkg probes/randomizes mirrors; use the selected source consistently for all installs.
-        apt_options = ['-o', 'Acquire::Retries=1', '-o', 'Acquire::http::Timeout=15', '-o', 'Acquire::https::Timeout=15']
-        code = stream_process([apt] + apt_options + ['-o', 'APT::Update::Error-Mode=any', 'update'], BASE, out, job_id, options)
+        # Use APT directly so all configured sources stay in effect.
+        code = stream_process([apt, '-o', 'APT::Update::Error-Mode=any', 'update'], BASE, out, job_id, options)
         if code:
             return code
         if server_id in ('base', 'agent'):
-            code = stream_process([apt] + apt_options + ['-y', '-o', 'DPkg::Lock::Timeout=30', '-o', 'Dpkg::Options::=--force-confold', 'upgrade'], BASE, out, job_id, options)
+            code = stream_process([apt, '-y', '-o', 'Dpkg::Options::=--force-confold', 'upgrade'], BASE, out, job_id, options)
             if code:
                 return code
-        code = stream_process([apt] + apt_options + ['-y', '-o', 'DPkg::Lock::Timeout=30', 'install'] + item.get('packages', []), BASE, out, job_id, options)
+        code = stream_process([apt, '-y', 'install'] + item.get('packages', []), BASE, out, job_id, options)
         if code:
             return code
         if item.get('npm'):
@@ -345,11 +432,15 @@ def install(server_id, out, job_id, options):
             if code:
                 return code
         if item.get('special'):
-            code = install_special(item['special'], out, job_id, options)
+            # Downloads must be cancellable even while a network read is blocked.
+            arguments = [sys.executable, str(Path(__file__).resolve()), '--base', str(BASE), '--install-special', item['special']]
+            if not options.get('proxy', True):
+                arguments.append('--no-github-proxy')
+            code = stream_process(arguments, BASE, out, job_id, options)
             if code:
                 return code
         if server_id == 'android':
-            arguments = ['python', str(BASE / 'setup_android.py'), '--sdk', options.get('sdk') or str(Path.home() / 'android-sdk'),
+            arguments = ['python', str(BASE / 'setup_android.py'), '--sdk', runtime_path(options.get('sdk')) or str(Path.home() / 'android-sdk'),
                          '--build-tools', str(options.get('sdkBuildTools', '35.0.1')), '--jdk', str(options.get('sdkJdk', '17')),
                          '--ndk', str(options.get('sdkNdk', '29.0.14206865'))]
             if not options.get('sdkCmdlineTools', True):
@@ -362,7 +453,7 @@ def install(server_id, out, job_id, options):
 
 def toolchain_info(options=None):
     from toolchain_native import installed, sdk_binaries, ndk_binaries
-    path = (options or {}).get('sdk') or os.environ.get('ANDROID_HOME') or str(Path.home() / 'android-sdk')
+    path = runtime_path((options or {}).get('sdk')) or os.environ.get('ANDROID_HOME') or str(Path.home() / 'android-sdk')
     info = installed(path)
     if info is None:
         return None
@@ -379,6 +470,11 @@ class Handler(socketserver.StreamRequestHandler):
         try:
             self.request.settimeout(15)
             request = receive(self.rfile)
+            if request.get('op') == 'android_mcp_call':
+                from agent_android_mcp import call_active_session
+                self.request.settimeout(None)
+                packet(self.wfile, call_active_session(request))
+                return
             if not hmac.compare_digest(str(request.get('token', '')), TOKEN):
                 packet(self.wfile, {'ok': False, 'error': 'Authentication failed'})
                 return
@@ -396,7 +492,7 @@ class Handler(socketserver.StreamRequestHandler):
                 env = environment(request.get('options'))
                 installed = {k: bool(shutil.which(v['command'][0], path=env['PATH'])) for k, v in CATALOG.items()}
                 packet(self.wfile, {'ok': True, 'version': 1, 'home': str(Path.home()), 'root': str(WORKSPACES), 'installed': installed,
-                                    'tools': {k: shutil.which(k, path=env['PATH']) for k in ['python', 'clang', 'node', 'java', 'gradle', 'git', 'aapt2']}, "androidToolchain": toolchain_info(request.get("options"))})
+                                    'tools': {k: shutil.which(k, path=env['PATH']) for k in ENVIRONMENT_TOOLS}, "androidToolchain": toolchain_info(request.get("options"))})
                 return
             if op == 'cancel':
                 with JOBS_LOCK:
@@ -411,7 +507,7 @@ class Handler(socketserver.StreamRequestHandler):
                     terminate(process)
                 packet(self.wfile, {'ok': True, 'cancelled': found})
                 return
-            root = workspace(request.get('workspace', 'default'))
+            root = workspace_for_request(op, request) if op not in ('agent_decision', 'agent_cancel', 'agent_client_result', 'install', 'resize') else None
             if op in ('agent_decision', 'agent_cancel', 'agent_client_result'):
                 import agent_runner
                 accepted = agent_runner.control(request, cancel=op == 'agent_cancel')
@@ -423,23 +519,28 @@ class Handler(socketserver.StreamRequestHandler):
                 from agent_engine_runtime import close_scope as close_graph_scope, stopping_engine
                 from agent_codex_runtime import close_scope as close_codex_scope
                 from aster_terminal import TERMINALS
-                with stopping_engine(BASE, root, engine_id):
-                    closed = close_codex_scope(BASE, root) if engine_id == 'codex' else close_graph_scope(BASE, root, engine_id)
-                    terminals = TERMINALS.close_engine(BASE, root, engine_id)
+                closed = terminals = 0
+                for directory in root:
+                    with stopping_engine(BASE, directory, engine_id):
+                        closed += close_codex_scope(BASE, directory) if engine_id == 'codex' else close_graph_scope(BASE, directory, engine_id)
+                        terminals += TERMINALS.close_engine(BASE, directory, engine_id)
                 packet(self.wfile, {'ok': True, 'stopped': True, 'closed': closed, 'terminals': terminals})
             elif op == 'agent_terminal_close':
                 from aster_terminal import TERMINALS, conversation_scope
                 engine_id = str(request.get('engineId', 'pi'))
                 session_id = str(request.get('sessionId', ''))
-                scope = conversation_scope(BASE, root, engine_id, session_id)
-                closed = TERMINALS.close_scope(scope)
                 from agent_engine_runtime import close_scope as close_graph_scope
                 from agent_codex_runtime import close_scope as close_codex_scope
-                closed += close_codex_scope(BASE, root, session_id) if engine_id == 'codex' else close_graph_scope(BASE, root, engine_id, session_id)
+                closed = 0
+                for directory in root:
+                    scope = conversation_scope(BASE, directory, engine_id, session_id)
+                    closed += TERMINALS.close_scope(scope)
+                    closed += close_codex_scope(BASE, directory, session_id) if engine_id == 'codex' else close_graph_scope(BASE, directory, engine_id, session_id)
                 packet(self.wfile, {'ok': True, 'closed': closed})
             elif op == 'agent_warmup':
                 import agent_runner
                 session = agent_runner.AgentSession(str(request.get('job')), root, BASE, request, environment(request.get('options')), lambda event: None)
+                session.android_mcp_port = self.server.server_address[1]
                 session.deadline = time.monotonic() + 60
                 from agent_engine_runtime import engine_operation
                 with engine_operation(session):
@@ -528,7 +629,8 @@ class Handler(socketserver.StreamRequestHandler):
                 try:
                     if op == 'agent':
                         import agent_runner
-                        agent_runner.handle(root, BASE, request, environment(request.get('options')), lambda event: packet(self.wfile, event), connection=self.request)
+                        agent_runner.handle(root, BASE, request, environment(request.get('options')), lambda event: packet(self.wfile, event),
+                                            connection=self.request, android_mcp_port=self.server.server_address[1])
                     elif op == 'lsp':
                         self.lsp(request, root)
                     elif op == 'terminal':
@@ -566,8 +668,8 @@ class Handler(socketserver.StreamRequestHandler):
 
     def lsp(self, request, root):
         command = resolve_command(request['server'], request.get('command'), root)
-        process = subprocess.Popen(command, cwd=root, env=environment(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, start_new_session=True, bufsize=0)
+        process = start_child(command, cwd=root, env=environment(), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, bufsize=0)
         packet(self.wfile, {'ok': True, 'pid': process.pid, 'root': str(root)})
         stop = threading.Event()
         def read_stdout():
@@ -610,7 +712,7 @@ class Handler(socketserver.StreamRequestHandler):
                 process.stdin.flush()
         finally:
             stop.set()
-            terminate(process)
+            stop_child(process)
             for stream in [process.stdin, process.stdout, process.stderr]:
                 with contextlib.suppress(OSError):
                     stream.close()
@@ -622,9 +724,14 @@ class Handler(socketserver.StreamRequestHandler):
         job = str(request.get('job', 'terminal'))
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 24, 80, 0, 0))
         shell = shutil.which('bash') or '/bin/sh'
-        process = subprocess.Popen([shell, '--noprofile', '--norc', '-i'], cwd=root, env=environment(),
-                                   stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
-        os.close(slave)
+        try:
+            process = start_child([shell, '--noprofile', '--norc', '-i'], cwd=root, env=environment(),
+                                  stdin=slave, stdout=slave, stderr=slave)
+        except BaseException:
+            os.close(master)
+            raise
+        finally:
+            os.close(slave)
         with JOBS_LOCK:
             JOBS['pty:' + job] = master
         packet(self.wfile, {'ok': True, 'job': job})
@@ -667,7 +774,7 @@ class Handler(socketserver.StreamRequestHandler):
                     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack('HHHH', rows, cols, 0, 0))
         finally:
             stop.set()
-            terminate(process)
+            stop_child(process)
             with JOBS_LOCK:
                 JOBS.pop('pty:' + job, None)
             with contextlib.suppress(OSError):
@@ -680,27 +787,44 @@ class Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
+def shutdown_signal(_signal, _frame):
+    raise SystemExit(0)
+
+
 def main():
     global TOKEN, CATALOG, BASE, WORKSPACES, BIN
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=8768)
-    parser.add_argument('--token-file', required=True)
+    parser.add_argument('--port', type=int, default=0)
+    parser.add_argument('--token-file')
     parser.add_argument('--catalog', default=str(BASE / 'servers.json'))
     parser.add_argument('--base', default=str(BASE))
+    parser.add_argument('--install-special', choices=('kotlin', 'jdtls', 'phpactor', 'solargraph'))
+    parser.add_argument('--no-github-proxy', action='store_true')
     args = parser.parse_args()
+    BASE = Path(args.base).resolve()
+    BIN = BASE / 'bin'
+    if args.install_special:
+        try:
+            return install_special(args.install_special, not args.no_github_proxy)
+        except Exception as error:
+            parser.exit(1, str(error) + '\n')
+    if not args.token_file:
+        parser.error('--token-file is required')
     TOKEN = Path(args.token_file).read_text().strip()
     if len(TOKEN) < 32:
         parser.error('Token must contain at least 32 characters')
-    BASE = Path(args.base).resolve()
     WORKSPACES = BASE / 'workspaces'
-    BIN = BASE / 'bin'
     BASE.mkdir(parents=True, exist_ok=True)
     WORKSPACES.mkdir(exist_ok=True)
     CATALOG = {v['id']: v for v in json.loads(Path(args.catalog).read_text())}
-    with Server(('127.0.0.1', args.port), Handler) as server:
-        print('Aster bridge ready on loopback port ' + str(args.port), flush=True)
-        server.serve_forever(poll_interval=0.5)
+    signal.signal(signal.SIGTERM, shutdown_signal)
+    try:
+        with Server(('127.0.0.1', args.port), Handler) as server:
+            print('Aster bridge ready on loopback port ' + str(server.server_address[1]), flush=True)
+            server.serve_forever(poll_interval=0.5)
+    finally:
+        stop_runtime()
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

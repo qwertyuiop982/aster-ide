@@ -9,14 +9,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.aster.core.R
 
 @Composable
-fun AgentQuestionDialog(input: AgentUserInput, answer: (String, Map<String, List<String>>, Boolean) -> Boolean) {
+fun AgentQuestionDialog(
+    input: AgentUserInput,
+    frame: (@Composable (content: @Composable () -> Unit, confirm: @Composable () -> Unit, dismiss: @Composable () -> Unit) -> Unit)? = null,
+    answer: (String, Map<String, List<String>>, Boolean) -> Boolean
+) {
+    val context = LocalContext.current
     val selected = remember(input.requestId) { mutableStateMapOf<String, Set<String>>() }
     val text = remember(input.requestId) { mutableStateMapOf<String, String>() }
     var submitted by remember(input.requestId) { mutableStateOf(false) }
@@ -32,20 +40,18 @@ fun AgentQuestionDialog(input: AgentUserInput, answer: (String, Map<String, List
         submitted = true
         if (!answer(input.requestId, if (dismissed) emptyMap() else input.questions.associate { it.id to values(it) }, dismissed)) {
             submitted = false
-            error = "此提问已结束或提交未被接受，请返回任务查看状态。"
+            error = context.getString(R.string.agent_question_expired)
         }
     }
-    AlertDialog(
-        onDismissRequest = { /* Explicit cancel prevents accidental loss when using the keyboard. */ },
-        title = { Text("补充信息") },
-        text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val content: @Composable () -> Unit = {
+            val body = if (frame == null) Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()) else Modifier
+            Column(body.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 input.questions.forEach { question ->
                     key(input.requestId, question.id) {
                         if (question.header.isNotBlank()) Text(question.header, style = MaterialTheme.typography.titleSmall)
-                        Text(question.question + if (question.required) "" else "（可选）")
+                        Text(if (question.required) question.question else stringResource(R.string.agent_question_optional, question.question))
                         if (question.url.startsWith("https://") || question.url.startsWith("http://")) {
-                            TextButton(onClick = { runCatching { uriHandler.openUri(question.url) }.onFailure { error = "无法打开链接，请手动在浏览器中访问。" } }) { Text(question.url) }
+                            TextButton(onClick = { runCatching { uriHandler.openUri(question.url) }.onFailure { error = context.getString(R.string.agent_question_link_error) } }) { Text(question.url) }
                         }
                         question.options.forEach { option ->
                             val checked = option.label in selected[question.id].orEmpty()
@@ -68,7 +74,7 @@ fun AgentQuestionDialog(input: AgentUserInput, answer: (String, Map<String, List
                                 text[question.id] = it.take(24000)
                                 if (!question.multiple && it.isNotBlank()) selected.remove(question.id)
                             },
-                            label = { Text(question.placeholder.ifBlank { if (question.options.isEmpty()) "回答" else "自定义回答" }) },
+                            label = { Text(question.placeholder.ifBlank { stringResource(if (question.options.isEmpty()) R.string.agent_question_answer else R.string.agent_question_custom_answer) }) },
                             modifier = Modifier.fillMaxWidth(), minLines = 1, maxLines = if (question.secret) 1 else 8,
                             enabled = !submitted, singleLine = question.secret,
                             visualTransformation = if (question.secret) PasswordVisualTransformation() else VisualTransformation.None,
@@ -78,10 +84,11 @@ fun AgentQuestionDialog(input: AgentUserInput, answer: (String, Map<String, List
                 }
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
             }
-        },
-        confirmButton = {
-            Button(onClick = { submit(false) }, enabled = !submitted && input.questions.all { !it.required || values(it).isNotEmpty() }) { Text(if (submitted) "正在提交" else "提交") }
-        },
-        dismissButton = { TextButton(onClick = { submit(true) }, enabled = !submitted) { Text("取消提问") } }
-    )
+    }
+    val confirm: @Composable () -> Unit = {
+        Button(onClick = { submit(false) }, enabled = !submitted && input.questions.all { !it.required || values(it).isNotEmpty() }) { Text(stringResource(if (submitted) R.string.agent_question_sending else R.string.agent_question_submit)) }
+    }
+    val dismiss: @Composable () -> Unit = { TextButton(onClick = { submit(true) }, enabled = !submitted) { Text(stringResource(R.string.agent_question_cancel)) } }
+    if (frame != null) frame(content, confirm, dismiss)
+    else AlertDialog(onDismissRequest = {}, title = { Text(stringResource(R.string.agent_question_title)) }, text = content, confirmButton = confirm, dismissButton = dismiss)
 }

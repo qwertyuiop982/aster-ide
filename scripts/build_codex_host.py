@@ -2,12 +2,12 @@
 from pathlib import Path
 import argparse
 import hashlib
-import fcntl
 import json
 import os
 import shutil
 import subprocess
 import re
+from codex_build_tools import ANDROID_TARGET, cargo_command, cargo_environment, cargo_registry_args, open_project_lock
 from termux_agent_sysroot import prepare_openssl, openssl_environment, build_probe
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,9 +22,8 @@ def main():
     parser.add_argument('--update-lock', action='store_true')
     args = parser.parse_args()
     (ROOT / 'build').mkdir(exist_ok=True)
-    build_lock = (ROOT / 'build/codex-android.lock').open('a')
     try:
-        fcntl.flock(build_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        build_lock = open_project_lock(ROOT, 'codex-android.lock', nonblocking=True)
     except BlockingIOError:
         raise SystemExit('A Codex Android build is already running; inspect logs/codex-host-android-build.json')
     source = ROOT / 'vendor/codex/codex-rs'
@@ -33,16 +32,8 @@ def main():
     if toolchain is None: raise RuntimeError('No host-compatible LLVM toolchain in ' + str(prebuilts))
     cargo = Path(shutil.which('cargo') or str(Path(args.cargo_home) / 'bin/cargo'))
     target = Path(os.environ.get('ASTER_CODEX_TARGET_DIR', str(ROOT / 'build/codex-android')))
-    env = dict(os.environ, CARGO_HOME=args.cargo_home, RUSTUP_HOME=args.rustup_home,
-               CARGO_TARGET_DIR=str(target), RUSTUP_DIST_SERVER='https://rsproxy.cn',
-               CARGO_NET_GIT_FETCH_WITH_CLI='true', CARGO_PROFILE_RELEASE_LTO='false',
-               CARGO_PROFILE_RELEASE_OPT_LEVEL='1', CARGO_PROFILE_RELEASE_CODEGEN_UNITS='16',
-               CARGO_PROFILE_RELEASE_DEBUG='0', GIT_CONFIG_COUNT='2',
-               GIT_CONFIG_KEY_0='url.https://gh-proxy.org/https://github.com/.insteadOf',
-               GIT_CONFIG_VALUE_0='https://github.com/',
-               GIT_CONFIG_KEY_1='url.https://gh-proxy.org/https://github.com/.insteadOf',
-               GIT_CONFIG_VALUE_1='ssh://git@github.com/')
-    env['PATH'] = str(toolchain) + os.pathsep + str(cargo.parent) + os.pathsep + env['PATH']
+    env = cargo_environment(cargo, toolchain, args.cargo_home, args.rustup_home, target)
+    cargo_prefix = [] if args.prepare_only else cargo_command(cargo, env)
     from prepare_native import prepare_v8
     v8prefix = prepare_v8()
     env.pop('V8_FROM_SOURCE', None)
@@ -62,10 +53,9 @@ def main():
     if args.prepare_only:
         print(json.dumps({'status': 'prepared', 'probe': str(probe.relative_to(ROOT)), 'openssl': dependency_receipt}), flush=True)
         return
-    command = [str(cargo), '+1.95.0', 'rustc', '--locked', '--release', '-p', 'codex-code-mode-host',
-               '--bin', 'codex-code-mode-host', '--target', 'aarch64-linux-android', '-j', str(args.jobs),
-               '--config', 'source.crates-io.replace-with="rsproxy"',
-               '--config', 'source.rsproxy.registry="sparse+https://rsproxy.cn/index/"']
+    command = cargo_prefix + ['rustc', '--locked', '--release', '-p', 'codex-code-mode-host',
+                              '--bin', 'codex-code-mode-host', '--target', ANDROID_TARGET, '-j', str(args.jobs)]
+    command += cargo_registry_args(env)
     builtins = subprocess.check_output([env['CC_aarch64_linux_android'], '-print-libgcc-file-name'], text=True).strip()
     command += ['--', '-C', 'link-arg=' + builtins]
     if args.update_lock:

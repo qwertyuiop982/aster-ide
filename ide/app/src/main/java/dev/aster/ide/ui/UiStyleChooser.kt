@@ -19,10 +19,18 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.aster.core.AppLanguages
 import dev.aster.ide.data.UiStyle
+import dev.aster.ide.feature.R
+
+internal val UiStyle.titleResource: Int get() = when (this) {
+    UiStyle.VSCODE -> R.string.style_vscode
+    UiStyle.ACS -> R.string.style_acs
+}
 
 @Composable fun UiStyleChooser(onChoose: (UiStyle) -> Unit) {
     var selection by rememberSaveable { mutableStateOf(UiStyle.VSCODE.key) }
@@ -31,9 +39,9 @@ import dev.aster.ide.data.UiStyle
         Column(Modifier.align(Alignment.Center).widthIn(max = 780.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp)) {
             Icon(Icons.Outlined.Code, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(12.dp))
-            Text("选择界面风格", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.style_choose), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            Text("编辑、语言服务、终端、构建和 Agent 使用同一套功能。之后可在“设置 → 外观”中切换。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.style_description), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
             if (horizontal) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 UiStyle.entries.forEach { style -> StyleCard(style, selection == style.key, Modifier.weight(1f)) { selection = style.key } }
@@ -41,11 +49,12 @@ import dev.aster.ide.data.UiStyle
                 UiStyle.entries.forEach { style -> StyleCard(style, selection == style.key, Modifier.fillMaxWidth()) { selection = style.key } }
             }
             Spacer(Modifier.height(20.dp))
-            Text("两种风格均采用 ACS 语言服务界面", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.style_language_services), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(20.dp))
             Button(onClick = { onChoose(UiStyle.fromKey(selection) ?: UiStyle.VSCODE) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(14.dp)) {
-                Text("使用${if (selection == UiStyle.ACS.key) " ACS 样式" else "原 UI"}并进入")
+                Text(stringResource(if (selection == UiStyle.ACS.key) R.string.style_enter_acs else R.string.style_enter_vscode))
             }
+            AppLanguages.Picker(Modifier.padding(top = 12.dp))
         }
     }
 }
@@ -54,13 +63,13 @@ import dev.aster.ide.data.UiStyle
     Surface(modifier.selectable(selected, onClick = choose, role = Role.RadioButton), shape = RoundedCornerShape(18.dp), color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(style.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(style.titleResource), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 RadioButton(selected, onClick = null)
             }
             Spacer(Modifier.height(8.dp))
             StylePreview(style, Modifier.fillMaxWidth().height(100.dp))
             Spacer(Modifier.height(12.dp))
-            Text(if (style == UiStyle.ACS) "抽屉文件导航 · 圆角编辑区 · 底部工具面板" else "侧边活动栏 · 文件树 · 标签与状态栏", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(if (style == UiStyle.ACS) R.string.style_acs_detail else R.string.style_vscode_detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

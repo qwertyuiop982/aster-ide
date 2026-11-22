@@ -66,6 +66,14 @@ class DeviceService : IDeviceService.Stub() {
                     run(listOf("/system/bin/input", "tap", coordinate(args, "x"), coordinate(args, "y")))
                     JSONObject()
                 }
+                "longPress" -> {
+                    val duration = args.optInt("duration", 650)
+                    require(duration in 400..2000)
+                    val x = coordinate(args, "x")
+                    val y = coordinate(args, "y")
+                    run(listOf("/system/bin/input", "swipe", x, y, x, y, duration.toString()))
+                    JSONObject()
+                }
                 "swipe" -> {
                     val duration = args.optInt("duration", 300)
                     require(duration in 100..2000)

@@ -1,6 +1,7 @@
 package dev.aster.ide
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -10,7 +11,6 @@ import android.view.KeyEvent
 import androidx.activity.viewModels
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,25 +22,34 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.aster.agent.AgentViewModel
+import dev.aster.core.AppLanguages
+import dev.aster.core.AsterDialog
 import dev.aster.core.CoreRuntime
+import dev.aster.core.LocalAsterDialogMotion
 import dev.aster.core.LocalWorkModeChooser
 import dev.aster.core.WorkMode
 import dev.aster.ide.ui.AsterApp
 import dev.aster.ide.ui.AsterTheme
 import dev.aster.ide.ui.LocalDark
 import kotlinx.coroutines.launch
+import dev.aster.core.R as CoreR
 
 class MainActivity : ComponentActivity() {
     private val modeModels by viewModels<ModeViewModels>()
     private var activeIde: IdeViewModel? = null
     private var activeAgent: AgentViewModel? = null
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguages.wrapLegacyContext(newBase))
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AppLanguages.migrateLegacyChoice(this)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
@@ -59,7 +68,7 @@ class MainActivity : ComponentActivity() {
                     try {
                         if (next != mode) {
                             activeIde?.let { vm ->
-                                check(!vm.buildRunning && !vm.agentPreparing && !vm.agentStopping && !vm.agent.running && !vm.applyingEdits && !vm.connecting && !vm.busy) { "请先停止或等待 IDE 当前任务完成" }
+                                check(!vm.buildRunning && !vm.agentPreparing && !vm.agentStopping && !vm.agent.running && !vm.applyingEdits && !vm.connecting && !vm.busy) { getString(R.string.launcher_ide_busy) }
                                 vm.saveAll(); vm.agent.persistNow()
                             }
                             activeAgent?.prepareExit()
@@ -68,14 +77,15 @@ class MainActivity : ComponentActivity() {
                             if (next == null) core.modes.clear() else core.modes.select(next)
                         }
                         choosing = false
-                    } catch (e: Exception) { error = e.message ?: "切换失败" }
+                    } catch (e: Exception) { error = e.message ?: getString(R.string.launcher_switch_failed) }
                     finally { switching = false }
                 }
             }
             AsterTheme(settings) {
                 val dark = LocalDark.current
                 SideEffect { if (mode != WorkMode.AGENT) bars(mode == WorkMode.IDE && dark) }
-                CompositionLocalProvider(LocalWorkModeChooser provides { choosing = true }) {
+                CompositionLocalProvider(LocalWorkModeChooser provides { choosing = true },
+                    LocalAsterDialogMotion provides (settings.animations && !settings.reducedMotion)) {
                     if (mode == null) {
                         ModeChooser(select, switching)
                     } else key(mode) {
@@ -96,20 +106,23 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     if (choosing && mode != null) {
-                        BackHandler { choosing = false }
-                        AlertDialog(onDismissRequest = { if (!switching) choosing = false }, title = { Text("切换工作模式") }, text = {
+                        AsterDialog(stringResource(CoreR.string.action_switch_work_mode), onDismissRequest = { if (!switching) choosing = false },
+                            confirmButton = { TextButton(onClick = { choosing = false }, enabled = !switching) { Text(stringResource(CoreR.string.action_cancel)) } }) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("当前：${mode?.title}", style = MaterialTheme.typography.bodyMedium)
-                                WorkMode.entries.filter { it != mode }.forEach { item -> OutlinedButton(onClick = { select(item) }, enabled = !switching, modifier = Modifier.fillMaxWidth()) { Text(item.title) } }
+                                mode?.let { Text(stringResource(R.string.launcher_current_mode, stringResource(it.titleResource)), style = MaterialTheme.typography.bodyMedium) }
+                                WorkMode.entries.filter { it != mode }.forEach { item -> OutlinedButton(onClick = { select(item) }, enabled = !switching, modifier = Modifier.fillMaxWidth()) { Text(stringResource(item.titleResource)) } }
                                 HorizontalDivider()
                                 OutlinedButton(onClick = { select(null) }, enabled = !switching, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Outlined.Home, null); Spacer(Modifier.width(8.dp)); Text("返回首页")
+                                    Icon(Icons.Outlined.Home, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.launcher_home))
                                 }
                                 dev.aster.ide.account.AccountEntryButton()
                             }
-                        }, confirmButton = { TextButton(onClick = { choosing = false }, enabled = !switching) { Text("取消") } })
+                        }
                     }
-                    error?.let { message -> AlertDialog(onDismissRequest = { error = null }, title = { Text("暂时无法切换") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { error = null }) { Text("知道了") } }) }
+                    error?.let { message ->
+                        AsterDialog(stringResource(R.string.launcher_switch_failed_title), onDismissRequest = { error = null },
+                            confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(CoreR.string.action_ok)) } }) { Text(message) }
+                    }
                 }
             }
         }
@@ -151,6 +164,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private val WorkMode.titleResource: Int get() = when (this) {
+    WorkMode.IDE -> R.string.launcher_mode_ide
+    WorkMode.AGENT -> R.string.launcher_mode_agent
+}
+
 @Composable private fun ModeChooser(onSelect: (WorkMode) -> Unit, busy: Boolean) {
     val ink = androidx.compose.ui.graphics.Color(0xFF202927)
     val teal = androidx.compose.ui.graphics.Color(0xFF087E78)
@@ -165,7 +183,7 @@ class MainActivity : ComponentActivity() {
                 HorizontalDivider()
                 Box(Modifier.fillMaxSize().padding(20.dp), contentAlignment = Alignment.Center) {
                     Column(Modifier.widthIn(max = 500.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("工作空间", style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(CoreR.string.title_workspaces), style = MaterialTheme.typography.headlineMedium)
                         Spacer(Modifier.height(8.dp))
                         OutlinedCard(onClick = { onSelect(WorkMode.IDE) }, enabled = !busy, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 96.dp).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +191,7 @@ class MainActivity : ComponentActivity() {
                                 Spacer(Modifier.width(16.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text("IDE", style = MaterialTheme.typography.titleMedium)
-                                    Text("编辑 · 构建 · 终端 · 辅助 Agent", style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.launcher_ide_subtitle), style = MaterialTheme.typography.bodySmall)
                                 }
                                 Icon(Icons.Outlined.ChevronRight, null)
                             }
@@ -189,6 +207,7 @@ class MainActivity : ComponentActivity() {
                                 Icon(Icons.Outlined.ChevronRight, null)
                             }
                         }
+                        AppLanguages.Picker(Modifier.padding(top = 8.dp))
                     }
                 }
             }

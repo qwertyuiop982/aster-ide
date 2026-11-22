@@ -1,5 +1,6 @@
 """Runtime contracts for client-owned children and their shared project environment."""
 import concurrent.futures
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / 'core/app/src/main/assets/bridge'
 sys.path.insert(0, str(BRIDGE))
 import agent_runner as runner
+from agent_native import after_native_tool, before_native_tool
 from aster_tools import ProjectEnvironment
 from aster_terminal import session_scope as scope_for
 
@@ -168,6 +170,38 @@ class SubagentRuntimeTests(unittest.TestCase):
         with patch.object(runner.AgentSession, 'run', run):
             self.child()
 
+    def test_bound_native_projects_route_control_by_id_and_keep_session_history(self):
+        identifier = '3ef34437-4cef-4906-993f-e4f662a5816e'
+        configuration = {'permissionMode': 'native'}
+        environment = dict(self.environment, ASTER_WORKSPACE_BINDINGS=str(self.base / 'bindings.json'))
+        request = {'workspace': identifier, 'configuration': configuration, 'sessionId': 'existing'}
+        legacy_key = hashlib.sha256(f'/data/data/com.termux/files/home/.aster/workspaces/{identifier}'.encode()).hexdigest()[:24]
+        previous = self.base / 'agent-sessions' / legacy_key / 'existing.jsonl'
+        previous.parent.mkdir(parents=True)
+        previous.write_text('retained history')
+        parent = runner.AgentSession('parent', self.workspace, self.base, request, environment, self.events.append)
+        self.assertEqual(parent.stage, self.workspace.resolve())
+        self.assertEqual(parent.session_file.read_text(), 'retained history')
+        parent.pending_id = 'approve'
+        parent.client_request = 'question'
+        with patch.dict(runner.SESSIONS, {parent.identifier: parent}):
+            approval = {'job': parent.identifier, 'requestId': 'approve', 'accepted': True}
+            self.assertFalse(runner.control({**approval, 'workspace': self.workspace.name}))
+            self.assertTrue(runner.control({**approval, 'workspace': identifier}))
+            self.assertIs(parent.decision, True)
+            result = {'op': 'agent_client_result', 'job': parent.identifier, 'workspace': identifier,
+                      'requestId': 'question', 'result': {'ok': True}}
+            self.assertTrue(runner.control(result))
+            self.assertEqual(parent.client_result, result['result'])
+            with patch.object(runner.AgentSession, 'run') as run:
+                with self.assertRaisesRegex(ValueError, '当前工作区'):
+                    self.child(self.request(workspace='same-physical-path-other-workspace', configuration=configuration))
+                run.assert_not_called()
+                self.child(self.request(workspace=identifier, configuration=configuration))
+                run.assert_called_once()
+            self.assertTrue(runner.control({'job': parent.identifier, 'workspace': identifier}, cancel=True))
+            self.assertTrue(parent.cancelled.is_set())
+
     def test_main_delegation_waits_for_client_result_without_backend_orchestration(self):
         arguments = {'action': 'models'}
         def send(event):
@@ -179,6 +213,17 @@ class SubagentRuntimeTests(unittest.TestCase):
         self.assertEqual(result['models'][0]['model_id'], 'current')
         self.assertFalse(self.parent.children)
         self.assertFalse((BRIDGE / 'agent_vendor/aster_subagents.py').exists())
+
+    def test_native_completions_use_call_ids_when_same_tool_finishes_out_of_order(self):
+        first = before_native_tool(self.parent, {'name': 'read_file', 'arguments': {'file_path': 'code.txt'}})['callId']
+        second = before_native_tool(self.parent, {'name': 'read_file', 'arguments': {'file_path': 'other.txt'}})['callId']
+        after_native_tool(self.parent, {'callId': second, 'summary': 'missing', 'failed': True})
+        after_native_tool(self.parent, {'callId': first, 'summary': 'baseline'})
+        starts = [event for event in self.events if event.get('kind') == 'tool']
+        finishes = [event for event in self.events if event.get('kind') == 'tool_result']
+        self.assertEqual([event['callId'] for event in starts], [first, second])
+        self.assertEqual([(event['callId'], event['status']) for event in finishes], [(second, 'failed'), (first, 'succeeded')])
+        self.assertTrue(all('durationMs' in event for event in finishes))
 
 
     def test_default_tasks_survive_two_days_and_still_cancel(self):

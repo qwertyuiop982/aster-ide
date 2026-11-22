@@ -269,7 +269,9 @@ async function createEngine(initialStart) {
         else throw new Error('Gemini context compression failed: ' + info.compressionStatus);
       } else {
         const session = new LegacyAgentSession({ config, promptId: start.sessionId });
-        for await (const event of session.sendStream({ message: { content: [{ type: 'text', text: start.task }] } })) {
+        const content = [{ type: 'text', text: start.task },
+          ...(start.images || []).map(image => ({ type: 'media', ...image }))];
+        for await (const event of session.sendStream({ message: { content } })) {
           if (event.type === 'message' && event.role === 'agent') {
             const text = event.content.filter(part => part.type === 'text').map(part => part.text).join('');
             if (text) {

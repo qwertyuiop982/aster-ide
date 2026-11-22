@@ -10,9 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.aster.core.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ToolButton(icon: ImageVector, label: String, selected: Boolean = false, enabled: Boolean = true, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, size: Int = 40, onClick: () -> Unit) {
@@ -34,17 +36,17 @@ import androidx.compose.ui.unit.dp
 }
 @Composable fun Line() { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp) }
 
-@Composable fun InputDialog(title: String, label: String, initial: String = "", confirm: String = "确定", onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+@Composable fun InputDialog(title: String, label: String, initial: String = "", confirm: String = stringResource(R.string.action_confirm), onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var value by remember(title, initial) { mutableStateOf(initial) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, shape = RoundedCornerShape(8.dp),
         text = { OutlinedTextField(value, { value = it }, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
         confirmButton = { TextButton(onClick = { onConfirm(value.trim()); onDismiss() }, enabled = value.isNotBlank()) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } })
 }
-@Composable fun ConfirmDialog(title: String, text: String, confirm: String = "确定", destructive: Boolean = false, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+@Composable fun ConfirmDialog(title: String, text: String, confirm: String = stringResource(R.string.action_confirm), destructive: Boolean = false, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(text) }, shape = RoundedCornerShape(8.dp),
         confirmButton = { TextButton(onClick = { onConfirm(); onDismiss() }) { Text(confirm, color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } })
 }
 
 fun fileColor(path: String): Color = when (path.substringAfterLast('.').lowercase()) {

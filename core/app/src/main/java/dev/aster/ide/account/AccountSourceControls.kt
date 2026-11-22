@@ -6,8 +6,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.aster.core.CoreRuntime
+import dev.aster.core.R
 import dev.aster.ide.agent.AgentEngine
 import dev.aster.ide.agent.AgentProfile
 
@@ -20,7 +22,7 @@ object FreeAgentProfile {
 
 @Composable fun AccountEntryButton(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    TextButton(onClick = { context.startActivity(Intent().setClassName(context, "dev.aster.ide.account.AccountActivity")) }, modifier = modifier) { Text("账户 / 登录") }
+    TextButton(onClick = { context.startActivity(Intent().setClassName(context, "dev.aster.ide.account.AccountActivity")) }, modifier = modifier) { Text(stringResource(R.string.action_open_account)) }
 }
 
 @Composable fun AccountSourceControls(engine: AgentEngine) {

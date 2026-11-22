@@ -47,11 +47,13 @@ def rebuild_prompt(session, wire, task):
 def execute_turn(wire, session, options, task, effort, restart, *, already_rebuilt=False):
     """Retry only this specific state error, at most once; normal failures propagate."""
     rebuilt = already_rebuilt
+    images = [{'type': 'image', 'url': 'data:' + image['mimeType'] + ';base64,' + image['data']}
+              for image in session.request.get('images', [])]
     while True:
         failure = None
         try:
             response = wire.request('turn/start', {
-                'threadId': wire.thread_id, 'input': [{'type': 'text', 'text': task}],
+                'threadId': wire.thread_id, 'input': [{'type': 'text', 'text': task}, *images],
                 'environments': options['environments'],
                 **({'effort': effort} if effort is not None else {}),
             })

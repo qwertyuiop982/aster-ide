@@ -2,6 +2,17 @@
 (function () {
   'use strict';
   var token = '', ready = false, painted = false, failure = '', pending = [], revision = 0, polling = false;
+  var locale = 'en';
+  try {
+    if (window.AsterNative && typeof window.AsterNative.bootstrapLocale === 'function' &&
+        /^zh(?:-|$)/i.test(window.AsterNative.bootstrapLocale())) locale = 'zh-Hans';
+  } catch (_) { }
+  document.documentElement.lang = locale;
+  function text(zh, en) { return locale === 'zh-Hans' ? zh : en; }
+  document.addEventListener('DOMContentLoaded', function () {
+    var loading = document.querySelector('#app .loading');
+    if (loading) loading.textContent = text('正在读取会话…', 'Loading conversation…');
+  }, {once: true});
   function transmit(phase, message, details) {
     var event = {version: 1, command: 'web_boot', phase: phase, message: String(message || '').slice(0, 1200)};
     if (details) { event.revision = details.revision; event.layout = details.layout; }
@@ -24,10 +35,10 @@
   }
   function fallback() {
     var root = document.getElementById('app');
-    if (root) { root.textContent = 'Agent 界面启动失败。请在原生启动面板重试。\n' + failure; root.setAttribute('role', 'alert'); }
+    if (root) { root.textContent = text('Agent 界面启动失败。请在原生启动面板重试。', 'The Agent could not start. Retry from the startup panel.') + '\n' + failure; root.setAttribute('role', 'alert'); }
   }
   function fail(message) {
-    failure = String(message || '未知脚本错误').slice(0, 1200);
+    failure = String(message || text('未知脚本错误', 'Unknown script error')).slice(0, 1200);
     transmit('error', failure);
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fallback, {once: true});
     else fallback();
@@ -42,13 +53,13 @@
       var packet = JSON.parse(raw);
       if (packet.version !== 1 || typeof packet.revision !== 'number' || packet.revision <= revision ||
           !Number.isSafeInteger(packet.revision) || !packet.state || packet.state.token !== token) {
-        fail('原生界面状态的认证或版本无效。'); return;
+        fail(text('原生界面状态的认证或版本无效。', 'Invalid native UI state version or authentication.')); return;
       }
       if (typeof window.AsterReceive !== 'function' || window.AsterReceive(packet.state, packet.revision) !== true) {
-        fail('界面未接受工作区与会话状态。'); return;
+        fail(text('界面未接受工作区与会话状态。', 'Could not open this workspace and conversation.')); return;
       }
       revision = packet.revision;
-    } catch (error) { fail('读取原生界面状态失败：' + String(error.message || error)); }
+    } catch (error) { fail(text('读取原生界面状态失败：', 'Could not read native UI state: ') + String(error.message || error)); }
   }
   function visibleRect(selector) {
     var node = document.querySelector(selector);
@@ -59,6 +70,7 @@
   }
   window.AsterBootstrap = connect;
   window.AsterBoot = {
+    locale: locale,
     ready: function () {
       ready = true; connect(); pull();
       if (!polling) { polling = true; setInterval(pull, 120); }
@@ -79,11 +91,11 @@
   window.addEventListener('error', function (event) {
     var target = event.target;
     if (target && target !== window && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
-      fail('界面资源加载失败：' + (target.src || target.href || 'unknown')); return;
+      fail(text('界面资源加载失败：', 'Could not load interface resource: ') + (target.src || target.href || 'unknown')); return;
     }
     if (event.message) fail(event.message + ' @ ' + (event.filename || '') + ':' + (event.lineno || 0));
   }, true);
-  window.addEventListener('unhandledrejection', function (event) { fail(String(event.reason && event.reason.message || event.reason || '异步脚本失败')); });
+  window.addEventListener('unhandledrejection', function (event) { fail(String(event.reason && event.reason.message || event.reason || text('异步脚本失败', 'Asynchronous script error'))); });
   // replaceChildren is missing in older system WebViews; retain text-only DOM construction.
   function supportReplaceChildren(type) {
     if (type && !type.prototype.replaceChildren) type.prototype.replaceChildren = function () {

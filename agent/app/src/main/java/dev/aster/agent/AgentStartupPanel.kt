@@ -1,5 +1,8 @@
 package dev.aster.agent
 
+import androidx.compose.ui.res.stringResource
+import dev.aster.core.R as CoreR
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
@@ -18,26 +21,26 @@ import androidx.compose.ui.unit.dp
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Aster Agent", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { vm.showDiagnostics = true }) { Text("日志") }
-                TextButton(onClick = { vm.showSettings = true }) { Text("设置") }
+                TextButton(onClick = { vm.showDiagnostics = true }) { Text(stringResource(R.string.agent_logs)) }
+                TextButton(onClick = { vm.showSettings = true }) { Text(stringResource(CoreR.string.action_settings)) }
             }
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(Modifier.widthIn(max = 420.dp).verticalScroll(rememberScrollState()).padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (!failed) CircularProgressIndicator(Modifier.size(30.dp), strokeWidth = 2.dp)
-                    Text(if (failed) "暂未就绪" else "正在准备…", style = MaterialTheme.typography.titleLarge)
+                    Text(if (failed) stringResource(R.string.agent_not_ready) else stringResource(R.string.agent_preparing), style = MaterialTheme.typography.titleLarge)
                     Text(when {
-                        vm.webState.phase == AgentWebPhase.FAILED -> "界面未能打开，请重新加载。详情可在顶部日志查看。"
-                        vm.setupState.error != null -> "环境准备未完成，可重试或查看顶部日志。"
-                        vm.setupState.phase == AgentSetupPhase.CANCELLED -> "环境准备已停止"
-                        vm.webState.phase == AgentWebPhase.LOADING -> vm.webState.message
-                        else -> vm.setupState.phase.title
+                        vm.webState.phase == AgentWebPhase.FAILED -> stringResource(R.string.agent_web_retry_prompt)
+                        vm.setupState.error != null -> stringResource(R.string.agent_setup_retry_prompt)
+                        vm.setupState.phase == AgentSetupPhase.CANCELLED -> stringResource(R.string.agent_setup_stopped)
+                        vm.webState.phase == AgentWebPhase.LOADING -> vm.webState.message.ifBlank { stringResource(R.string.agent_web_loading) }
+                        else -> stringResource(vm.setupState.phase.titleResource)
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    if (vm.webState.phase != AgentWebPhase.READY) TextButton(onClick = vm::reloadWebPage) { Text("重新加载界面") }
-                    if (!vm.busy && vm.setupState.phase != AgentSetupPhase.READY) Button(onClick = vm::initializeWorkspace) { Text("重试环境准备") }
-                    if (vm.busy) TextButton(onClick = vm::cancel, enabled = !vm.stopping) { Text(if (vm.stopping) "正在停止…" else "停止准备") }
-                    TextButton(onClick = chooseMode, enabled = !vm.locked) { Text("切换工作模式") }
+                    if (vm.webState.phase != AgentWebPhase.READY) TextButton(onClick = vm::reloadWebPage) { Text(stringResource(R.string.agent_web_reload)) }
+                    if (!vm.busy && vm.setupState.phase != AgentSetupPhase.READY) Button(onClick = vm::initializeWorkspace) { Text(stringResource(R.string.agent_setup_retry)) }
+                    if (vm.busy) TextButton(onClick = vm::cancel, enabled = !vm.stopping) { Text(if (vm.stopping) stringResource(R.string.agent_stopping) else stringResource(R.string.agent_stop_setup)) }
+                    TextButton(onClick = chooseMode, enabled = !vm.locked) { Text(stringResource(CoreR.string.action_switch_work_mode)) }
                 }
             }
         }
@@ -47,12 +50,12 @@ import androidx.compose.ui.unit.dp
 @Composable internal fun AgentEnvironmentStatus(vm: AgentViewModel) {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-            Text("环境 · ${vm.setupState.phase.title}", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.agent_environment_status, stringResource(vm.setupState.phase.titleResource)), style = MaterialTheme.typography.labelLarge)
             vm.setupState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, maxLines = 2, style = MaterialTheme.typography.bodySmall) }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { vm.showDiagnostics = true }) { Text("运行详情") }
-                if (vm.busy) TextButton(onClick = vm::cancel, enabled = !vm.stopping) { Text(if (vm.stopping) "正在停止…" else "停止准备") }
-                else TextButton(onClick = vm::initializeWorkspace, enabled = !vm.locked) { Text("重试环境") }
+                TextButton(onClick = { vm.showDiagnostics = true }) { Text(stringResource(R.string.agent_runtime_details)) }
+                if (vm.busy) TextButton(onClick = vm::cancel, enabled = !vm.stopping) { Text(if (vm.stopping) stringResource(R.string.agent_stopping) else stringResource(R.string.agent_stop_setup)) }
+                else TextButton(onClick = vm::initializeWorkspace, enabled = !vm.locked) { Text(stringResource(R.string.agent_runtime_retry)) }
             }
         }
     }

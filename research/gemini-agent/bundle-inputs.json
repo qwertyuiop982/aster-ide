@@ -5003,7 +5003,7 @@
     "format": "esm"
   },
   "research/gemini-agent/openai-content-generator.ts": {
-    "bytes": 6765,
+    "bytes": 7421,
     "imports": [
       {
         "path": "../aster-ide-account/research/gemini-agent/node_modules/@google/genai/dist/node/index.mjs",
@@ -54394,7 +54394,7 @@
     "format": "esm"
   },
   "research/gemini-agent/runner.ts": {
-    "bytes": 18976,
+    "bytes": 19079,
     "imports": [
       {
         "path": "vendor/gemini-cli/packages/core/src/config/config.ts",

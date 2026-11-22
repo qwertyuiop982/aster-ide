@@ -1,31 +1,32 @@
+import {tr} from '../locale.js';
 export default {
   "id": "gemini",
   "label": "Gemini",
   "mark": "sparkles",
-  "greeting": "从哪里开始？",
-  "placeholder": "描述任务，或补充需要参考的内容…",
+  "greeting": tr('从哪里开始？','Where should we start?'),
+  "placeholder": tr('描述任务，或补充需要参考的内容…','Describe a task or add context…'),
   "navigation": false,
   "inspector": false,
   "starters": [
     [
-      "理解项目",
+      tr('理解项目','Understand the project'),
       "folder",
-      "请说明这个项目的结构和关键流程。"
+      tr('请说明这个项目的结构和关键流程。','Explain how this project is organized and how its main workflows operate.')
     ],
     [
-      "分析问题",
+      tr('分析问题','Analyze an issue'),
       "search",
-      "请分析以下问题的原因：\n"
+      tr('请分析以下问题的原因：\n','Analyze what caused the following issue:\n')
     ],
     [
-      "制定方案",
+      tr('制定方案','Plan a change'),
       "list-checks",
-      "请为以下需求制定实现方案：\n"
+      tr('请为以下需求制定实现方案：\n','Plan an implementation for the following requirements:\n')
     ],
     [
-      "实现修改",
+      tr('实现修改','Implement a change'),
       "code-xml",
-      "请实现以下修改：\n"
+      tr('请实现以下修改：\n','Implement the following changes:\n')
     ]
   ]
 };

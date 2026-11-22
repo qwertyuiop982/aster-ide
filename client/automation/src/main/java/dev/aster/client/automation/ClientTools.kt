@@ -5,35 +5,34 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
 import android.util.Xml
+import dev.aster.client.browser.BrowserAutomation
 import dev.aster.client.browser.BrowserRuntime
 import dev.aster.client.shizuku.ShizukuClient
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONArray
 import org.json.JSONObject
-import org.xmlpull.v1.XmlPullParser
 import java.io.File
-import java.io.StringReader
-import java.security.MessageDigest
 import java.util.UUID
 
 class ClientTools(private val context: Context) {
+    private val browser = BrowserAutomation(context)
     private val lock = Mutex()
-    private var snapshotId = ""
-    private var snapshotHash = ""
-    private var snapshotTime = 0L
-    private var nodes = JSONArray()
+    private var desktopSnapshot: DesktopSnapshot? = null
     private var capture: Bundle? = null
     private var pixels: IntArray? = null
 
+    fun close() = browser.dispose()
+
     suspend fun execute(tool: String, args: JSONObject): JSONObject = lock.withLock {
-        if (tool == "browser") return@withLock BrowserRuntime.execute(context, args.getString("action"), args)
+        if (tool == "browser") return@withLock browser.execute(args.getString("action"), args)
+        if (tool == "web_webview_search") return@withLock BrowserRuntime.search(context, args)
         require(tool == "desktop") { "Unknown client tool" }
         val action = args.getString("action")
         if (action == "status") return@withLock ShizukuClient.status().put("ok", true)
         if (action in setOf("snapshot", "inspect")) {
             if (action == "inspect") require(args.getString("intent").length in 1..4000) { "Describe what to inspect" }
-            snapshotId = ""; capture = null; pixels = null
+            desktopSnapshot = null; capture = null; pixels = null
+            val snapshotId = UUID.randomUUID().toString()
             val result = ShizukuClient.useService(context) { service ->
                 val hierarchy = JSONObject(service.execute("hierarchy", "{}"))
                 check(hierarchy.optBoolean("ok")) { hierarchy.optString("error") }
@@ -42,11 +41,10 @@ class ClientTools(private val context: Context) {
                     capture = service.screenshot()
                     pixels = imagePixels(capture!!)
                 }
-                snapshotHash = digest(xml)
-                nodes = parseNodes(xml)
-                JSONObject().put("elements", nodes)
+                val snapshot = DesktopSnapshot.capture(snapshotId, android.os.SystemClock.elapsedRealtime(), xml, Xml.newPullParser())
+                desktopSnapshot = snapshot
+                JSONObject().put("elements", snapshot.elements)
             }
-            snapshotId = UUID.randomUUID().toString(); snapshotTime = android.os.SystemClock.elapsedRealtime()
             result.put("ok", true).put("snapshotId", snapshotId).put("coordinateSpace", "screen pixels")
             capture?.let { image ->
                 val bytes = image.getByteArray("jpeg") ?: error("Screenshot missing")
@@ -64,12 +62,13 @@ class ClientTools(private val context: Context) {
             }
             return@withLock result
         }
-        require(action in setOf("click", "tap", "swipe", "text", "key")) { "Unsupported desktop action" }
-        require(snapshotId.isNotEmpty() && args.getString("snapshotId") == snapshotId && android.os.SystemClock.elapsedRealtime() - snapshotTime < 60000) { "Take a fresh desktop snapshot before acting" }
+        require(action in setOf("click", "longPress", "tap", "swipe", "text", "key")) { "Unsupported desktop action" }
+        val snapshot = requireNotNull(desktopSnapshot) { "Take a fresh desktop snapshot before acting" }
+        snapshot.requireCurrent(args.getString("snapshotId"), android.os.SystemClock.elapsedRealtime())
         ShizukuClient.useService(context) { service ->
             val current = JSONObject(service.execute("hierarchy", "{}"))
             check(current.optBoolean("ok")) { current.optString("error") }
-            check(digest(current.getString("xml")) == snapshotHash) { "Screen changed; take a fresh desktop snapshot" }
+            check(snapshot.matches(current.getString("xml"))) { "Screen changed; take a fresh desktop snapshot" }
             capture?.let { previous ->
                 val fresh = service.screenshot()
                 check(previous.getInt("screenWidth") == fresh.getInt("screenWidth") && previous.getInt("screenHeight") == fresh.getInt("screenHeight")) { "Display rotated; take a fresh snapshot" }
@@ -79,14 +78,12 @@ class ClientTools(private val context: Context) {
                 check(difference < 12.0) { "Visible screen changed; inspect again before acting" }
             }
             val parameters = JSONObject(args.toString())
-            val operation = if (action == "click") {
+            val operation = if (action in setOf("click", "longPress")) {
                 val id = args.getInt("elementId")
-                require(id in 0 until nodes.length())
-                val node = nodes.getJSONObject(id)
-                check(node.optBoolean("enabled") && node.optBoolean("clickable")) { "Element is not actionable" }
-                val bounds = node.getJSONArray("bounds")
-                parameters.put("x", (bounds.getInt(0) + bounds.getInt(2)) / 2).put("y", (bounds.getInt(1) + bounds.getInt(3)) / 2)
-                "tap"
+                val target = snapshot.target(id, longPress = action == "longPress")
+                parameters.put("x", target.x).put("y", target.y)
+                if (target.id != id) parameters.put("targetElementId", target.id)
+                if (action == "click") "tap" else "longPress"
             } else {
                 if (action in setOf("tap", "swipe")) {
                     val space = args.optString("coordinateSpace", "screen")
@@ -106,12 +103,12 @@ class ClientTools(private val context: Context) {
                 action
             }
             // Invalidate before dispatch: even a partially failed action cannot reuse a stale image.
-            snapshotId = ""; capture = null; pixels = null
+            desktopSnapshot = null; capture = null; pixels = null
             val result = JSONObject(service.execute(operation, parameters.toString()))
             if (result.optBoolean("ok")) {
                 val after = JSONObject(service.execute("hierarchy", "{}"))
                 result.put("verification", JSONObject().put("observed", after.optBoolean("ok"))
-                    .put("screenChanged", if (after.optBoolean("ok")) digest(after.getString("xml")) != snapshotHash else JSONObject.NULL))
+                    .put("screenChanged", if (after.optBoolean("ok")) !snapshot.matches(after.getString("xml")) else JSONObject.NULL))
             }
             result.put("verificationRequired", true)
         }
@@ -128,22 +125,5 @@ class ClientTools(private val context: Context) {
                 (((color shr 16) and 255) * 3 + ((color shr 8) and 255) * 6 + (color and 255)) / 10
             }
         } finally { bitmap.recycle() }
-    }
-    private fun digest(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
-    private fun parseNodes(xml: String): JSONArray {
-        val parser = Xml.newPullParser().apply { setInput(StringReader(xml)) }
-        val result = JSONArray()
-        while (parser.eventType != XmlPullParser.END_DOCUMENT && result.length() < 300) {
-            if (parser.eventType == XmlPullParser.START_TAG && parser.name == "node") {
-                fun attribute(name: String) = parser.getAttributeValue(null, name).orEmpty()
-                val bounds = Regex("\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]").matchEntire(attribute("bounds"))
-                if (bounds != null) result.put(JSONObject().put("id", result.length()).put("text", if (attribute("password") == "true") "[redacted]" else attribute("text").take(500))
-                    .put("description", if (attribute("password") == "true") "[redacted]" else attribute("content-desc").take(500)).put("resourceId", attribute("resource-id"))
-                    .put("package", attribute("package")).put("clickable", attribute("clickable") == "true")
-                    .put("enabled", attribute("enabled") == "true").put("bounds", JSONArray(bounds.groupValues.drop(1).map(String::toInt))))
-            }
-            parser.next()
-        }
-        return result
     }
 }

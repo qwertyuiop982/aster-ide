@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_address_hint" translatable="false">https://</string>
+    <string name="browser_invalid_address">Enter an HTTP or HTTPS address without embedded credentials.</string>
+    <string name="browser_back">Back</string>
+    <string name="browser_reload">Reload</string>
+    <string name="browser_close">Close</string>
+</resources>

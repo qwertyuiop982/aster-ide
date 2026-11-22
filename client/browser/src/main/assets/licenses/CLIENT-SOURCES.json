@@ -3,10 +3,8 @@
     "url": "https://github.com/myos-Lu/qingzhou",
     "commit": "3ec0701bef960f13ff6a91e41f225b6c599dc8f4",
     "license": "AGPL-3.0",
-    "compiled": [
-      "BrowserEngine.kt",
-      "WebViewEngine.kt"
-    ]
+    "compiled": [],
+    "status": "Historical source retained under vendor/qingzhou"
   },
   "shizuku": {
     "app": "Install and start the separate Shizuku app on the device; it is not bundled.",
@@ -23,6 +21,6 @@
     "url": "https://github.com/AAswordman/Operit",
     "commit": "dbf71916fae9750cfdc9f9a774f5a0fee56633fb",
     "license": "LGPL-3.0",
-    "status": "Pinned upstream reference only; unused reference tree omitted; Aster adapters and license retained; not full feature parity"
+    "status": "Pinned behavioral reference for Android device operations, WebView visits and rendered web and image search"
   }
 }

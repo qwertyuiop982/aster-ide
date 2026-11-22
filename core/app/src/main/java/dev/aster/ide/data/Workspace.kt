@@ -2,20 +2,30 @@ package dev.aster.ide.data
 
 import android.content.Context
 import android.net.Uri
+import android.system.Os
+import android.system.OsConstants
 import androidx.documentfile.provider.DocumentFile
+import dev.aster.termux.PathRedirect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 
-data class Workspace(val id: String, val name: String, val directory: File, val source: String? = null, val direct: Boolean = false)
+data class Workspace(
+    val id: String, val name: String, val directory: File, val source: String? = null,
+    val direct: Boolean = false, val safMirror: Boolean = false,
+)
 data class FileNode(val path: String, val name: String, val directory: Boolean, val depth: Int, val size: Long)
 class WorkspaceRepository(private val context: Context, private val settings: SettingsStore) {
     private val home = File(context.filesDir, "workspaces").apply { mkdirs() }
     private val prefs = context.getSharedPreferences("workspace", Context.MODE_PRIVATE)
+    private val mounting = Mutex()
+    private val mountRoot = File(File(context.applicationInfo.dataDir).canonicalFile, "home/app_sda")
     private val ignored get() = settings.value.excludedDirs.split(',').map(String::trim).filter(String::isNotEmpty).toSet()
 
     suspend fun conversationWorkspace(): Workspace = withContext(Dispatchers.IO) {
@@ -27,10 +37,16 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     }
 
     private fun load(id: String): Workspace? = runCatching {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,64}")))
         val dir = File(home, id)
         val meta = JSONObject(File(dir, ".aster-workspace.json").readText())
-        Workspace(id, meta.getString("name"), meta.optString("directPath").takeIf(String::isNotBlank)?.let(::File) ?: dir, meta.optString("source").takeIf(String::isNotBlank), meta.optString("directPath").isNotBlank())
+        val mirror = meta.optBoolean("safMirror")
+        val directPath = meta.optString("directPath").takeIf(String::isNotBlank)?.let(::File)
+        Workspace(id, meta.getString("name"), if (mirror) File(mountRoot, id) else directPath ?: dir,
+            meta.optString("source").takeIf(String::isNotBlank), mirror || directPath != null, mirror)
     }.getOrNull()
+
+    suspend fun find(id: String): Workspace? = withContext(Dispatchers.IO) { load(id) }
 
     suspend fun recent(): List<Workspace> = withContext(Dispatchers.IO) {
         home.listFiles()?.filter(File::isDirectory)?.mapNotNull { load(it.name) }?.sortedByDescending { it.directory.lastModified() } ?: emptyList()
@@ -39,7 +55,9 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     fun select(workspace: Workspace) { prefs.edit().putString("current", workspace.id).apply() }
 
     private fun metadata(workspace: Workspace) {
-        File(File(home, workspace.id).apply { mkdirs() }, ".aster-workspace.json").writeText(JSONObject().put("name", workspace.name).put("source", workspace.source ?: "").put("directPath", if (workspace.direct) workspace.directory.canonicalPath else "").toString())
+        File(File(home, workspace.id).apply { mkdirs() }, ".aster-workspace.json").writeText(JSONObject()
+            .put("name", workspace.name).put("source", workspace.source.orEmpty()).put("safMirror", workspace.safMirror)
+            .put("directPath", if (workspace.direct) workspace.directory.canonicalPath else "").toString())
     }
 
     suspend fun create(name: String): Workspace = withContext(Dispatchers.IO) {
@@ -97,34 +115,76 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
     }
 
     suspend fun openDirectTree(uri: Uri): Workspace = withContext(Dispatchers.IO) {
-        val directory = AgentStorageAccess.directory(context, uri)
         AgentStorageAccess.persist(context, uri)
-        Workspace(UUID.randomUUID().toString(), directory.name.ifBlank { "设备存储" }, directory, uri.toString(), true)
-            .also { metadata(it); select(it) }
+        val source = uri.toString()
+        val existing = recent().firstOrNull { it.direct && it.source == source }
+        val id = existing?.id ?: UUID.nameUUIDFromBytes(source.toByteArray()).toString()
+        val tree = DocumentFile.fromTreeUri(context, uri) ?: error("无法打开所选目录")
+        check(tree.isDirectory && tree.canRead()) { "所选目录不可读取" }
+        val local = AgentStorageAccess.directory(context, uri)
+        val work = existing ?: Workspace(id, tree.name ?: local?.name ?: "已授权目录",
+            local ?: File(mountRoot, id), source, direct = true, safMirror = local == null)
+        nativeWorkspace(work)
+        metadata(work)
+        work
     }
 
     suspend fun nativeWorkspace(workspace: Workspace): Workspace = withContext(Dispatchers.IO) {
-        // A SAF import is an intentional app-private working copy. Native engine
-        // permissions must not silently switch it back to the provider's tree.
-        // Opening the original directory remains an explicit openDirectTree action.
-        val current = workspace
-        if (current.direct) {
-            check(AgentStorageAccess.granted(context)) { "原目录文件授权已失效，请在工具权限中重新授权" }
+        if (workspace.id == "agent-chat") return@withContext workspace
+        if (workspace.direct) refreshMount(workspace)
+        check(workspace.directory.isDirectory && workspace.directory.canRead() && workspace.directory.canWrite()) { "项目目录不可读写" }
+        PathRedirect.registerWorkspace(context, workspace.id, workspace.directory)
+        workspace
+    }
+
+    private fun authorizedDirectory(workspace: Workspace): Uri {
+        val uri = Uri.parse(checkNotNull(workspace.source))
+        check(AgentStorageAccess.hasTreeAccess(context, uri)) { "原目录授权已失效，请重新绑定工作目录" }
+        if (!workspace.safMirror) {
+            check(AgentStorageAccess.directory(context, uri) == workspace.directory.canonicalFile) {
+                "原目录没有直接文件权限，请恢复授权后重试"
+            }
         }
-        check(current.directory.isDirectory && current.directory.canRead() && current.directory.canWrite()) { "项目原目录不可读写" }
-        dev.aster.termux.PathRedirect.registerWorkspace(context, current.id, current.directory)
-        current
+        return uri
+    }
+
+    suspend fun checkAccess(workspace: Workspace): Unit = withContext(Dispatchers.IO) {
+        if (workspace.direct) authorizedDirectory(workspace)
+    }
+
+    suspend fun refreshMount(workspace: Workspace): Unit = withContext(Dispatchers.IO) {
+        if (!workspace.direct) return@withContext
+        mounting.withLock {
+            val uri = authorizedDirectory(workspace)
+            check(mountRoot.canonicalFile == mountRoot && (mountRoot.mkdirs() || mountRoot.isDirectory)) { "无法建立挂载目录" }
+            val node = File(mountRoot, workspace.id)
+            if (workspace.safMirror) {
+                check(workspace.directory == node)
+                SafWorkspaceMount(context, uri, node, File(home, "${workspace.id}/.aster-mount-state.json"),
+                    ignored, coroutineContext).sync()
+            } else {
+                val path = workspace.directory.canonicalFile
+                if (node.canonicalFile != path) Os.symlink(path.path, node.path)
+            }
+        }
+    }
+
+    private fun localEntry(workspace: Workspace, path: String): File {
+        require(path.isNotBlank() && path.split('/').all(::validDocumentName)) { "无效的相对路径" }
+        if (workspace.direct) authorizedDirectory(workspace)
+        val root = workspace.directory.canonicalFile
+        return File(root, path)
     }
 
     fun resolve(workspace: Workspace, path: String): File {
-        require(path.isNotBlank() && !path.startsWith('/') && path.split('/').none { it == ".." || it.isBlank() }) { "无效的相对路径" }
         val root = workspace.directory.canonicalFile
-        val file = File(root, path).canonicalFile
+        val file = localEntry(workspace, path).canonicalFile
         require(file.path.startsWith(root.path + File.separator)) { "路径超出项目目录" }
         return file
     }
 
     suspend fun files(workspace: Workspace, maxDepth: Int = 32, maxEntries: Int = 10000): List<FileNode> = withContext(Dispatchers.IO) {
+        if (workspace.direct) authorizedDirectory(workspace)
         val current = coroutineContext
         WorkspaceFileTree.scan(workspace.directory, ignored, maxDepth, maxEntries) { current.ensureActive() }
     }
@@ -137,7 +197,8 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
             FileOutputStream(temp).use { out -> out.write(text.toByteArray(Charsets.UTF_8)); out.fd.sync() }
             check(temp.renameTo(file)) { "无法原子保存 $path" }
         } finally { temp.delete() }
-        workspace.source?.takeUnless { workspace.direct }?.let { exportFile(workspace, path, text) }
+        if (workspace.safMirror) refreshMount(workspace)
+        else workspace.source?.takeUnless { workspace.direct }?.let { exportFile(workspace, path, text) }
     }
 
     private fun exportFile(workspace: Workspace, path: String, text: String) {
@@ -155,6 +216,7 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
         check(!target.exists()) { "同名文件已存在" }
         if (folder) check(target.mkdirs()) { "创建目录失败" }
         else { target.parentFile?.mkdirs(); check(target.createNewFile()) { "创建文件失败" }; workspace.source?.takeUnless { workspace.direct }?.let { exportFile(workspace, path, "") } }
+        if (workspace.safMirror) refreshMount(workspace)
     }
 
     suspend fun rename(workspace: Workspace, old: String, new: String) = withContext(Dispatchers.IO) {
@@ -168,15 +230,24 @@ class WorkspaceRepository(private val context: Context, private val settings: Se
             old.split('/').forEach { doc = doc?.findFile(it) }
             if (old.substringBeforeLast('/', "") == new.substringBeforeLast('/', "")) doc?.renameTo(new.substringAfterLast('/'))
         }
+        if (workspace.safMirror) refreshMount(workspace)
     }
 
     suspend fun delete(workspace: Workspace, path: String) = withContext(Dispatchers.IO) {
-        check(resolve(workspace, path).deleteRecursively()) { "删除失败" }
+        val entry = localEntry(workspace, path)
+        require(entry.parentFile?.let { it.canonicalFile == it.absoluteFile } == true) { "不能通过符号链接目录删除文件" }
+        fun delete(node: File) {
+            coroutineContext.ensureActive()
+            if (OsConstants.S_ISDIR(Os.lstat(node.path).st_mode)) node.listFiles()?.forEach(::delete)
+            check(node.delete()) { "删除失败：${node.name}" }
+        }
+        delete(entry)
         workspace.source?.takeUnless { workspace.direct }?.let { source ->
             var doc = DocumentFile.fromTreeUri(context, Uri.parse(source))
             path.split('/').forEach { doc = doc?.findFile(it) }
             doc?.delete()
         }
+        if (workspace.safMirror) refreshMount(workspace)
     }
 
     private suspend fun demo(): Workspace {

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_sign_in">Sign in</string>
+    <string name="account_sync">Sync your points and account status</string>
+    <string name="account_github">Sign in with GitHub</string>
+    <string name="account_email">Email address</string>
+    <string name="account_code_sent">Check your email for the verification code.</string>
+    <string name="account_send_code">Send code</string>
+    <string name="account_code">6-digit verification code</string>
+    <string name="account_sign_in_email">Sign in with email</string>
+    <string name="account_change_email">Change email address</string>
+    <string name="account_back_to_workspace">Back to workspace</string>
+    <string name="account_signed_in">Signed in</string>
+    <string name="account_available_points">Available points</string>
+    <string name="account_points_detail">Total %1$s · reserved %2$s</string>
+    <string name="account_points_date">%1$s · updated daily</string>
+    <string name="account_checked_in">Checked in today</string>
+    <string name="account_check_in">Check in for +100 points</string>
+    <string name="account_refresh">Refresh account</string>
+    <string name="account_ledger">Point history</string>
+    <string name="account_sign_out">Sign out</string>
+    <string name="account_pi_model">Pi model settings</string>
+    <string name="account_custom_api">Custom API</string>
+    <string name="account_use_model">Use account model</string>
+    <string name="account_tier_options">Free or Go</string>
+    <string name="account_collapse">Collapse</string>
+    <string name="account_free_pricing">Free: 1 point per 1,000 tokens (%1$s)</string>
+    <string name="account_go_pricing">Go: 50 points per 1,000 tokens (%1$s)</string>
+    <string name="account_available">Available</string>
+    <string name="account_unavailable">Unavailable</string>
+    <string name="account_reconnect">Reconnect to account service</string>
+    <string name="account_failed">Could not complete the operation. Try again.</string>
+    <string name="account_ledger_registration">Sign-up bonus</string>
+    <string name="account_ledger_checkin">Check-in bonus</string>
+    <string name="account_ledger_usage">Model usage</string>
+    <string name="account_ledger_line">%1$s · %2$s points\n%3$s</string>
+    <string name="account_no_history">No history yet</string>
+</resources>

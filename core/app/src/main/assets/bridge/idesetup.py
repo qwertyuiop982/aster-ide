@@ -202,7 +202,7 @@ def download_file(url, destination):
         print_info("Downloading with aria2c (16 connections, resume enabled)...")
         command = [aria2, "-x16", "-s16", "-c", "--max-tries=0",
                    "--auto-file-renaming=false", "--allow-overwrite=true",
-                   "--file-allocation=none", "--connect-timeout=30", "--timeout=60",
+                   "--file-allocation=none",
                    "--retry-wait=5", "--max-file-not-found=1",
                    "-d", str(destination.parent), "-o", partial.name, url]
         try:
@@ -219,7 +219,7 @@ def download_file(url, destination):
     wget = shutil.which("wget")
     if wget:
         try:
-            result = run([wget, "-c", "--timeout=30", "--tries=3", "-O", str(sequential), url], check=False)
+            result = run([wget, "-c", "--tries=3", "-O", str(sequential), url], check=False)
         except OSError as error:
             print_warn("wget could not start: " + str(error))
         else:
@@ -233,7 +233,7 @@ def download_file(url, destination):
         headers["Range"] = "bytes={}-".format(offset)
     request = urllib.request.Request(url, headers=headers)
     try:
-        response = urllib.request.urlopen(request, timeout=60)
+        response = urllib.request.urlopen(request)
     except urllib.error.HTTPError as error:
         extent = re.fullmatch(r"bytes \*/(\d+)", error.headers.get("Content-Range", ""))
         if error.code == 416 and extent and int(extent.group(1)) == offset and complete(sequential):
@@ -304,7 +304,7 @@ def cached_download(url, destination, checksum, alternate=None):
 
 def read_manifest(url):
     request = urllib.request.Request(github_url(url), headers={"User-Agent": "Aster-idesetup/0.1.4"})
-    with urllib.request.urlopen(request, timeout=45) as response:
+    with urllib.request.urlopen(request) as response:
         body = response.read(2 * 1024 * 1024 + 1)
     if len(body) > 2 * 1024 * 1024:
         raise SetupError("Toolchain manifest is too large")
@@ -539,8 +539,8 @@ def parse_arguments(argv=None):
     parser.add_argument("-y", "--assume-yes", action="store_true", help="Answer yes to all prompts.")
     parser.add_argument("-a", "--arch", default=platform.machine(),
                         help="SDK CPU architecture (default: uname -m).")
-    parser.add_argument("-p", "--package-manager", default="pkg",
-                        help="Package manager command (default: pkg).")
+    parser.add_argument("-p", "--package-manager", default="apt-get",
+                        help="Package manager command (default: apt-get).")
     parser.add_argument("-l", "--curl", default="libcurl",
                         help="Curl package name (default: libcurl).")
     parser.add_argument("--sdk-root", help="SDK directory used by the embedded application")

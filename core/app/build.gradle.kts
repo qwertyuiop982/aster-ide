@@ -21,6 +21,8 @@ android {
     lint { abortOnError = true; disable += "MissingTranslation" }
 }
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     api(project(":client:automation"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)

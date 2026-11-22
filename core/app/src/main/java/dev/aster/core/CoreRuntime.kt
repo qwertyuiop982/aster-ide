@@ -44,7 +44,7 @@ class CoreRuntime private constructor(context: Context) {
     val bridge = BridgeClient(context, settings)
     val output = LogBuffer(scope)
     val logs = LogBuffer(scope, 60000)
-    val termux = TermuxRuntime(context, settings, bridge) { output.append(it); logs.append(it) }
+    val termux = TermuxRuntime(context, bridge) { output.append(it); logs.append(it) }
     companion object {
         @Volatile private var instance: CoreRuntime? = null
         fun get(context: Context): CoreRuntime = instance ?: synchronized(this) {

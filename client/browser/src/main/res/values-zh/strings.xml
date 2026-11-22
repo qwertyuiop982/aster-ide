@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_invalid_address">请输入不含登录凭据的 HTTP 或 HTTPS 地址。</string>
+    <string name="browser_back">返回</string>
+    <string name="browser_reload">重新加载</string>
+    <string name="browser_close">关闭</string>
+</resources>

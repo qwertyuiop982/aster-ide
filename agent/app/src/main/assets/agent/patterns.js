@@ -34,3 +34,36 @@ export function engineArtwork(profile) {
   }
   frame.append(svg,icon(profile.mark));return frame;
 }
+
+/** Quiet, locally drawn circuit traces; the transcript remains the foreground. */
+export function drawBackdrop(canvas,root,appearance) {
+  const width=canvas.clientWidth,height=canvas.clientHeight;
+  if(width<1||height<1)return;
+  const ratio=Math.min(2,window.devicePixelRatio||1);
+  const key=[width,height,ratio,appearance?.leftColor,appearance?.rightColor,appearance?.wholeInterface].join(':');
+  if(canvas.dataset.drawing===key)return;
+  const pen=canvas.getContext('2d');if(!pen)return;
+  canvas.dataset.drawing=key;canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+  pen.setTransform(ratio,0,0,ratio,0,0);
+  const theme=getComputedStyle(root);
+  const ink=theme.getPropertyValue('--fg').trim(),accent=theme.getPropertyValue('--accent').trim();
+  const alternate=theme.getPropertyValue('--pattern-secondary').trim();
+  const dark=document.body.dataset.engine==='pi'||root.dataset.nebulaAll==='true';
+  pen.fillStyle=ink;pen.globalAlpha=dark ? .17 : .12;
+  for(let y=24;y<height;y+=42)for(let x=22;x<width;x+=42)pen.fillRect(x,y,1,1);
+  pen.lineWidth=1;pen.lineJoin='round';pen.lineCap='round';
+  // Alternate across opposite edges to leave the reading column nearly clear.
+  for(let index=0;index<7;index++){
+    const side=index%2===0?1:-1,offset=side===1?0:width;
+    const extent=Math.min(82+13*(index%3),width*.24);
+    const y=(index+1)*height/8,turn=Math.min(23,height/15)*(index%3===0?-1:1);
+    const points=[[0,y],[extent*.44,y],[extent*.69,y+turn],[extent,y+turn]];
+    pen.strokeStyle=index%3===0?alternate:accent;
+    pen.globalAlpha=dark ? .18 : .16;
+    pen.beginPath();points.forEach(([x,y],step)=>{if(step)pen.lineTo(offset+x*side,y);else pen.moveTo(offset+x*side,y);});pen.stroke();
+    const [endX,endY]=points[3];pen.strokeRect(offset+endX*side-2,endY-2,4,4);
+    pen.globalAlpha=dark ? .11 : .08;
+    pen.beginPath();pen.moveTo(offset,y+9);pen.lineTo(offset+extent*.23*side,y+9);
+    pen.lineTo(offset+extent*.47*side,y+9+turn);pen.stroke();
+  }
+}

@@ -41,7 +41,12 @@ def native_item_name(item):
     if kind == 'functionCallOutput':
         return str(item.get('name') or 'codex_tool')
     if kind == 'mcpToolCall':
-        return 'mcp_resource' if str(item.get('tool') or '') in MCP_RESOURCE_TOOLS else 'mcp'
+        from agent_android_mcp import SERVER_NAME, TOOLS
+        tool = str(item.get('tool') or '')
+        server = str(item.get('server') or '')
+        if (server == SERVER_NAME or server.startswith(SERVER_NAME + '_')) and tool in TOOLS:
+            return tool
+        return 'mcp_resource' if tool in MCP_RESOURCE_TOOLS else 'mcp'
     return kind or 'codex_tool'
 
 
@@ -64,6 +69,14 @@ def write_native_mcp_config(session, home, configuration):
     target = home / 'config.toml'
     from agent_native import load_native_mcp_servers
     servers = load_native_mcp_servers(session, configuration)
+    from agent_android_mcp import SERVER_NAME, server_config
+    builtin = server_config(session)
+    if builtin:
+        name, suffix = SERVER_NAME, 1
+        while name in servers:
+            suffix += 1
+            name = f'{SERVER_NAME}_{suffix}'
+        servers[name] = builtin
     from agent_skills import load_project_skills
     catalog, selected = load_project_skills(session.stage, configuration.get('enabledSkills') or [])
     enabled_skills = {name for name, _, _ in selected}
@@ -98,6 +111,8 @@ def write_native_mcp_config(session, home, configuration):
             lines += ['url = ' + _toml_string(config['url'])]
             if config['headers']:
                 lines.append('http_headers = ' + _toml_string_map(config['headers']))
+        if 'tool_timeout_sec' in config:
+            lines.append(f'tool_timeout_sec = {config["tool_timeout_sec"]}')
         lines.append('')
     temporary = target.with_suffix('.tmp')
     temporary.write_text('\n'.join(lines), encoding='utf-8')
@@ -138,6 +153,7 @@ class CodexTransport:
         self.pending_child_events = {}
         self.child_turns = {}
         self.child_completed = set()
+        self.child_activity_calls = {}
         self.send_lock = threading.RLock()
         self.reply_context = threading.local()
         self.interactions = ThreadPoolExecutor(max_workers=1, thread_name_prefix='Aster-Codex-UI')
@@ -166,6 +182,7 @@ class CodexTransport:
         self.recovery_notes.clear()
         self.messages.clear()
         self.question_items.clear()
+        self.child_activity_calls.clear()
         self.native_started.clear()
         self.native_items.clear()
         self.native_outputs.clear()
@@ -508,6 +525,15 @@ class CodexTransport:
         is_subagent_activity = method in ('item/started', 'item/completed') and activity.get('type') == 'subAgentActivity'
         thread_id = params.get('threadId', self.thread_id)
         child = thread_id in self.child_threads
+        if self.thread_id and thread_id != self.thread_id and not child:
+            if thread_id and method.startswith(('item/', 'turn/')):
+                if thread_id in self.pending_child_events or len(self.pending_child_events) < 128:
+                    pending = self.pending_child_events.setdefault(thread_id, [])
+                    if len(pending) < 256:
+                        pending.append((method, params))
+            return
+        incoming_turn = params.get('turnId') or (params.get('turn') or {}).get('id')
+        expected = self.child_turns.get(thread_id) if child else self.turn_id
         if is_subagent_activity:
             target = str(activity.get('agentThreadId') or '')
             action = activity.get('kind')
@@ -515,8 +541,13 @@ class CodexTransport:
                 return
             self.register_child(target, label=str(activity.get('agentPath') or ''), model=str(activity.get('model') or ''))
             label = str(activity.get('agentPath') or 'Codex · ' + target[-8:])
-            call_id = str(activity.get('id') or target)
+            route = (thread_id, target)
+            # The provider's started/completed item IDs differ for the same child thread.
+            call_id = self.child_activity_calls.get(route) or str(activity.get('id') or target)
             if action == 'started':
+                if route in self.child_activity_calls:
+                    return
+                self.child_activity_calls[route] = call_id
                 event = {'callId': call_id, 'name': 'spawn_agent', 'status': 'running',
                          'text': json.dumps(self.session.redact_event(activity), ensure_ascii=False)}
                 if child:
@@ -527,7 +558,7 @@ class CodexTransport:
             elif action in ('completed', 'interrupted'):
                 self.child_completed.add(target)
                 result = {'callId': call_id, 'name': 'spawn_agent',
-                          'status': 'completed' if action == 'completed' else 'failed',
+                          'status': 'completed' if action == 'completed' else 'interrupted',
                           'text': json.dumps(self.session.redact_event(activity), ensure_ascii=False)}
                 if child:
                     result['kind'] = 'tool_result'
@@ -537,15 +568,6 @@ class CodexTransport:
                 self.session.emit('subagent_event', subagentId=target, label=label,
                                   event={'kind': 'result', 'status': 'completed' if action == 'completed' else 'interrupted'})
             return
-        if self.thread_id and thread_id != self.thread_id and not child:
-            if thread_id and method.startswith(('item/', 'turn/')):
-                if thread_id in self.pending_child_events or len(self.pending_child_events) < 128:
-                    pending = self.pending_child_events.setdefault(thread_id, [])
-                    if len(pending) < 256:
-                        pending.append((method, params))
-            return
-        incoming_turn = params.get('turnId') or (params.get('turn') or {}).get('id')
-        expected = self.child_turns.get(thread_id) if child else self.turn_id
         if expected and incoming_turn and incoming_turn != expected and method != 'turn/started':
             return
         if child and method in ('thread/closed', 'thread/archived'):
@@ -587,6 +609,8 @@ class CodexTransport:
 
                 child_event = {'kind': 'tool_result' if method == 'item/completed' else 'tool', 'callId': str(item.get('id', '')), 'name': native_item_name(item), 'status': 'running' if method == 'item/started' else 'failed' if item.get('status') in ('failed', 'declined') else 'completed', 'text': json.dumps(self.session.redact_event(item), ensure_ascii=False)[:16000]}
             if child_event:
+                if child_event['kind'] in ('tool', 'tool_result', 'tool_delta'):
+                    child_event['turnId'] = str(incoming_turn or expected or '')
                 self.session.emit('subagent_event', subagentId=str(thread_id), label='Codex · ' + str(thread_id)[-8:], event=child_event)
             return
         if method == 'item/started':
@@ -598,7 +622,7 @@ class CodexTransport:
                 self.native_items[identifier] = item
                 self.session.consume_tool_budget()
                 self.session.steps += 1
-                self.session.emit('tool', callId=identifier, name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
+                self.session.emit('tool', callId=identifier, turnId=str(incoming_turn or expected or ''), name=native_item_name(item), text=json.dumps(self.session.redact_event(item), ensure_ascii=False)[:12000])
         elif method == 'item/commandExecution/outputDelta':
             identifier = str(params.get('itemId', ''))
             self.native_outputs[identifier] = (self.native_outputs.get(identifier, '') + str(params.get('delta', '')))[-24000:]
@@ -623,7 +647,7 @@ class CodexTransport:
                     self.native_started.add(identifier)
                     self.session.consume_tool_budget()
                     self.session.steps += 1
-                    self.session.emit('tool', callId=identifier, name=name, text=json.dumps({'native': True, 'name': name}, ensure_ascii=False))
+                    self.session.emit('tool', callId=identifier, turnId=str(incoming_turn or expected or ''), name=name, text=json.dumps({'native': True, 'name': name}, ensure_ascii=False))
                 if kind == 'collabAgentToolCall':
                     for receiver in item.get('receiverThreadIds', []):
                         if receiver:
@@ -633,7 +657,7 @@ class CodexTransport:
                     self.session.checkpoint_proposal()
                 result = {'ok': item.get('status') not in ('failed', 'declined', 'interrupted'), 'native': True,
                           'item': item, 'output': self.native_outputs.pop(identifier, '')}
-                self.session.emit('tool_result', callId=identifier, name=name, text=json.dumps(self.session.redact_event(result), ensure_ascii=False)[:24000])
+                self.session.emit('tool_result', callId=identifier, turnId=str(incoming_turn or expected or ''), name=name, text=json.dumps(self.session.redact_event(result), ensure_ascii=False)[:24000])
                 self.recovery_notes.append({'tool': name, 'status': item.get('status'), 'result': json.dumps(self.session.redact_event(result), ensure_ascii=False)[-2000:]})
                 self.recovery_notes = self.recovery_notes[-8:]
                 self.native_items.pop(identifier, None)
@@ -815,6 +839,8 @@ def run_codex(session, configuration, *, prepare_only=False):
             developer = str(session.request.get("systemPrompt") or SYSTEM) + chr(10) + MODE_PROMPTS[session.mode] + chr(10) + session.project_instructions()
             developer += chr(10) + 'Use the native Codex tool registry for every operation. Prefer unified_exec/exec_command and write_stdin for Android-compatible shell work, apply_patch for file changes, update_plan for plans, view_image for images, request_user_input and request_permissions for interaction, tool_search for deferred tools, get_context_remaining and new_context for context management, native MCP resource tools, and native multi-agent tools. Do not call an Aster dynamic namespace. All edits are in the staged cwd and remain proposals until the user applies the preview. The shell is Termux bash on Android; use the supplied local environment, cwd and runtime workspace roots.'
             developer += chr(10) + 'User-enabled MCP servers are loaded by the native Codex MCP registry when configured in the project; use native mcp_resource tools and native approvals.'
+            if getattr(session, 'android_mcp_port', None):
+                developer += chr(10) + 'Use the native Aster Android MCP tool web_webview_search for rendered Bing web or image results. In Execute mode, browser and desktop are also available for Android UI operations.'
             if session.request.get('isSubagent'):
                 developer += chr(10) + 'You are a native Codex collaboration child with an independent context. Complete the assigned prompt using the shared project and inherited permissions.'
             from agent_task_mode import collaboration_prompt
@@ -889,6 +915,7 @@ def run_codex(session, configuration, *, prepare_only=False):
                 was_rebuilt = rebuild_pending
                 if rebuild_pending:
                     task = rebuild_prompt(session, wire, task)
+                session.android_mcp_active = bool(getattr(session, 'android_mcp_port', None))
                 execute_turn(wire, session, options, task, effort, restart_thread, already_rebuilt=was_rebuilt)
                 if wire.status == 'Submitted':
                     rebuild_pending = False
@@ -903,6 +930,7 @@ def run_codex(session, configuration, *, prepare_only=False):
                     wire.poll(check_cancelled=False)
             raise
         finally:
+            session.android_mcp_active = False
             if wire.thread_id and 'save_pointer' in locals():
                 with contextlib.suppress(OSError):
                     save_pointer()

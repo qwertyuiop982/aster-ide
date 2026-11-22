@@ -20,7 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Composable fun AgentSettings(vm: IdeViewModel, settings: IdeSettings) {
+@Composable fun AgentSettings(vm: IdeViewModel, settings: IdeSettings, onOpenStandaloneMode: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val engine by vm.agent.selectedEngine.collectAsStateWithLifecycle()
     val availability by vm.agent.availableEngines.collectAsStateWithLifecycle()
@@ -33,6 +33,10 @@ import kotlinx.coroutines.withContext
     var secret by remember(engine) { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionLabel("快速 Agent 设置")
+        Text("这里保存 IDE 内辅助 Agent 的常用连接和运行选项。完整 API 配置、思考、审阅与 Skill 选项位于独立 Agent 模式。",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = onOpenStandaloneMode, modifier = Modifier.align(Alignment.Start)) { Text("切换到独立 Agent 模式设置") }
         SectionLabel("底层引擎")
         AgentEngine.entries.forEach { candidate ->
             Row(Modifier.fillMaxWidth().clickable(enabled = !state.running && !vm.agentPreparing && !vm.agentStopping) { vm.selectAgentEngine(candidate) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -58,7 +62,7 @@ import kotlinx.coroutines.withContext
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AgentMode.entries.forEach { candidate -> FilterChip(mode == candidate, { vm.setAgentMode(candidate) }, enabled = !state.running, label = { Text(candidate.label) }) }
             }
-            TextButton(onClick = { vm.openAgent(); vm.settingsPage = null }) { Text("打开 Agent 工作空间") }
+            TextButton(onClick = { vm.openAgent(); vm.settingsPage = null }) { Text("打开 IDE 内 Agent 工作空间") }
             return@Column
         }
         SectionLabel("模型连接")
@@ -107,6 +111,6 @@ import kotlinx.coroutines.withContext
         SettingsSlider("回复上限", profile.maxTokens, 512, 8192, 512, "tokens") { value -> vm.settings.updateAgentProfile(engine) { it.copy(maxTokens = value) } }
         SettingsSlider("模型上下文窗口", profile.contextWindow / 1024, 8, 256, 8, "K tokens") { value -> vm.settings.updateAgentProfile(engine) { it.copy(contextWindow = value * 1024) } }
         Text("请按模型实际支持的窗口设置；接近上限时生成摘要并保留近期工具交换。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { vm.openAgent(); vm.settingsPage = null }) { Text("打开 Agent 工作空间") }
+        TextButton(onClick = { vm.openAgent(); vm.settingsPage = null }) { Text("打开 IDE 内 Agent 工作空间") }
     }
 }

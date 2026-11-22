@@ -1,0 +1,10 @@
+<resources>
+    <string name="shizuku_authorized">已授权 Shizuku</string>
+    <string name="shizuku_permission_denied">未授予 Shizuku 权限</string>
+    <string name="shizuku_unavailable">Shizuku 尚未运行，请启动后重试。</string>
+    <string name="shizuku_permission_prompt">允许 Aster 请求截屏与设备操作权限？</string>
+    <string name="shizuku_authorize">授权</string>
+    <string name="shizuku_request_failed">无法请求 Shizuku 授权</string>
+    <string name="shizuku_ok">知道了</string>
+    <string name="shizuku_cancel">取消</string>
+</resources>

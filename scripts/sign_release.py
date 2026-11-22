@@ -15,12 +15,15 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOLS = Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android'))) / 'build-tools/35.0.0'
+DEFAULT_TOOLS = Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Android'))) / 'build-tools/35.0.0'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--variant', choices=['release'], default='release')
+parser.add_argument('--build-tools', type=Path, default=DEFAULT_TOOLS,
+                    help='Android SDK Build Tools directory containing apksigner and aapt2')
 parser.add_argument('--build-log', type=Path, default=ROOT / 'logs/release-apks-build.log')
 parser.add_argument('--log-dir', type=Path, default=ROOT / 'logs')
 args = parser.parse_args()
+TOOLS = args.build_tools.resolve()
 args.log_dir.mkdir(parents=True, exist_ok=True)
 task = args.variant[0].upper() + args.variant[1:]
 directory = ROOT / 'core/build/application/outputs/apk' / args.variant

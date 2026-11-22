@@ -9,7 +9,17 @@ enum class AgentMode(val id: String, val label: String, val description: String)
     companion object { fun fromId(id: String) = entries.firstOrNull { it.id == id } ?: EXECUTE }
 }
 
-data class AgentMessage(val id: String = UUID.randomUUID().toString(), val role: String, val text: String)
+data class AgentMessage(
+    val id: String = UUID.randomUUID().toString(), val role: String, val text: String,
+    internal val toolTrace: AgentToolTrace? = null
+)
+
+/** Structured state used only while the engine can still emit events for a call. */
+data class AgentToolTrace(
+    internal val name: String, internal val label: String, internal val arguments: String? = null,
+    internal val output: String = "", internal val interrupted: Boolean = false
+)
+
 data class AgentSubagentConversation(val id: String, val label: String, val engineId: String = "", val model: String = "", val status: String = "等待中", val running: Boolean = true, val messages: List<AgentMessage> = emptyList())
 
 data class AgentChange(val path: String, val before: String, val after: String, val sha256: String, val beforeExists: Boolean = true, val deleted: Boolean = false, val diskSha256: String? = null)

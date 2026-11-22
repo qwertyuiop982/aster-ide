@@ -1,5 +1,18 @@
 (() => {
+  // agent/app/src/main/assets/agent/locale.js
+  function uiLocale() {
+    var _a2;
+    return typeof window !== "undefined" && ((_a2 = window.AsterBoot) == null ? void 0 : _a2.locale) === "zh-Hans" ? "zh-Hans" : "en";
+  }
+  function tr(chinese, english) {
+    return uiLocale() === "zh-Hans" ? chinese : english;
+  }
+
   // agent/app/src/main/assets/agent/icons.js
+  var attachmentIcons = {
+    image: [["rect", { width: 18, height: 18, x: 3, y: 3, rx: 2, ry: 2 }], ["circle", { cx: 9, cy: 9, r: 2 }], ["path", { d: "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" }]],
+    file: [["path", { d: "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2Z" }], ["path", { d: "M14 2v6h6" }]]
+  };
   var icons = { "timer": [["circle", { "cx": "12", "cy": "14", "r": "8" }], ["path", { "d": "M12 10v4l2 2M9 2h6M12 2v4m6 2 2-2" }]], "menu": [["line", { "x1": "4", "x2": "20", "y1": "12", "y2": "12" }], ["line", { "x1": "4", "x2": "20", "y1": "6", "y2": "6" }], ["line", { "x1": "4", "x2": "20", "y1": "18", "y2": "18" }]], "chevron-down": [["path", { "d": "m6 9 6 6 6-6" }]], "chevron-right": [["path", { "d": "m9 18 6-6-6-6" }]], "chevron-left": [["path", { "d": "m15 18-6-6 6-6" }]], "plus": [["path", { "d": "M5 12h14" }], ["path", { "d": "M12 5v14" }]], "arrow-up": [["path", { "d": "m5 12 7-7 7 7" }], ["path", { "d": "M12 19V5" }]], "arrow-down": [["path", { "d": "M12 5v14" }], ["path", { "d": "m19 12-7 7-7-7" }]], "square": [["rect", { "width": "18", "height": "18", "x": "3", "y": "3", "rx": "2" }]], "x": [["path", { "d": "M18 6 6 18" }], ["path", { "d": "m6 6 12 12" }]], "ellipsis": [["circle", { "cx": "12", "cy": "12", "r": "1" }], ["circle", { "cx": "19", "cy": "12", "r": "1" }], ["circle", { "cx": "5", "cy": "12", "r": "1" }]], "folder": [["path", { "d": "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" }]], "file-code-2": [["path", { "d": "M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4" }], ["path", { "d": "M14 2v4a2 2 0 0 0 2 2h4" }], ["path", { "d": "m5 12-3 3 3 3" }], ["path", { "d": "m9 18 3-3-3-3" }]], "code-xml": [["path", { "d": "m18 16 4-4-4-4" }], ["path", { "d": "m6 8-4 4 4 4" }], ["path", { "d": "m14.5 4-5 16" }]], "search": [["circle", { "cx": "11", "cy": "11", "r": "8" }], ["path", { "d": "m21 21-4.3-4.3" }]], "git-pull-request": [["circle", { "cx": "18", "cy": "18", "r": "3" }], ["circle", { "cx": "6", "cy": "6", "r": "3" }], ["path", { "d": "M13 6h3a2 2 0 0 1 2 2v7" }], ["line", { "x1": "6", "x2": "6", "y1": "9", "y2": "21" }]], "wrench": [["path", { "d": "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" }]], "list-checks": [["path", { "d": "m3 17 2 2 4-4" }], ["path", { "d": "m3 7 2 2 4-4" }], ["path", { "d": "M13 6h8" }], ["path", { "d": "M13 12h8" }], ["path", { "d": "M13 18h8" }]], "settings-2": [["path", { "d": "M20 7h-9" }], ["path", { "d": "M14 17H5" }], ["circle", { "cx": "17", "cy": "17", "r": "3" }], ["circle", { "cx": "7", "cy": "7", "r": "3" }]], "panel-right": [["rect", { "width": "18", "height": "18", "x": "3", "y": "3", "rx": "2" }], ["path", { "d": "M15 3v18" }]], "panel-left": [["rect", { "width": "18", "height": "18", "x": "3", "y": "3", "rx": "2" }], ["path", { "d": "M9 3v18" }]], "check": [["path", { "d": "M20 6 9 17l-5-5" }]], "circle": [["circle", { "cx": "12", "cy": "12", "r": "10" }]], "loader-circle": [["path", { "d": "M21 12a9 9 0 1 1-6.219-8.56" }]], "copy": [["rect", { "width": "14", "height": "14", "x": "8", "y": "8", "rx": "2", "ry": "2" }], ["path", { "d": "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" }]], "trash-2": [["path", { "d": "M3 6h18" }], ["path", { "d": "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" }], ["path", { "d": "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" }], ["line", { "x1": "10", "x2": "10", "y1": "11", "y2": "17" }], ["line", { "x1": "14", "x2": "14", "y1": "11", "y2": "17" }]], "message-square": [["path", { "d": "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }]], "sliders-horizontal": [["line", { "x1": "21", "x2": "14", "y1": "4", "y2": "4" }], ["line", { "x1": "10", "x2": "3", "y1": "4", "y2": "4" }], ["line", { "x1": "21", "x2": "12", "y1": "12", "y2": "12" }], ["line", { "x1": "8", "x2": "3", "y1": "12", "y2": "12" }], ["line", { "x1": "21", "x2": "16", "y1": "20", "y2": "20" }], ["line", { "x1": "12", "x2": "3", "y1": "20", "y2": "20" }], ["line", { "x1": "14", "x2": "14", "y1": "2", "y2": "6" }], ["line", { "x1": "8", "x2": "8", "y1": "10", "y2": "14" }], ["line", { "x1": "16", "x2": "16", "y1": "18", "y2": "22" }]], "paperclip": [["path", { "d": "M13.234 20.252 21 12.3" }], ["path", { "d": "m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486" }]], "layers": [["path", { "d": "M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" }], ["path", { "d": "M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" }], ["path", { "d": "M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" }]], "zap": [["path", { "d": "M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" }]], "terminal": [["polyline", { "points": "4 17 10 11 4 5" }], ["line", { "x1": "12", "x2": "20", "y1": "19", "y2": "19" }]], "history": [["path", { "d": "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" }], ["path", { "d": "M3 3v5h5" }], ["path", { "d": "M12 7v5l4 2" }]], "arrow-left-right": [["path", { "d": "M8 3 4 7l4 4" }], ["path", { "d": "M4 7h16" }], ["path", { "d": "m16 21 4-4-4-4" }], ["path", { "d": "M20 17H4" }]], "notebook-pen": [["path", { "d": "M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" }], ["path", { "d": "M2 6h4" }], ["path", { "d": "M2 10h4" }], ["path", { "d": "M2 14h4" }], ["path", { "d": "M2 18h4" }], ["path", { "d": "M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" }]], "sparkles": [["path", { "d": "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" }], ["path", { "d": "M20 3v4" }], ["path", { "d": "M22 5h-4" }], ["path", { "d": "M4 17v2" }], ["path", { "d": "M5 18H3" }]] };
 
   // agent/app/src/main/assets/agent/dom.js
@@ -12,7 +25,7 @@
   function icon(name) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     for (const [key2, value] of Object.entries({ viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": "1.65", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false", class: "icon" })) svg.setAttribute(key2, value);
-    for (const [tag, attributes] of icons[name] || icons.circle) {
+    for (const [tag, attributes] of icons[name] || attachmentIcons[name] || icons.circle) {
       const child = document.createElementNS(svg.namespaceURI, tag);
       for (const [key2, value] of Object.entries(attributes)) child.setAttribute(key2, value);
       svg.append(child);
@@ -55,7 +68,7 @@
         const language = nl < 0 ? "" : chunk.slice(0, nl).trim();
         const code = nl < 0 ? chunk : chunk.slice(nl + 1).replace(/\n$/, "");
         const block = el("div", "code-block"), bar = el("div", "code-header");
-        bar.append(el("span", "", language.slice(0, 48) || "代码"), iconButton("复制代码", "copy", () => copy(code)));
+        bar.append(el("span", "", language.slice(0, 48) || tr("代码", "Code")), iconButton(tr("复制代码", "Copy code"), "copy", () => copy(code)));
         block.append(bar, el("pre", "code-content", code));
         fragment.append(block);
       } else {
@@ -97,7 +110,18 @@
   }
 
   // agent/app/src/main/assets/agent/message-renderer.js
-  function createMessageRenderer(container, request, dom = { el, icon, richText }) {
+  function createToolExpansionState() {
+    const expanded = /* @__PURE__ */ new Set();
+    return {
+      has: (key2) => expanded.has(key2),
+      set(key2, open) {
+        expanded.delete(key2);
+        if (open) expanded.add(key2);
+        if (expanded.size > 512) expanded.delete(expanded.values().next().value);
+      }
+    };
+  }
+  function createMessageRenderer(container, request, dom = { el, icon, richText }, expansion = createToolExpansionState()) {
     const records = /* @__PURE__ */ new Map();
     let previousScope = null;
     return function render(scope, items, assistantLabel) {
@@ -117,6 +141,10 @@
             summary = dom.el("span");
             heading.append(dom.icon("terminal"), summary, dom.icon("chevron-right"));
             row.append(heading, body);
+            row.open = expansion.has(key2);
+            row.addEventListener("toggle", () => {
+              if (row.parentElement === container && row.isConnected !== false) expansion.set(key2, row.open);
+            });
           } else {
             if (item.role !== "user") {
               label = dom.el("div", "assistant-label");
@@ -150,6 +178,7 @@
         previous = record.row;
       }
       for (const [key2, record] of records) if (!retained.has(key2)) {
+        if (record.summary && scope !== previousScope) expansion.set(key2, record.row.open);
         record.row.remove();
         records.delete(key2);
         changed = true;
@@ -230,9 +259,9 @@
   // agent/app/src/main/assets/agent/bubbles.js
   function thinkingBubble(root, anchor, getState, request, notify) {
     const panel = el("dialog", "thinking-bubble");
-    panel.setAttribute("aria-label", "思考设置");
+    panel.setAttribute("aria-label", tr("思考设置", "Reasoning settings"));
     const bar = el("header", "bubble-heading");
-    bar.append(el("h2", "", "思考"), iconButton("关闭思考设置", "x", () => close()));
+    bar.append(el("h2", "", tr("思考", "Reasoning")), iconButton(tr("关闭思考设置", "Close reasoning settings"), "x", () => close()));
     const content = el("div", "thinking-content");
     panel.append(bar, content);
     root.append(panel);
@@ -333,7 +362,7 @@
       if (key2 === last) return;
       last = key2;
       content.replaceChildren();
-      const choices = (s.thinkingChoices || [{ id: "auto", label: "自动" }]).map((c) => s.engine === "codex" ? { ...c, label: c.id === "ultra" ? "Ultra" : c.id.toLowerCase() } : c);
+      const choices = (s.thinkingChoices || [{ id: "auto", label: tr("自动", "Auto") }]).map((c) => s.engine === "codex" ? { ...c, label: c.id === "ultra" ? "Ultra" : c.id.toLowerCase() } : c);
       const value = el("output", "thinking-value");
       value.hidden = true;
       const slider = el("input", "thinking-slider");
@@ -343,7 +372,7 @@
       slider.step = "1";
       slider.value = String(Math.max(0, choices.findIndex((c) => c.id === (s.thinkingLevel || "auto"))));
       slider.disabled = choices.length < 2;
-      slider.setAttribute("aria-label", "思考等级");
+      slider.setAttribute("aria-label", tr("思考等级", "Reasoning level"));
       function preview() {
         const choice = choices[Number(slider.value)] || choices[0];
         setUltra(s.engine === "codex" && choice.id === "ultra");
@@ -371,7 +400,7 @@
       }
       content.append(value, slider, ticks);
       if (s.thinkingBudgetSupported) {
-        const limits = s.thinkingBudgetRange || [128, 24576], group = el("details", "thinking-budget"), budgetBody = el("div", "thinking-budget-body"), label = el("label", "", "固定思考预算（tokens）"), budget = el("input", "budget-input");
+        const limits = s.thinkingBudgetRange || [128, 24576], group = el("details", "thinking-budget"), budgetBody = el("div", "thinking-budget-body"), label = el("label", "", tr("固定思考预算（tokens）", "Fixed reasoning budget (tokens)")), budget = el("input", "budget-input");
         budget.type = "number";
         budget.min = String(limits[0]);
         budget.max = String(limits[1]);
@@ -381,21 +410,21 @@
         label.htmlFor = budget.id;
         const error = el("p", "budget-error");
         error.setAttribute("role", "alert");
-        const apply = button("应用预算", () => {
+        const apply = button(tr("应用预算", "Apply budget"), () => {
           if (getState().busy) return;
           if (!budget.checkValidity() || !Number.isInteger(Number(budget.value))) {
-            error.textContent = "请输入 " + limits[0] + "–" + limits[1] + " 的整数";
+            error.textContent = tr("请输入 ", "Enter a whole number from ") + limits[0] + "–" + limits[1] + tr(" 的整数", "");
             return;
           }
           error.textContent = "";
           request("thinking_budget", { value: Number(budget.value) });
         }, "budget-apply");
-        budgetBody.append(label, budget, el("p", "small-text", limits[0] + "–" + limits[1] + " · 与等级互斥"), apply, error);
-        group.append(el("summary", "", "预算设置"), budgetBody);
+        budgetBody.append(label, budget, el("p", "small-text", limits[0] + "–" + limits[1] + tr(" · 与等级互斥", " · use instead of a reasoning level")), apply, error);
+        group.append(el("summary", "", tr("预算设置", "Budget settings")), budgetBody);
         content.append(group);
         group.addEventListener("toggle", position);
       }
-      const note = el("p", "selection-note", "下一次任务生效");
+      const note = el("p", "selection-note", tr("下一次任务生效", "Applies to the next task"));
       note.title = s.thinkingNote || "";
       content.append(note);
       requestAnimationFrame(position);
@@ -412,39 +441,142 @@
     } };
   }
   function subagentNavigator(root, main, viewport, composerArea, getState, refresh, request, notify) {
-    let selected = "", listOpen = false, lastList = "", mainScroll = 0, returnScroll = null, lastSelected = "";
+    let selected = "", listOpen = false, lastList = "", returnScroll = null, lastSelected = "", parentScope = "";
+    let press = null, held = false, suppressClick = false, holdTimer, positionOverride = null;
+    const positions = /* @__PURE__ */ new Map();
     const dock = el("aside", "agent-dock");
-    dock.setAttribute("aria-label", "子代理导航");
-    const trigger = button("Agent", () => toggle(!listOpen), "agent-bubble", "layers"), count = el("span", "agent-count", "0");
+    dock.setAttribute("aria-label", tr("子代理导航", "Subagent navigation"));
+    const trigger = button("Agent", (event) => {
+      if (suppressClick && event.detail !== 0) {
+        event.preventDefault();
+        suppressClick = false;
+        return;
+      }
+      toggle(!listOpen);
+    }, "agent-bubble", "layers"), count = el("span", "agent-count", "0");
     trigger.append(count);
     trigger.setAttribute("aria-expanded", "false");
     trigger.setAttribute("aria-controls", "agent-list");
     const panel = el("section", "agent-list-panel");
     panel.id = "agent-list";
     panel.hidden = true;
-    panel.setAttribute("aria-label", "所有子代理");
+    panel.setAttribute("aria-label", tr("所有子代理", "All subagents"));
     const heading = el("header", "bubble-heading");
-    heading.append(el("h2", "", "子代理"), iconButton("收起子代理", "x", () => toggle(false)));
+    heading.append(el("h2", "", tr("子代理", "Subagents")), iconButton(tr("收起子代理", "Hide subagents"), "x", () => toggle(false)));
     const list = el("div", "agent-list");
     panel.append(heading, list);
     dock.append(trigger, panel);
     root.append(dock);
-    const banner = el("header", "subagent-banner"), back = button("返回主对话", () => select(""), "subagent-back", "arrow-left-right"), title = el("div", "subagent-title"), name = el("strong"), status = el("span", "small-text");
+    const banner = el("header", "subagent-banner"), back = button(tr("返回主对话", "Back to main conversation"), () => select(""), "subagent-back", "arrow-left-right"), title = el("div", "subagent-title"), name = el("strong"), status = el("span", "small-text");
     title.append(name, status);
     banner.append(back, title);
     banner.hidden = true;
     main.insertBefore(banner, viewport);
     const footer = el("div", "subagent-footer");
-    footer.append(el("p", "small-text", "子代理任务由主代理派发，消息实时更新。"), button("返回主对话", () => select(""), "subagent-return", "message-square"));
-    const stop = button("停止主任务", () => request("stop"), "subagent-stop", "square");
+    footer.append(el("p", "small-text", tr("子代理任务由主代理派发，消息实时更新。", "The main agent delegates tasks. Messages update live.")), button(tr("返回主对话", "Back to main conversation"), () => select(""), "subagent-return", "message-square"));
+    const stop = button(tr("停止主任务", "Stop main task"), () => request("stop"), "subagent-stop", "square");
     footer.append(stop);
     footer.hidden = true;
     main.append(footer);
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    function dragBounds() {
+      const container = root.getBoundingClientRect(), area = viewport.getBoundingClientRect(), bubble = trigger.getBoundingClientRect();
+      if (!container.width || !area.height || !bubble.width) return null;
+      const left = area.left - container.left + 10, right = Math.max(left, area.right - container.left - bubble.width - 10);
+      const top = area.top - container.top + 8, bottom = Math.max(top, area.bottom - container.top - bubble.height - 8);
+      return { left, right, top, bottom, container };
+    }
+    function coordinates(point, bounds) {
+      const { top, bottom, left, right } = bounds;
+      return { x: left + point.x * (right - left), y: top + point.y * (bottom - top) };
+    }
+    function moveBubble(x, y) {
+      dock.style.left = x + "px";
+      dock.style.top = y + "px";
+      dock.style.right = "auto";
+    }
+    function placeList() {
+      if (!listOpen) return;
+      const c = root.getBoundingClientRect(), b = dock.getBoundingClientRect(), pad = 10, gap = 9;
+      const right = b.right - c.left + gap, left = b.left - c.left - panel.offsetWidth - gap;
+      const x = right + panel.offsetWidth <= c.width - pad ? right : left >= pad ? left : clamp(right, pad, c.width - panel.offsetWidth - pad);
+      panel.style.left = x - (b.left - c.left) + "px";
+      panel.style.top = clamp(b.top - c.top, pad, c.height - panel.offsetHeight - pad) - (b.top - c.top) + "px";
+      syncCodexCanvas(root);
+    }
+    function placeBubble() {
+      if (held) return;
+      const bounds = dragBounds();
+      if (!bounds) return;
+      const saved = positionOverride || getState().bubblePosition;
+      const { x, y } = saved ? coordinates(saved, bounds) : coordinates({ x: 1, y: 0.08 }, bounds);
+      moveBubble(x, y);
+      placeList();
+    }
+    function finishPress(event, cancelled = false) {
+      if (!press || event.pointerId !== press.id) return;
+      clearTimeout(holdTimer);
+      if (held && press.point && !cancelled && press.moved) {
+        positionOverride = press.point;
+        request("bubble_position", press.point);
+      }
+      press = null;
+      held = false;
+      delete dock.dataset.dragging;
+      placeBubble();
+    }
+    trigger.addEventListener("pointerdown", (event) => {
+      var _a2;
+      if (event.button !== 0 || event.isPrimary === false || trigger.disabled || press) return;
+      suppressClick = false;
+      const bounds = dragBounds();
+      if (!bounds) return;
+      const b = dock.getBoundingClientRect();
+      press = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: event.clientX - b.left, dy: event.clientY - b.top };
+      (_a2 = trigger.setPointerCapture) == null ? void 0 : _a2.call(trigger, event.pointerId);
+      holdTimer = setTimeout(() => {
+        if (!press) return;
+        held = true;
+        suppressClick = true;
+        dock.dataset.dragging = "true";
+        if (listOpen) toggle(false);
+        request("bubble_hold");
+      }, 450);
+    });
+    trigger.addEventListener("pointermove", (event) => {
+      if (!press || press.id !== event.pointerId) return;
+      const distance = Math.hypot(event.clientX - press.x, event.clientY - press.y);
+      if (!held) {
+        if (distance > 10) {
+          clearTimeout(holdTimer);
+          suppressClick = true;
+        }
+        return;
+      }
+      const b = dragBounds();
+      if (!b) return;
+      const x = clamp(event.clientX - press.dx - b.container.left, b.left, b.right);
+      const y = clamp(event.clientY - press.dy - b.container.top, b.top, b.bottom);
+      press.moved = press.moved || distance > 3;
+      press.point = { x: (x - b.left) / (b.right - b.left || 1), y: (y - b.top) / (b.bottom - b.top || 1) };
+      moveBubble(x, y);
+    });
+    trigger.addEventListener("pointerup", (event) => finishPress(event));
+    trigger.addEventListener("pointercancel", (event) => finishPress(event, true));
+    trigger.addEventListener("lostpointercapture", (event) => finishPress(event, true));
+    trigger.addEventListener("contextmenu", (event) => event.preventDefault());
+    const dockObserver = typeof ResizeObserver === "function" ? new ResizeObserver(placeBubble) : null;
+    dockObserver == null ? void 0 : dockObserver.observe(viewport);
+    window.addEventListener("resize", placeBubble);
     function select(id) {
-      if (id === selected) return;
-      if (!selected) mainScroll = viewport.scrollTop;
+      var _a2;
+      if (id === selected) {
+        toggle(false);
+        return;
+      }
+      positions.set(selected, viewport.scrollTop);
       selected = id;
-      returnScroll = id ? null : mainScroll;
+      returnScroll = (_a2 = positions.get(id)) != null ? _a2 : null;
       toggle(false);
       refresh();
       if (id) back.focus();
@@ -453,9 +585,11 @@
     function toggle(open) {
       listOpen = open;
       panel.hidden = !open;
-      if (open) requestAnimationFrame(() => syncCodexCanvas(root));
       trigger.setAttribute("aria-expanded", String(open));
-      if (open) renderList(true);
+      if (open) {
+        renderList(true);
+        placeList();
+      }
       notify();
     }
     function renderList(force = false) {
@@ -465,7 +599,7 @@
       lastList = key2;
       const focused = (_a2 = document.activeElement) == null ? void 0 : _a2.dataset.child;
       list.replaceChildren();
-      list.append(button("主对话", () => select(""), "agent-row main-agent", "message-square"));
+      list.append(button(tr("主对话", "Main conversation"), () => select(""), "agent-row main-agent", "message-square"));
       for (const child of rows) {
         const row = button("", () => select(child.id), "agent-row");
         row.dataset.child = child.id;
@@ -474,12 +608,12 @@
         const dot = el("span", "child-dot");
         dot.dataset.running = String(!!child.running);
         const detail = el("span", "child-detail");
-        detail.append(el("strong", "", child.label || child.model || "子代理"), el("span", "small-text", child.status || "运行中"));
+        detail.append(el("strong", "", child.label || child.model || tr("子代理", "Subagents")), el("span", "small-text", child.status || tr("运行中", "Running")));
         row.append(dot, detail, icon("chevron-right"));
         list.append(row);
         if (focused === child.id) row.focus();
       }
-      if (!rows.length) list.append(el("p", "empty-note", "尚未派发子代理。派发后将在这里显示。"));
+      if (!rows.length) list.append(el("p", "empty-note", tr("尚未派发子代理。派发后将在这里显示。", "No subagents yet.")));
     }
     function outside(e) {
       if (listOpen && !dock.contains(e.target)) toggle(false);
@@ -494,12 +628,24 @@
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", keydown);
     function update() {
-      var _a2;
-      const s = getState(), rows = s.subagents || [];
-      if (selected && !rows.some((c) => c.id === selected)) selected = "";
+      var _a2, _b;
+      const s = getState(), rows = s.subagents || [], scope = JSON.stringify([s.workspace, s.engine, s.session]);
+      if (parentScope !== scope) {
+        parentScope = scope;
+        selected = "";
+        lastSelected = "";
+        lastList = "";
+        returnScroll = null;
+        positions.clear();
+        if (listOpen) toggle(false);
+      }
+      if (selected && !rows.some((c) => c.id === selected)) {
+        selected = "";
+        returnScroll = (_a2 = positions.get("")) != null ? _a2 : null;
+      }
       const child = rows.find((c) => c.id === selected);
       count.textContent = String(rows.length);
-      trigger.title = "子代理 " + rows.length + " · 运行中 " + rows.filter((c) => c.running).length;
+      trigger.title = tr("子代理 ", "Subagents ") + rows.length + tr(" · 运行中 ", " · Running ") + rows.filter((c) => c.running).length;
       trigger.dataset.running = String(rows.some((c) => c.running));
       trigger.disabled = !s.session;
       banner.hidden = !child;
@@ -507,16 +653,17 @@
       composerArea.hidden = !!child;
       root.dataset.childView = String(!!child);
       if (child) {
-        name.textContent = child.label || child.model || "子代理";
-        status.textContent = child.status || "运行中";
+        name.textContent = child.label || child.model || tr("子代理", "Subagents");
+        status.textContent = child.status || tr("运行中", "Running");
       }
       stop.hidden = !s.busy;
       stop.disabled = !!s.stopping;
       if (listOpen) renderList();
+      placeBubble();
       if (lastSelected !== selected) {
         lastSelected = selected;
         viewport.scrollTop = 0;
-        (_a2 = viewport.animate) == null ? void 0 : _a2.call(viewport, [{ opacity: 0.4, transform: "translateY(5px)" }, { opacity: 1, transform: "none" }], { duration: s.reducedMotion || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160 });
+        if (!s.reducedMotion && !matchMedia("(prefers-reduced-motion: reduce)").matches) (_b = viewport.animate) == null ? void 0 : _b.call(viewport, [{ opacity: 0.25 }, { opacity: 1 }], { duration: 170 });
       }
       return child;
     }
@@ -540,6 +687,9 @@
       }
       return false;
     }, dispose() {
+      clearTimeout(holdTimer);
+      dockObserver == null ? void 0 : dockObserver.disconnect();
+      window.removeEventListener("resize", placeBubble);
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("keydown", keydown);
       dock.remove();
@@ -624,9 +774,66 @@
     frame.append(svg, icon(profile.mark));
     return frame;
   }
+  function drawBackdrop(canvas, root, appearance) {
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    if (width < 1 || height < 1) return;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const key2 = [width, height, ratio, appearance == null ? void 0 : appearance.leftColor, appearance == null ? void 0 : appearance.rightColor, appearance == null ? void 0 : appearance.wholeInterface].join(":");
+    if (canvas.dataset.drawing === key2) return;
+    const pen = canvas.getContext("2d");
+    if (!pen) return;
+    canvas.dataset.drawing = key2;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    pen.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const theme = getComputedStyle(root);
+    const ink = theme.getPropertyValue("--fg").trim(), accent = theme.getPropertyValue("--accent").trim();
+    const alternate = theme.getPropertyValue("--pattern-secondary").trim();
+    const dark = document.body.dataset.engine === "pi" || root.dataset.nebulaAll === "true";
+    pen.fillStyle = ink;
+    pen.globalAlpha = dark ? 0.17 : 0.12;
+    for (let y = 24; y < height; y += 42) for (let x = 22; x < width; x += 42) pen.fillRect(x, y, 1, 1);
+    pen.lineWidth = 1;
+    pen.lineJoin = "round";
+    pen.lineCap = "round";
+    for (let index = 0; index < 7; index++) {
+      const side = index % 2 === 0 ? 1 : -1, offset = side === 1 ? 0 : width;
+      const extent = Math.min(82 + 13 * (index % 3), width * 0.24);
+      const y = (index + 1) * height / 8, turn = Math.min(23, height / 15) * (index % 3 === 0 ? -1 : 1);
+      const points = [[0, y], [extent * 0.44, y], [extent * 0.69, y + turn], [extent, y + turn]];
+      pen.strokeStyle = index % 3 === 0 ? alternate : accent;
+      pen.globalAlpha = dark ? 0.18 : 0.16;
+      pen.beginPath();
+      points.forEach(([x, y2], step) => {
+        if (step) pen.lineTo(offset + x * side, y2);
+        else pen.moveTo(offset + x * side, y2);
+      });
+      pen.stroke();
+      const [endX, endY] = points[3];
+      pen.strokeRect(offset + endX * side - 2, endY - 2, 4, 4);
+      pen.globalAlpha = dark ? 0.11 : 0.08;
+      pen.beginPath();
+      pen.moveTo(offset, y + 9);
+      pen.lineTo(offset + extent * 0.23 * side, y + 9);
+      pen.lineTo(offset + extent * 0.47 * side, y + 9 + turn);
+      pen.stroke();
+    }
+  }
 
   // agent/app/src/main/assets/agent/components.js
-  function createPage(profile, send, local) {
+  var quickTitles = { model: tr("选择模型", "Choose model"), collaboration: tr("子代理协作模式", "Subagent collaboration"), engine: tr("底层引擎", "Agent engine"), mode: tr("操作权限", "Task mode"), attachment: tr("添加附件", "Add attachments") };
+  var setupLabels = {
+    WORKSPACE: tr("准备工作区与会话", "Preparing workspace and conversation"),
+    TERMUX: tr("准备内置 Termux", "Preparing the built-in Termux runtime"),
+    NODE: tr("安装 Agent 运行环境", "Installing the Agent runtime"),
+    BRIDGE: tr("启动 Python 工具桥接", "Starting the Python tool bridge"),
+    ENGINES: tr("检查底层引擎", "Checking agent engines"),
+    READY: tr("本地引擎检查通过（未测试模型接口）", "Local engines verified. Model access has yet to be checked."),
+    FAILED: tr("环境准备失败", "Environment setup failed"),
+    CANCELLED: tr("已停止环境准备", "Environment setup stopped")
+  };
+  var conversationTitle = (title) => !title || title === "新会话" ? tr("新会话", "New conversation") : title;
+  function createPage(profile, send, local, toolExpansion2) {
     const preparedSelections = /* @__PURE__ */ new Map();
     let bubble, childNav;
     let state = {}, draftTimer, follow = true, lastHistory = "", lastTasks = "", lastChanges = "", lastFiles = "", lastAck, lastPrompt;
@@ -636,23 +843,31 @@
     const root = el("main", "agent-layout " + profile.id);
     root.dataset.empty = "true";
     const sidebarHost = el("aside", "sidebar-host"), main = el("section", "main-column"), infoHost = el("aside", "info-host");
+    const backdrop = el("canvas", "conversation-backdrop");
+    backdrop.setAttribute("aria-hidden", "true");
+    main.append(backdrop);
+    function paintBackdrop() {
+      if (root.isConnected) drawBackdrop(backdrop, root, state.codexAppearance);
+    }
+    const backdropObserver = typeof ResizeObserver === "function" ? new ResizeObserver(paintBackdrop) : null;
+    backdropObserver == null ? void 0 : backdropObserver.observe(main);
     const modal = el("aside", "utility-dialog");
     modal.hidden = true;
-    modal.setAttribute("aria-label", "会话侧边栏");
+    modal.setAttribute("aria-label", tr("会话侧边栏", "Conversation sidebar"));
     modal.setAttribute("aria-hidden", "true");
     const modalBar = el("header", "dialog-bar"), modalTitle = el("h2");
-    const sidebarBack = iconButton("返回侧边栏", "chevron-left", () => openPanel("history"));
+    const sidebarBack = iconButton(tr("返回侧边栏", "Back to sidebar"), "chevron-left", () => openPanel("history"));
     sidebarBack.hidden = true;
-    modalBar.append(sidebarBack, modalTitle, iconButton("关闭侧边栏", "x", closePanel));
+    modalBar.append(sidebarBack, modalTitle, iconButton(tr("关闭侧边栏", "Close sidebar"), "x", closePanel));
     const modalBody = el("div", "dialog-body");
     modal.append(modalBar, modalBody);
     const routePage = el("section", "route-page");
     routePage.hidden = true;
-    routePage.setAttribute("aria-label", "Agent 配置页面");
+    routePage.setAttribute("aria-label", tr("Agent 配置页面", "Agent settings"));
     routePage.id = "agent-config-page";
     routePage.tabIndex = -1;
     const routeBar = el("header", "route-bar"), routeTitle = el("h1");
-    routeBar.append(iconButton("返回对话", "arrow-left", closePanel), routeTitle);
+    routeBar.append(iconButton(tr("返回对话", "Back to conversation"), "arrow-left", closePanel), routeTitle);
     const routeBody = el("div", "route-body");
     routePage.append(routeBar, routeBody);
     const quick = el("section", "quick-picker");
@@ -662,24 +877,24 @@
     quick.setAttribute("aria-labelledby", "quick-picker-title");
     const quickBar = el("header", "quick-picker-bar"), quickTitle = el("h2");
     quickTitle.id = "quick-picker-title";
-    quickBar.append(quickTitle, iconButton("关闭选项", "x", () => closeQuickPicker()));
+    quickBar.append(quickTitle, iconButton(tr("关闭选项", "Close options"), "x", () => closeQuickPicker()));
     const quickBody = el("div", "quick-picker-body");
     quick.append(quickBar, quickBody);
     let quickMode = "", quickAnchor = null, quickFocus = null;
     const shade2 = el("div", "dialog-shade");
     shade2.hidden = true;
     const rail = el("nav", "navigation-rail");
-    rail.setAttribute("aria-label", "Agent 导航");
+    rail.setAttribute("aria-label", tr("Agent 导航", "Agent navigation"));
     const railBrand = el("div", "rail-brand");
     railBrand.append(icon(profile.mark));
     rail.append(
       railBrand,
-      iconButton("会话历史", "history", toggleHistory),
-      iconButton("新会话", "plus", () => request("new")),
-      iconButton("工作信息", "panel-right", () => showInfo()),
-      iconButton("上下文文件", "paperclip", () => nativeRequest("context_files")),
+      iconButton(tr("会话历史", "Conversation history"), "history", toggleHistory),
+      iconButton(tr("新会话", "New conversation"), "plus", () => request("new")),
+      iconButton(tr("工作信息", "Task details"), "panel-right", () => showInfo()),
+      iconButton(tr("上下文文件", "Context files"), "paperclip", () => nativeRequest("context_files")),
       el("span", "rail-spacer"),
-      iconButton("模型设置", "settings-2", () => nativeRequest("settings"))
+      iconButton(tr("模型设置", "Model settings"), "settings-2", () => nativeRequest("settings"))
     );
     root.append(rail, sidebarHost, main, infoHost, shade2, modal, routePage, quick);
     const request = (command, data = {}) => {
@@ -732,7 +947,7 @@
     }
     function panelChanged() {
       send("panel", { id: panelIsOpen() || !quick.hidden || (bubble == null ? void 0 : bubble.isOpen()) || (childNav == null ? void 0 : childNav.selected) || (childNav == null ? void 0 : childNav.isOpen) ? "open" : "" });
-      for (const node of root.querySelectorAll("[data-picker],.thinking-picker")) node.setAttribute("aria-expanded", String(node === thinking ? !!(bubble == null ? void 0 : bubble.isOpen()) : ["model", "engine", "mode", "collaboration"].includes(node.dataset.picker) ? !quick.hidden && node.dataset.picker === quickMode : panelIsOpen() && node.dataset.picker === drawerMode));
+      for (const node of root.querySelectorAll("[data-picker],.thinking-picker")) node.setAttribute("aria-expanded", String(node === thinking ? !!(bubble == null ? void 0 : bubble.isOpen()) : node.dataset.picker in quickTitles ? !quick.hidden && node.dataset.picker === quickMode : panelIsOpen() && node.dataset.picker === drawerMode));
     }
     const escapePanel = (event) => {
       if (event.key !== "Escape") return;
@@ -765,7 +980,7 @@
       quick.style.maxHeight = Math.max(96, Math.max(belowSpace, aboveSpace)) + "px";
       const width = quick.offsetWidth, height = quick.offsetHeight;
       const below = anchor.bottom + gap, above = anchor.top - height - gap;
-      const top = below + height <= innerHeight - pad ? below : above >= pad ? above : Math.max(pad, Math.min(innerHeight - height - pad, below));
+      const top = quickMode === "attachment" && above >= pad ? above : below + height <= innerHeight - pad ? below : above >= pad ? above : Math.max(pad, Math.min(innerHeight - height - pad, below));
       quick.style.left = Math.max(pad, Math.min(innerWidth - width - pad, anchor.left)) + "px";
       quick.style.top = top + "px";
       syncCodexCanvas(root);
@@ -783,7 +998,7 @@
       quickAnchor = anchor;
       quickFocus = anchor || document.activeElement;
       quick.dataset.kind = kind;
-      quickTitle.textContent = kind === "model" ? "选择模型" : kind === "collaboration" ? "子代理协作模式" : kind === "engine" ? "底层引擎" : "操作权限";
+      quickTitle.textContent = quickTitles[kind];
       quickBody.replaceChildren(selection(kind));
       quick.hidden = false;
       positionQuickPicker();
@@ -803,7 +1018,7 @@
     document.addEventListener("scroll", positionQuickPicker, true);
     document.addEventListener("keydown", escapePanel);
     function openPanel(kind, anchor) {
-      if (["model", "engine", "mode", "collaboration"].includes(kind)) {
+      if (kind in quickTitles) {
         openQuickPicker(kind, anchor);
         return;
       }
@@ -816,7 +1031,7 @@
       modal.dataset.kind = kind;
       modal.dataset.side = String(layout === "chat");
       sidebarBack.hidden = layout !== "chat" || kind === "history";
-      modalTitle.textContent = { history: "会话与工作区", menu: "会话选项" }[kind] || "";
+      modalTitle.textContent = { history: tr("会话与工作区", "Conversations and workspaces"), menu: tr("会话选项", "Conversation options") }[kind] || "";
       if (kind === "history" || kind === "menu") {
         modalBody.replaceChildren(kind === "history" ? sidebar : menu);
         routePage.hidden = true;
@@ -831,7 +1046,7 @@
         modal.hidden = true;
         modal.setAttribute("aria-hidden", "true");
         routePage.hidden = false;
-        routeTitle.textContent = { engine: "底层引擎", mode: "操作权限", thinking: "思考等级", info: "工作信息" }[kind] || "设置";
+        routeTitle.textContent = { engine: tr("底层引擎", "Agent engine"), mode: tr("操作权限", "Task mode"), thinking: tr("思考等级", "Reasoning level"), info: tr("工作信息", "Task details") }[kind] || tr("设置", "Settings");
         routeBody.replaceChildren(kind === "info" ? inspector : selection(kind));
         setRouteActive(true);
         requestAnimationFrame(() => {
@@ -869,7 +1084,7 @@
       openPanel("info");
     }
     const header = el("header", "topbar");
-    const menuButton = iconButton("打开会话历史", "menu", toggleHistory);
+    const menuButton = iconButton(tr("打开会话历史", "Open conversation history"), "menu", toggleHistory);
     function picker(label, kind, symbol) {
       const node = button(label, (event) => openPanel(kind, event.currentTarget), kind + "-picker picker-button", symbol);
       node.dataset.picker = kind;
@@ -880,59 +1095,82 @@
       return node;
     }
     const engineSelect = picker(profile.label, "engine", profile.mark);
-    engineSelect.setAttribute("aria-label", "底层引擎");
+    engineSelect.setAttribute("aria-label", tr("底层引擎", "Agent engine"));
     const engineLabel = engineSelect;
     const engineChoices = [{ id: "codex", label: "Codex", icon: "code-xml" }, { id: "openclaude", label: "OpenClaude", icon: "message-square" }, { id: "gemini", label: "Gemini CLI", icon: "sparkles" }, { id: "pi", label: "Pi", icon: "terminal" }];
-    const modeChoices = [{ id: "ask", label: "问答", detail: "只读", icon: "message-square" }, { id: "plan", label: "规划", detail: "只读 · 任务清单", icon: "list-checks" }, { id: "execute", label: "执行", detail: "暂存修改 · 命令需审批", icon: "wrench" }];
-    const collaborationChoices = [{ id: "extreme", label: "极端", detail: "配合 Ultra · 主代理首批派发，子代理递归协作", icon: "sparkles" }, { id: "team", label: "团队", detail: "主代理只编排整合，全部执行委派子代理", icon: "layers" }, { id: "assist", label: "辅助", detail: "根据任务大小适当委派", icon: "sliders-horizontal" }, { id: "off", label: "关闭", detail: "不注入协作提示词，代理工具保留", icon: "circle" }];
+    const modeChoices = [{ id: "ask", label: tr("问答", "Ask"), detail: tr("只读", "Read only"), icon: "message-square" }, { id: "plan", label: tr("规划", "Plan"), detail: tr("只读 · 任务清单", "Read only · task list"), icon: "list-checks" }, { id: "execute", label: tr("执行", "Execute"), detail: tr("暂存修改 · 命令需审批", "Stage edits · commands need approval"), icon: "wrench" }];
+    const collaborationChoices = [{ id: "extreme", label: tr("极端", "Extreme"), detail: tr("配合 Ultra · 主代理首批派发，子代理递归协作", "Use with Ultra · subagents may delegate further"), icon: "sparkles" }, { id: "team", label: tr("团队", "Team"), detail: tr("主代理只编排整合，全部执行委派子代理", "The main agent coordinates and delegates execution"), icon: "layers" }, { id: "assist", label: tr("辅助", "Assist"), detail: tr("根据任务大小适当委派", "Delegate based on task size"), icon: "sliders-horizontal" }, { id: "off", label: tr("关闭", "Off"), detail: tr("不注入协作提示词，代理工具保留", "Keep agent tools available without collaboration prompts"), icon: "circle" }];
+    const attachmentOptions = [
+      [tr("图片", "Images"), "image", "pick_images"],
+      [tr("文件", "Files"), "file", "pick_documents"],
+      [tr("工作区文件", "Workspace files"), "folder", "context_files"]
+    ];
+    function attachmentSelection() {
+      const key2 = String(state.imagesSupported !== false), cached = preparedSelections.get("attachment");
+      if ((cached == null ? void 0 : cached.key) === key2) return cached.node;
+      const node = el("div", "attachment-options");
+      for (const [label, symbol, command] of attachmentOptions) {
+        const item = button(label, () => nativeRequest(command), "attachment-option", symbol);
+        item.dataset.value = command;
+        if (command === "pick_images" && state.imagesSupported === false) {
+          item.disabled = true;
+          item.title = tr("当前模型通道不支持图片", "This model connection does not support images");
+          item.setAttribute("aria-label", label + tr("：当前模型通道不支持", ": unsupported by this model connection"));
+        }
+        node.append(item);
+      }
+      preparedSelections.set("attachment", { key: key2, node });
+      return node;
+    }
     function selection(kind) {
-      const choices = kind === "model" ? (state.models || []).map((id) => ({ id, label: id, detail: id === state.model ? "当前模型" : "下一次任务使用" })) : kind === "collaboration" ? collaborationChoices : kind === "engine" ? engineChoices.map((item) => {
+      if (kind === "attachment") return attachmentSelection();
+      const choices = kind === "model" ? (state.models || []).map((id) => ({ id, label: id, detail: id === state.model ? tr("当前模型", "Current model") : tr("下一次任务使用", "Used for the next task") })) : kind === "collaboration" ? collaborationChoices : kind === "engine" ? engineChoices.map((item) => {
         const availability2 = (state.engines || []).find((engine) => engine.id === item.id);
-        return { ...item, detail: !(availability2 == null ? void 0 : availability2.checked) ? "尚未检查" : availability2.available ? "本地资源可用" : availability2.reason || "未安装" };
-      }) : kind === "mode" ? modeChoices : state.thinkingChoices || [{ id: "auto", label: "自动", detail: "引擎默认" }];
+        return { ...item, detail: !(availability2 == null ? void 0 : availability2.checked) ? tr("尚未检查", "Not checked") : availability2.available ? tr("本地资源可用", "Local resources available") : availability2.reason || tr("未安装", "Not installed") };
+      }) : kind === "mode" ? modeChoices : state.thinkingChoices || [{ id: "auto", label: tr("自动", "Auto"), detail: tr("引擎默认", "Engine default") }];
       const value = kind === "model" ? state.model : kind === "collaboration" ? state.collaborationMode || "assist" : kind === "engine" ? state.engine : kind === "mode" ? state.mode : state.thinkingLevel || "auto";
       const cacheKey = JSON.stringify([choices, value, state.thinkingNote || "", state.modelSelectable]);
       const cached = preparedSelections.get(kind);
       if ((cached == null ? void 0 : cached.key) === cacheKey) return cached.node;
       const container = el("div", "selection-content");
-      if (kind !== "model" || state.modelSelectable !== false) container.append(choiceList({ model: "选择模型", collaboration: "子代理协作模式", engine: "底层引擎", mode: "操作权限", thinking: "思考等级" }[kind], choices, value, (id) => {
+      if (kind !== "model" || state.modelSelectable !== false) container.append(choiceList({ model: tr("选择模型", "Choose model"), collaboration: tr("子代理协作模式", "Subagent collaboration"), engine: tr("底层引擎", "Agent engine"), mode: tr("操作权限", "Task mode"), thinking: tr("思考等级", "Reasoning level") }[kind], choices, value, (id) => {
         if (state.busy) return;
         if (["model", "engine", "mode", "collaboration"].includes(kind)) closeQuickPicker();
         else closePanel();
         request(kind === "thinking" ? "thinking" : kind, kind === "model" ? { text: id } : { id });
       }));
       if (kind === "model") {
-        if (state.modelSelectable === false) container.append(el("p", "selection-note", "免费服务的模型由账号方案决定。"));
-        else if (!choices.length) container.append(el("p", "selection-note", "尚未配置模型。支持逗号分隔，也可以从云端获取列表。"));
-        container.append(button("管理 API / 获取云端模型", () => nativeRequest("settings"), "menu-action", "settings-2"));
+        if (state.modelSelectable === false) container.append(el("p", "selection-note", tr("免费服务的模型由账号方案决定。", "The account plan selects the model for the free service.")));
+        else if (!choices.length) container.append(el("p", "selection-note", tr("尚未配置模型。支持逗号分隔，也可以从云端获取列表。", "Add models separated by commas, or fetch the list from your provider.")));
+        container.append(button(tr("管理 API / 获取云端模型", "Manage API and fetch models"), () => nativeRequest("settings"), "menu-action", "settings-2"));
       }
-      if (kind === "thinking" && ["gemini", "openclaude"].includes(state.engine)) container.replaceChildren(button("思考预算 / 思考强度 / 手动填入", () => nativeRequest("settings"), "menu-action", "sliders-horizontal"));
+      if (kind === "thinking" && ["gemini", "openclaude"].includes(state.engine)) container.replaceChildren(button(tr("思考预算 / 思考强度 / 手动填入", "Set a reasoning level or budget"), () => nativeRequest("settings"), "menu-action", "sliders-horizontal"));
       if (kind === "thinking" && state.thinkingNote) container.append(el("p", "selection-note", state.thinkingNote));
       preparedSelections.set(kind, { key: cacheKey, node: container });
       return container;
     }
     const topTitle = el("span", "top-title");
-    const fresh = iconButton("新会话", "plus", () => request("new"));
-    const more = iconButton("会话选项", "ellipsis", () => openPanel("menu"));
-    const logs = button("日志", () => request("diagnostics"), "icon-button", "terminal");
-    const topStop = iconButton("停止任务", "square", () => request("stop"), "top-stop");
+    const fresh = iconButton(tr("新会话", "New conversation"), "plus", () => request("new"));
+    const more = iconButton(tr("会话选项", "Conversation options"), "ellipsis", () => openPanel("menu"));
+    const logs = button(tr("日志", "Logs"), () => request("diagnostics"), "icon-button", "terminal");
+    const topStop = iconButton(tr("停止任务", "Stop task"), "square", () => request("stop"), "top-stop");
     topStop.hidden = true;
     header.append(menuButton, engineLabel, topTitle, logs, fresh, more);
     const workspaceBar = el("div", "workspace-bar");
-    const workspace = button("工作区", () => nativeRequest("workspaces"), "workspace-button", "folder");
+    const workspace = button(tr("工作区", "Workspace"), () => nativeRequest("workspaces"), "workspace-button", "folder");
     const workspaceName = workspace.querySelector("span");
-    const workInfo = button("工作信息", () => showInfo(), "work-info", "panel-right");
-    const changesLink = button("改动", () => nativeRequest("review"), "changes-link", "git-pull-request");
-    const contextBadge = button("上下文", () => showInfo("context"), "context-badge", "layers");
+    const workInfo = button(tr("工作信息", "Task details"), () => showInfo(), "work-info", "panel-right");
+    const changesLink = button(tr("改动", "Changes"), () => nativeRequest("review"), "changes-link", "git-pull-request");
+    const contextBadge = button(tr("上下文", "Context"), () => showInfo("context"), "context-badge", "layers");
     workspaceBar.append(workspace, contextBadge, workInfo, changesLink);
     const alert = el("div", "notice");
     alert.setAttribute("role", "status");
     const alertText = el("span");
-    const retry = button("连接环境", () => request("connect"), "text-button");
+    const retry = button(tr("连接环境", "Connect runtime"), () => request("connect"), "text-button");
     alert.append(alertText, retry);
     alert.hidden = true;
     const viewport = el("section", "conversation-viewport");
-    viewport.setAttribute("aria-label", "对话记录");
+    viewport.setAttribute("aria-label", tr("对话记录", "Conversation"));
     const welcome = el("div", "welcome");
     if (profile.id !== "codex") welcome.append(engineArtwork(profile));
     welcome.append(el("h1", "", profile.greeting));
@@ -953,9 +1191,9 @@
     const welcomeWorkspace = el("p", "welcome-workspace");
     welcome.append(welcomeWorkspace);
     const messages = el("div", "messages");
-    const renderMessages = createMessageRenderer(messages, request);
+    const renderMessages = createMessageRenderer(messages, request, void 0, toolExpansion2);
     viewport.append(welcome, messages);
-    const jump = button("回到最新", () => {
+    const jump = button(tr("回到最新", "Jump to latest"), () => {
       follow = true;
       viewport.scrollTop = viewport.scrollHeight;
       jump.hidden = true;
@@ -971,7 +1209,7 @@
     const statusDot = el("span", "status-dot"), statusText = el("span");
     statusLine.append(statusDot, statusText);
     const composer = el("form", "composer");
-    const project = button("选择工作区", () => nativeRequest("workspaces"), "project-strip", "folder");
+    const project = button(tr("选择工作区", "Choose workspace"), () => nativeRequest("workspaces"), "project-strip", "folder");
     const projectName = project.querySelector("span");
     project.append(icon("chevron-down"));
     project.hidden = true;
@@ -981,12 +1219,12 @@
     input.rows = 1;
     input.maxLength = 12e3;
     input.placeholder = profile.placeholder;
-    input.setAttribute("aria-label", "任务描述");
+    input.setAttribute("aria-label", tr("任务描述", "Task description"));
     input.value = local.text || "";
     function fitInput() {
-      var _a2, _b;
       input.rows = Math.min(5, Math.max(1, input.value.split("\n").length));
-      submit.disabled = !!state.busy || !state.session || !input.value.trim() || ((_a2 = availability()) == null ? void 0 : _a2.checked) && !((_b = availability()) == null ? void 0 : _b.available);
+      const available = availability();
+      submit.disabled = !!state.busy || !state.session || !(input.value.trim() || (state.attachments || []).length) || (available == null ? void 0 : available.checked) === true && available.available === false;
     }
     input.addEventListener("input", () => {
       saveDraft();
@@ -1001,23 +1239,26 @@
       }
     });
     const controls = el("div", "composer-controls");
-    const attach = iconButton("选择上下文文件", "paperclip", () => nativeRequest("context_files"));
-    attach.classList.add("context-picker");
-    const mode = picker("执行", "mode");
-    mode.setAttribute("aria-label", "操作权限");
+    const attach = iconButton(tr("添加附件", "Add attachments"), "plus", (event) => openQuickPicker("attachment", event.currentTarget), "context-picker");
+    attach.dataset.picker = "attachment";
+    attach.setAttribute("aria-haspopup", "dialog");
+    attach.setAttribute("aria-expanded", "false");
+    attach.setAttribute("aria-controls", quick.id);
+    const mode = picker(tr("执行", "Execute"), "mode");
+    mode.setAttribute("aria-label", tr("操作权限", "Task mode"));
     const modeLabel = mode;
-    const model = picker("配置模型", "model");
+    const model = picker(tr("配置模型", "Configure model"), "model");
     model.classList.add("model-selector");
     const modelText = model.querySelector("span");
-    model.setAttribute("aria-label", "选择模型");
-    const thinking = button("自动", () => {
+    model.setAttribute("aria-label", tr("选择模型", "Choose model"));
+    const thinking = button(tr("自动", "Auto"), () => {
     }, "thinking-picker picker-button", "sliders-horizontal");
     thinking.setAttribute("aria-haspopup", "dialog");
     thinking.setAttribute("aria-expanded", "false");
-    thinking.setAttribute("aria-label", "思考等级");
-    thinking.title = "思考等级";
+    thinking.setAttribute("aria-label", tr("思考等级", "Reasoning level"));
+    thinking.title = tr("思考等级", "Reasoning level");
     let longTaskTimer, longTaskPointer = null, longTaskHeld = false, longTaskOrigin;
-    const longTask = iconButton("长任务模式：关闭；长按查看说明", "timer", (event) => {
+    const longTask = iconButton(tr("长任务模式：关闭；长按查看说明", "Long task mode: off. Long press for details"), "timer", (event) => {
       if (longTaskHeld) {
         event.preventDefault();
         longTaskHeld = false;
@@ -1065,12 +1306,12 @@
         showLongTaskInfo();
       }
     });
-    const collaboration = picker("协作", "collaboration", "layers");
-    const submit = iconButton("发送任务", "arrow-up", () => {
+    const collaboration = picker(tr("协作", "Collaboration"), "collaboration", "layers");
+    const submit = iconButton(tr("发送任务", "Send"), "arrow-up", () => {
     }, "send-button");
     submit.type = "submit";
     submit.disabled = true;
-    const stop = iconButton("停止任务", "square", () => request("stop"), "send-button stop-button");
+    const stop = iconButton(tr("停止任务", "Stop task"), "square", () => request("stop"), "send-button stop-button");
     stop.hidden = true;
     controls.append(attach, modeLabel, model, thinking, longTask, collaboration);
     const inputRow = el("div", "composer-input-row"), sendLane = el("div", "send-lane");
@@ -1080,7 +1321,7 @@
     composerArea.append(statusLine, composer);
     composer.addEventListener("submit", (e) => {
       e.preventDefault();
-      if (!submit.disabled && input.value.trim()) request("send", { text: input.value });
+      if (!submit.disabled) request("send", { text: input.value });
     });
     main.append(header, workspaceBar, alert, viewport, jump, composerArea);
     bubble = thinkingBubble(root, thinking, () => state, request, () => panelChanged());
@@ -1091,49 +1332,49 @@
     }, request, panelChanged);
     const sidebar = el("div", "sidebar-content");
     sidebar.append(el("div", "sidebar-brand", profile.id === "pi" ? "Pi" : "Aster"));
-    const newNav = button("新会话", () => {
+    const newNav = button(tr("新会话", "New conversation"), () => {
       closePanel();
       request("new");
     }, "new-conversation", "plus");
-    const workspaceNav = button("工作区", () => {
+    const workspaceNav = button(tr("工作区", "Workspace"), () => {
       closePanel();
       request("workspaces");
     }, "nav-link", "folder");
-    const promptNav = button("提示词", () => showInfo("prompt"), "nav-link", "notebook-pen");
+    const promptNav = button(tr("提示词", "Instructions"), () => showInfo("prompt"), "nav-link", "notebook-pen");
     const search = el("input", "history-search");
-    search.placeholder = "搜索会话";
-    search.setAttribute("aria-label", "搜索会话");
+    search.placeholder = tr("搜索会话", "Search conversations");
+    search.setAttribute("aria-label", tr("搜索会话", "Search conversations"));
     search.type = "search";
     const history = el("div", "history-list");
     search.addEventListener("input", () => renderHistory(true));
     const sidebarControls = el("div", "sidebar-controls");
     const footer = el("div", "sidebar-footer");
-    const nativeSettings = button("模型设置", () => {
+    const nativeSettings = button(tr("模型设置", "Model settings"), () => {
       closePanel();
       request("settings");
     }, "nav-link", "settings-2");
-    const workMode = button("切换工作模式", () => {
+    const workMode = button(tr("切换工作模式", "Switch work mode"), () => {
       closePanel();
       request("work_mode");
     }, "nav-link", "arrow-left-right");
-    footer.append(button("环境安装设置", () => {
+    footer.append(button(tr("环境安装设置", "Environment setup"), () => {
       closePanel();
       request("environment");
-    }, "nav-link", "terminal"), nativeSettings, button("轻舟浏览器", () => nativeRequest("browser"), "nav-link", "layers"), button("设备权限", () => nativeRequest("device_permissions"), "nav-link", "settings-2"), workMode);
-    footer.insertBefore(button("界面配置", () => nativeRequest("appearance"), "nav-link", "sparkles"), nativeSettings);
-    sidebar.append(newNav, workspaceNav, promptNav, el("h2", "sidebar-heading", "最近会话"), search, history, footer);
+    }, "nav-link", "terminal"), nativeSettings, button(tr("浏览器", "Browser"), () => nativeRequest("browser"), "nav-link", "layers"), button(tr("设备权限", "Device permissions"), () => nativeRequest("device_permissions"), "nav-link", "settings-2"), workMode);
+    footer.insertBefore(button(tr("界面配置", "Appearance"), () => nativeRequest("appearance"), "nav-link", "sparkles"), nativeSettings);
+    sidebar.append(newNav, workspaceNav, promptNav, el("h2", "sidebar-heading", tr("最近会话", "Recent conversations")), search, history, footer);
     const inspector = el("div", "inspector-content");
-    const sessionFacts = section("当前会话", "session-facts"), modelFact = el("p", "session-model"), thinkingFact = el("p", "small-text");
+    const sessionFacts = section(tr("当前会话", "Current conversation"), "session-facts"), modelFact = el("p", "session-model"), thinkingFact = el("p", "small-text");
     sessionFacts.append(modelFact, thinkingFact);
     const inspectorHeader = el("header", "inspector-header");
-    inspectorHeader.append(el("h2", "", "工作信息"), iconButton("收起工作信息", "panel-right", () => {
+    inspectorHeader.append(el("h2", "", tr("工作信息", "Task details")), iconButton(tr("收起工作信息", "Hide task details"), "panel-right", () => {
       infoPinned = false;
       restorePanels();
     }));
     const tabs = el("div", "info-tabs");
     tabs.setAttribute("role", "tablist");
     const tabNodes = {}, tabContent = {};
-    for (const [key2, label] of [["overview", "进度"], ["context", "上下文"], ["prompt", "提示词"]]) {
+    for (const [key2, label] of [["overview", tr("进度", "Progress")], ["context", tr("上下文", "Context")], ["prompt", tr("提示词", "Instructions")]]) {
       const b = button(label, () => {
         infoTab = key2;
         renderTabs();
@@ -1164,39 +1405,39 @@
       renderTabs();
       tabNodes[infoTab].focus();
     });
-    const tasks = section("任务进度", "tasks-section"), taskList = el("ul", "task-list");
+    const tasks = section(tr("任务进度", "Task progress"), "tasks-section"), taskList = el("ul", "task-list");
     tasks.append(taskList);
-    const directory = section("工作目录");
-    const directoryAction = button("工作区", () => request("workspaces"), "directory-action", "folder");
+    const directory = section(tr("工作目录", "Working directory"));
+    const directoryAction = button(tr("工作区", "Workspace"), () => request("workspaces"), "directory-action", "folder");
     directory.append(directoryAction);
-    const changes = section("修改审阅"), changeList = el("div", "change-list");
-    const review = button("审阅修改", () => request("review"), "outline-button", "git-pull-request");
+    const changes = section(tr("修改审阅", "Review changes")), changeList = el("div", "change-list");
+    const review = button(tr("审阅修改", "Review changes"), () => request("review"), "outline-button", "git-pull-request");
     changes.append(changeList, review);
-    const contextOverview = section("上下文", "context-overview"), overviewFiles = el("div");
-    contextOverview.append(overviewFiles, button("查看上下文", () => showInfo("context"), "outline-button", "layers"));
+    const contextOverview = section(tr("上下文", "Context"), "context-overview"), overviewFiles = el("div");
+    contextOverview.append(overviewFiles, button(tr("查看上下文", "View context"), () => showInfo("context"), "outline-button", "layers"));
     tabContent.overview.append(sessionFacts, tasks, directory, contextOverview, changes);
-    const context = section("上下文用量"), usage = el("p", "context-usage"), meter = el("progress");
+    const context = section(tr("上下文用量", "Context usage")), usage = el("p", "context-usage"), meter = el("progress");
     meter.max = 1;
-    meter.setAttribute("aria-label", "上下文用量");
+    meter.setAttribute("aria-label", tr("上下文用量", "Context usage"));
     const compactions = el("p", "small-text"), configuredWindow = el("p", "small-text context-configured"), measurement = el("p", "small-text context-measurement"), policyNote = el("p", "small-text context-policy");
-    const contextSettings = button("调整上下文窗口", () => request("settings"), "outline-button", "settings-2");
-    const compact = button("压缩上下文", () => request("compact"), "outline-button", "layers");
+    const contextSettings = button(tr("调整上下文窗口", "Set context window"), () => request("settings"), "outline-button", "settings-2");
+    const compact = button(tr("压缩上下文", "Compact context"), () => request("compact"), "outline-button", "layers");
     const compactNote = el("p", "small-text");
     context.append(usage, meter, configuredWindow, measurement, policyNote, contextSettings, compactions, compact, compactNote);
-    const files = section("已选择的文件"), fileList = el("div", "context-files"), pickFiles = button("选择文件", () => request("context_files"), "outline-button", "paperclip");
+    const files = section(tr("已选择的文件", "Selected files")), fileList = el("div", "context-files"), pickFiles = button(tr("选择文件", "Select files"), () => request("context_files"), "outline-button", "paperclip");
     files.append(fileList, pickFiles);
-    const runtime = section("运行环境"), runtimeText = el("p", "small-text"), connect = button("连接环境", () => request("connect"), "outline-button", "terminal");
-    runtime.append(runtimeText, connect, button("运行详情与诊断", () => request("diagnostics"), "outline-button", "terminal"));
+    const runtime = section(tr("运行环境", "Runtime")), runtimeText = el("p", "small-text"), connect = button(tr("连接环境", "Connect runtime"), () => request("connect"), "outline-button", "terminal");
+    runtime.append(runtimeText, connect, button(tr("运行详情与诊断", "Runtime diagnostics"), () => request("diagnostics"), "outline-button", "terminal"));
     tabContent.context.append(context, files, runtime);
     const prompt = el("textarea", "prompt-input");
     prompt.rows = 9;
     prompt.maxLength = 8e3;
-    prompt.setAttribute("aria-label", "工作指令");
-    const savePrompt = button("保存提示词", () => request("prompt", { text: prompt.value }), "primary-button");
-    tabContent.prompt.append(el("p", "small-text", "这些指令会随工作区任务发送给当前引擎。"), prompt, savePrompt);
+    prompt.setAttribute("aria-label", tr("工作指令", "Workspace instructions"));
+    const savePrompt = button(tr("保存提示词", "Save instructions"), () => request("prompt", { text: prompt.value }), "primary-button");
+    tabContent.prompt.append(el("p", "small-text", tr("这些指令会随工作区任务发送给当前引擎。", "These instructions are sent to the current engine with workspace tasks.")), prompt, savePrompt);
     inspector.append(inspectorHeader, tabs, ...Object.values(tabContent));
     const menu = el("div", "action-menu");
-    const menuActions = [["工作信息", "panel-right", () => showInfo()], ["上下文与压缩", "layers", () => showInfo("context")], ["提示词", "notebook-pen", () => showInfo("prompt")], ["修改审阅", "git-pull-request", () => nativeRequest("review")], ["运行详情与诊断", "terminal", () => nativeRequest("diagnostics")], ["环境安装设置", "terminal", () => nativeRequest("environment")], ["界面配置", "sparkles", () => nativeRequest("appearance")], ["模型与上下文设置", "settings-2", () => nativeRequest("settings")], ["切换工作模式", "arrow-left-right", () => nativeRequest("work_mode")]];
+    const menuActions = [[tr("工作信息", "Task details"), "panel-right", () => showInfo()], [tr("上下文与压缩", "Context and compaction"), "layers", () => showInfo("context")], [tr("提示词", "Instructions"), "notebook-pen", () => showInfo("prompt")], [tr("修改审阅", "Review changes"), "git-pull-request", () => nativeRequest("review")], [tr("运行详情与诊断", "Runtime diagnostics"), "terminal", () => nativeRequest("diagnostics")], [tr("环境安装设置", "Environment setup"), "terminal", () => nativeRequest("environment")], [tr("界面配置", "Appearance"), "sparkles", () => nativeRequest("appearance")], [tr("模型与上下文设置", "Model and context settings"), "settings-2", () => nativeRequest("settings")], [tr("切换工作模式", "Switch work mode"), "arrow-left-right", () => nativeRequest("work_mode")]];
     for (const [label, symbol, action] of menuActions) menu.append(button(label, action, "menu-action", symbol));
     function applyLayout(next) {
       const value = next.uiLayout === "classic" ? "classic" : "chat";
@@ -1207,18 +1448,16 @@
       if (value === "chat") {
         header.replaceChildren(menuButton, model, thinking, topStop, fresh);
         inputRow.insertBefore(attach, input);
-        attach.replaceChildren(icon("plus"));
         sidebarControls.replaceChildren(engineSelect, mode, longTask, collaboration);
         sidebar.insertBefore(sidebarControls, workspaceNav);
         sidebar.insertBefore(menu, footer);
         fresh.replaceChildren(icon("notebook-pen"));
-        input.placeholder = "询问 " + profile.label + "…";
+        input.placeholder = tr("询问 ", "Ask ") + profile.label + "…";
       } else {
         header.replaceChildren(menuButton, engineLabel, topTitle, logs, fresh, more);
         controls.replaceChildren(attach, mode, model, thinking, longTask, collaboration);
         sidebarControls.remove();
         menu.remove();
-        attach.replaceChildren(icon("paperclip"));
         fresh.replaceChildren(icon("plus"));
         input.placeholder = profile.placeholder;
       }
@@ -1239,20 +1478,21 @@
       const query = search.value.trim().toLocaleLowerCase();
       const entries = (state.history || []).filter((e) => e.title.toLocaleLowerCase().includes(query));
       for (const entry of entries) {
+        const title = conversationTitle(entry.title);
         const row = el("div", "history-row");
-        const b = button(entry.title, () => {
+        const b = button(title, () => {
           closePanel();
           request("history", { id: entry.id });
         }, "history-link", "message-square");
         b.dataset.session = entry.id;
-        b.title = entry.title;
-        const remove = iconButton("删除会话 " + entry.title, "trash-2", () => request("delete", { id: entry.id }), "history-delete");
+        b.title = title;
+        const remove = iconButton(tr("删除会话 ", "Delete conversation ") + title, "trash-2", () => request("delete", { id: entry.id }), "history-delete");
         b.disabled = !!state.busy;
         remove.disabled = !!state.busy;
         row.append(b, remove);
         history.append(row);
       }
-      if (!entries.length) history.append(el("p", "empty-note", query ? "没有匹配的会话" : "暂无历史会话"));
+      if (!entries.length) history.append(el("p", "empty-note", query ? tr("没有匹配的会话", "No matching conversations") : tr("暂无历史会话", "No conversation history")));
     }
     function update(next) {
       var _a2, _b, _c, _d;
@@ -1260,13 +1500,17 @@
       root.dataset.reducedMotion = String(!!state.reducedMotion);
       applyLayout(state);
       applyCodexAppearance(root, state);
+      paintBackdrop();
       if (!quick.hidden) {
         if (state.busy || !state.session) closeQuickPicker();
         else {
-          const focused = quickBody.contains(document.activeElement) ? (_a2 = document.activeElement) == null ? void 0 : _a2.dataset.value : null;
-          quickBody.replaceChildren(selection(quickMode));
+          const content = selection(quickMode);
+          if (quickBody.firstChild !== content) {
+            const focused = quickBody.contains(document.activeElement) ? (_a2 = document.activeElement) == null ? void 0 : _a2.dataset.value : null;
+            quickBody.replaceChildren(content);
+            if (focused) (_b = Array.from(quickBody.querySelectorAll("[data-value]")).find((node) => node.dataset.value === focused)) == null ? void 0 : _b.focus();
+          }
           positionQuickPicker();
-          if (focused) (_b = Array.from(quickBody.querySelectorAll("[data-value]")).find((node) => node.dataset.value === focused)) == null ? void 0 : _b.focus();
         }
       }
       if (!routePage.hidden && drawerMode === "thinking") routeBody.replaceChildren(selection(drawerMode));
@@ -1278,37 +1522,37 @@
       root.dataset.busy = String(!!state.busy);
       welcome.hidden = !empty || !!child;
       messages.hidden = empty;
-      topTitle.textContent = (child == null ? void 0 : child.label) || state.title || "新会话";
+      topTitle.textContent = (child == null ? void 0 : child.label) || conversationTitle(state.title);
       engineSelect.querySelector(".button-label").textContent = profile.label;
-      workspaceName.textContent = state.workspaceName || "选择工作区";
-      projectName.textContent = state.workspaceName || "选择工作区";
+      workspaceName.textContent = state.workspaceName || tr("选择工作区", "Choose workspace");
+      projectName.textContent = state.workspaceName || tr("选择工作区", "Choose workspace");
       welcomeWorkspace.textContent = state.workspaceName || "";
-      workspace.title = state.workspaceName || "选择工作区";
+      workspace.title = state.workspaceName || tr("选择工作区", "Choose workspace");
       const selectedThinking = (state.thinkingChoices || []).find((item) => item.id === (state.thinkingLevel || "auto"));
-      const thinkingLabel = state.engine === "codex" ? state.thinkingLevel === "ultra" ? "Ultra" : String(state.thinkingLevel || "auto").toLowerCase() : state.thinkingLabel || (selectedThinking == null ? void 0 : selectedThinking.label) || "自动";
+      const thinkingLabel = state.engine === "codex" ? state.thinkingLevel === "ultra" ? "Ultra" : String(state.thinkingLevel || "auto").toLowerCase() : state.thinkingLabel || (selectedThinking == null ? void 0 : selectedThinking.label) || tr("自动", "Auto");
       thinking.querySelector(".button-label").textContent = thinkingLabel;
       thinking.dataset.engine = state.engine || "";
       thinking.dataset.ultra = String(state.engine === "codex" && state.thinkingLevel === "ultra");
       thinking.dataset.explicit = String((state.thinkingLevel || "auto") !== "auto");
-      thinking.title = "思考等级 · " + thinkingLabel;
+      thinking.title = tr("思考等级 · ", "Reasoning level · ") + thinkingLabel;
       thinking.setAttribute("aria-label", thinking.title);
-      collaboration.title = "子代理协作模式：" + (((_c = collaborationChoices.find((c) => c.id === (state.collaborationMode || "assist"))) == null ? void 0 : _c.label) || "辅助");
+      collaboration.title = tr("子代理协作模式：", "Subagent collaboration: ") + (((_c = collaborationChoices.find((c) => c.id === (state.collaborationMode || "assist"))) == null ? void 0 : _c.label) || tr("辅助", "Assist"));
       collaboration.setAttribute("aria-label", collaboration.title);
       collaboration.disabled = !!state.busy || !state.session;
       longTask.setAttribute("aria-pressed", String(!!state.longTaskMode));
-      longTask.title = "长任务模式：" + (state.longTaskMode ? "开启 · 无人守候" : "关闭 · 优先提问") + "；长按查看说明";
+      longTask.title = tr("长任务模式：", "Long task mode: ") + (state.longTaskMode ? tr("开启 · 无人守候", "on · unattended") : tr("关闭 · 优先提问", "off · ask first")) + tr("；长按查看说明", ". Long press for details");
       longTask.setAttribute("aria-label", longTask.title);
       longTask.setAttribute("aria-disabled", String(!!state.busy || !state.session));
       if (!state.session) clearLongTaskPress();
-      thinkingFact.textContent = "思考 · " + thinkingLabel;
-      modelFact.textContent = state.model || "未配置模型";
+      thinkingFact.textContent = tr("思考 · ", "Reasoning · ") + thinkingLabel;
+      modelFact.textContent = state.model || tr("未配置模型", "No model configured");
       const knownContext = ["estimate", "hybrid", "engine"].includes(state.contextSource);
-      contextBadge.querySelector(".button-label").textContent = knownContext ? Math.round(100 * (state.tokens || 0) / Math.max(1, state.window || 1)) + "%" : "上下文";
-      contextBadge.title = knownContext ? "最近上下文用量" : "尚无有效用量报告";
-      directoryAction.querySelector("span").textContent = state.workspaceName || "尚未选择";
+      contextBadge.querySelector(".button-label").textContent = knownContext ? Math.round(100 * (state.tokens || 0) / Math.max(1, state.window || 1)) + "%" : tr("上下文", "Context");
+      contextBadge.title = knownContext ? tr("最近上下文用量", "Latest context usage") : tr("尚无有效用量报告", "No usage report yet");
+      directoryAction.querySelector("span").textContent = state.workspaceName || tr("尚未选择", "Not selected");
       const fileCount = (state.contextFiles || []).length;
-      workInfo.querySelector("span").textContent = "工作信息";
-      changesLink.querySelector("span").textContent = "改动 " + (state.changes || []).length;
+      workInfo.querySelector("span").textContent = tr("工作信息", "Task details");
+      changesLink.querySelector("span").textContent = tr("改动 ", "Changes ") + (state.changes || []).length;
       changesLink.hidden = !(state.changes || []).length;
       workInfo.hidden = false;
       const available = availability();
@@ -1317,14 +1561,14 @@
       alert.hidden = !warning;
       retry.hidden = !!state.saveError;
       retry.disabled = !!state.busy;
-      statusText.textContent = state.approval ? "等待命令审批" : state.stopping ? "正在停止…" : state.busy ? state.running ? state.status : "处理中…" : state.status;
+      statusText.textContent = state.approval ? tr("等待命令审批", "Waiting for command approval") : state.stopping ? tr("正在停止…", "Stopping…") : state.busy ? state.running ? state.status : tr("处理中…", "Working…") : state.status;
       statusLine.hidden = !state.session || !state.busy && (state.status === "准备就绪" || !state.status);
       statusDot.classList.toggle("active", !!state.busy);
-      mode.querySelector(".button-label").textContent = ((_d = modeChoices.find((item) => item.id === state.mode)) == null ? void 0 : _d.label) || "执行";
-      modelText.textContent = state.model || "配置模型";
-      model.title = state.model || "配置模型";
+      mode.querySelector(".button-label").textContent = ((_d = modeChoices.find((item) => item.id === state.mode)) == null ? void 0 : _d.label) || tr("执行", "Execute");
+      modelText.textContent = state.model || tr("配置模型", "Configure model");
+      model.title = state.model || tr("配置模型", "Configure model");
       if (state.busy && ["engine", "mode", "thinking"].includes(drawerMode)) closePanel();
-      for (const button2 of rail.querySelectorAll("button")) button2.disabled = (!!state.busy || !state.session) && ["新会话", "上下文文件", "模型设置"].includes(button2.getAttribute("aria-label"));
+      for (const button2 of rail.querySelectorAll("button")) button2.disabled = (!!state.busy || !state.session) && [tr("新会话", "New conversation"), tr("上下文文件", "Context files"), tr("模型设置", "Model settings")].includes(button2.getAttribute("aria-label"));
       for (const node of [engineSelect, fresh, workspace, project, newNav, workspaceNav, mode, model, thinking, attach, nativeSettings, workMode, review, pickFiles, savePrompt, directoryAction, connect, contextSettings]) node.disabled = !!state.busy || !state.session;
       review.disabled = review.disabled || !(state.changes || []).length;
       changes.hidden = !(state.changes || []).length;
@@ -1333,7 +1577,7 @@
       stop.disabled = !!state.stopping;
       topStop.hidden = !state.busy || layout !== "chat";
       topStop.disabled = !!state.stopping;
-      for (const b of menu.querySelectorAll("button")) b.disabled = !!state.busy && ["修改审阅", "模型与上下文设置", "切换工作模式"].includes(b.textContent);
+      for (const b of menu.querySelectorAll("button")) b.disabled = !!state.busy && [tr("修改审阅", "Review changes"), tr("模型与上下文设置", "Model and context settings"), tr("切换工作模式", "Switch work mode")].includes(b.textContent);
       if (lastAck !== void 0 && next.acceptance !== lastAck && input.value.trim() === next.acceptedText) {
         input.value = "";
         local.text = "";
@@ -1347,19 +1591,19 @@
         lastPrompt = state.prompt;
       }
       const source = state.contextSource || "unknown", known = ["estimate", "hybrid", "engine"].includes(source);
-      const labels = { estimate: "估算用量", hybrid: "usage + 尾部估算", engine: "引擎报告用量" };
-      usage.textContent = known ? labels[source] + "：" + (state.tokens || 0).toLocaleString() + " / " + (state.window || 0).toLocaleString() + " tokens" : "尚无有效用量报告";
+      const labels = { estimate: tr("估算用量", "Estimated usage"), hybrid: tr("usage + 尾部估算", "Reported usage + estimated tail"), engine: tr("引擎报告用量", "Reported by engine") };
+      usage.textContent = known ? labels[source] + tr("：", ": ") + (state.tokens || 0).toLocaleString(uiLocale()) + " / " + (state.window || 0).toLocaleString(uiLocale()) + " tokens" : tr("尚无有效用量报告", "No usage report yet");
       meter.hidden = !known;
       meter.value = Math.min(1, (state.tokens || 0) / Math.max(1, state.window || 1));
-      configuredWindow.textContent = "已保存窗口：" + (state.configuredWindow || state.window || 0).toLocaleString() + " tokens · 下一次任务使用";
-      measurement.textContent = known ? "这是最近一次采样，不是实时账单。" + (state.contextUpdatedAt ? " 更新于 " + new Date(state.contextUpdatedAt).toLocaleTimeString() : "") : "开始任务后显示估算或原生报告；未测量不等于已使用 0 tokens。";
+      configuredWindow.textContent = tr("已保存窗口：", "Configured window: ") + (state.configuredWindow || state.window || 0).toLocaleString(uiLocale()) + tr(" tokens · 下一次任务使用", " tokens · applies to the next task");
+      measurement.textContent = known ? tr("这是最近一次采样，不是实时账单。", "Latest sample. Live billing totals may differ.") + (state.contextUpdatedAt ? tr(" 更新于 ", " Updated at ") + new Date(state.contextUpdatedAt).toLocaleTimeString(uiLocale()) : "") : tr("开始任务后显示估算或原生报告；未测量不等于已使用 0 tokens。", "Usage appears once a task produces a report.");
       policyNote.textContent = state.contextPolicy || "";
-      compactions.textContent = "已压缩 " + (state.compactions || 0) + " 次";
+      compactions.textContent = tr("已压缩 ", "Compactions: ") + (state.compactions || 0) + tr(" 次", "");
       compact.disabled = !!state.busy || empty || state.compactSupported === false;
-      compactNote.textContent = state.compactSupported === false ? "此引擎暂不支持手动压缩。" : "";
+      compactNote.textContent = state.compactSupported === false ? tr("此引擎暂不支持手动压缩。", "This engine currently does not support manual compaction.") : "";
       compactNote.hidden = !compactNote.textContent;
-      runtimeText.textContent = (state.runtime || "环境未连接") + " · " + (state.setupPhase || "尚未检查") + "\n构建底层：" + profile.label + " " + (state.engineVersion || "") + "；资源可用不等于模型请求成功。";
-      const messageScope = JSON.stringify([state.session || "", (child == null ? void 0 : child.id) || "", state.engine || ""]);
+      runtimeText.textContent = (state.runtime || tr("环境未连接", "Runtime disconnected")) + " · " + (setupLabels[state.setupPhaseId] || state.setupPhase || tr("尚未检查", "Not checked")) + tr("\n构建底层：", "\nEngine: ") + profile.label + " " + (state.engineVersion || "") + tr("；资源可用不等于模型请求成功。", ". Local resources are checked independently of model requests.");
+      const messageScope = JSON.stringify([state.workspace || "", state.engine || "", state.session || "", (child == null ? void 0 : child.id) || ""]);
       if (renderMessages(messageScope, displayMessages, (child == null ? void 0 : child.label) || profile.label)) {
         if (follow) requestAnimationFrame(() => {
           viewport.scrollTop = viewport.scrollHeight;
@@ -1382,35 +1626,42 @@
           li.append(icon(done ? "check" : running ? "loader-circle" : "circle"), el("span", "", item.task));
           taskList.append(li);
         }
-        if (!(state.tasks || []).length) taskList.append(el("li", "empty-note", "尚未生成任务清单"));
+        if (!(state.tasks || []).length) taskList.append(el("li", "empty-note", tr("尚未生成任务清单", "No tasks yet")));
         lastTasks = taskKey;
       }
       const changesKey = JSON.stringify(state.changes || []);
       if (changesKey !== lastChanges) {
         changeList.replaceChildren();
         for (const item of state.changes || []) changeList.append(button(item.path, () => request("review"), "file-row", "file-code-2"));
-        if (!(state.changes || []).length) changeList.append(el("p", "empty-note", "暂无待应用修改"));
+        if (!(state.changes || []).length) changeList.append(el("p", "empty-note", tr("暂无待应用修改", "No changes to apply")));
         lastChanges = changesKey;
       }
-      const filesKey = JSON.stringify(state.contextFiles || []);
+      const attachments = state.attachments || [], filesKey = JSON.stringify([state.contextFiles || [], attachments]);
       if (filesKey !== lastFiles) {
         chips.replaceChildren();
         fileList.replaceChildren();
         overviewFiles.replaceChildren();
+        for (const item of attachments) {
+          const chip = el("div", "attachment-chip"), remove = iconButton(tr("移除 ", "Remove ") + item.name, "x", () => request("remove_attachment", { id: item.id }), "attachment-remove");
+          chip.title = item.name;
+          chip.append(icon(item.image ? "image" : "file"), el("span", "button-label", item.name), remove);
+          chips.append(chip);
+        }
         for (const path of state.contextFiles || []) {
-          const item = button(path.split("/").pop(), () => request("context_files"), "file-chip", "file-code-2");
+          const item = button(path.split("/").pop(), () => nativeRequest("context_files"), "file-chip", "file-code-2");
           item.title = path;
           chips.append(item);
           fileList.append(el("p", "file-reference", path));
           overviewFiles.append(el("p", "file-reference", path));
         }
         if (!fileCount) {
-          fileList.append(el("p", "empty-note", "未额外选择文件。Agent 可按当前权限读取工作区。"));
-          overviewFiles.append(el("p", "small-text", "使用当前工作区"));
+          fileList.append(el("p", "empty-note", tr("未额外选择文件。Agent 可按当前权限读取工作区。", "No extra files selected. The Agent can read the workspace under its current permissions.")));
+          overviewFiles.append(el("p", "small-text", tr("使用当前工作区", "Using the current workspace")));
         }
-        chips.hidden = !fileCount;
+        chips.hidden = !fileCount && !attachments.length;
         lastFiles = filesKey;
       }
+      for (const item of chips.querySelectorAll("button")) item.disabled = !!state.busy;
     }
     function positionJump() {
       if (root.isConnected) jump.style.bottom = composerArea.offsetHeight + 12 + "px";
@@ -1418,6 +1669,7 @@
     const composerObserver = typeof ResizeObserver === "function" ? new ResizeObserver(positionJump) : null;
     composerObserver == null ? void 0 : composerObserver.observe(composerArea);
     window.addEventListener("resize", positionJump);
+    window.addEventListener("resize", paintBackdrop);
     input.addEventListener("input", positionJump);
     for (const kind of ["engine", "mode"]) selection(kind);
     renderTabs();
@@ -1457,6 +1709,8 @@
       flushDraft();
       clearTimeout(draftTimer);
       composerObserver == null ? void 0 : composerObserver.disconnect();
+      backdropObserver == null ? void 0 : backdropObserver.disconnect();
+      window.removeEventListener("resize", paintBackdrop);
       window.removeEventListener("resize", positionJump);
       for (const query of [wide, dual]) {
         if (query.removeEventListener) query.removeEventListener("change", resized);
@@ -1473,8 +1727,8 @@
     "id": "codex",
     "label": "Codex",
     "mark": "code-xml",
-    "greeting": "我们该构建什么？",
-    "placeholder": "描述任务、目标或需要修复的问题…",
+    "greeting": tr("我们该构建什么？", "What should we build?"),
+    "placeholder": tr("描述任务、目标或需要修复的问题…", "Describe a task, goal, or issue…"),
     "navigation": false,
     "inspector": false,
     "starters": []
@@ -1485,8 +1739,8 @@
     "id": "openclaude",
     "label": "OpenClaude",
     "mark": "message-square",
-    "greeting": "一起完成下一个任务",
-    "placeholder": "输入任务或补充要求…",
+    "greeting": tr("一起完成下一个任务", "Work on your next task"),
+    "placeholder": tr("输入任务或补充要求…", "Enter a task or add details…"),
     "navigation": true,
     "inspector": true,
     "starters": []
@@ -1497,30 +1751,30 @@
     "id": "gemini",
     "label": "Gemini",
     "mark": "sparkles",
-    "greeting": "从哪里开始？",
-    "placeholder": "描述任务，或补充需要参考的内容…",
+    "greeting": tr("从哪里开始？", "Where should we start?"),
+    "placeholder": tr("描述任务，或补充需要参考的内容…", "Describe a task or add context…"),
     "navigation": false,
     "inspector": false,
     "starters": [
       [
-        "理解项目",
+        tr("理解项目", "Understand the project"),
         "folder",
-        "请说明这个项目的结构和关键流程。"
+        tr("请说明这个项目的结构和关键流程。", "Explain how this project is organized and how its main workflows operate.")
       ],
       [
-        "分析问题",
+        tr("分析问题", "Analyze an issue"),
         "search",
-        "请分析以下问题的原因：\n"
+        tr("请分析以下问题的原因：\n", "Analyze what caused the following issue:\n")
       ],
       [
-        "制定方案",
+        tr("制定方案", "Plan a change"),
         "list-checks",
-        "请为以下需求制定实现方案：\n"
+        tr("请为以下需求制定实现方案：\n", "Plan an implementation for the following requirements:\n")
       ],
       [
-        "实现修改",
+        tr("实现修改", "Implement a change"),
         "code-xml",
-        "请实现以下修改：\n"
+        tr("请实现以下修改：\n", "Implement the following changes:\n")
       ]
     ]
   };
@@ -1530,8 +1784,8 @@
     "id": "pi",
     "label": "Pi",
     "mark": "terminal",
-    "greeting": "开始新的对话",
-    "placeholder": "输入消息…",
+    "greeting": tr("开始新的对话", "Start a conversation"),
+    "placeholder": tr("输入消息…", "Type a message…"),
     "navigation": true,
     "inspector": false,
     "starters": []
@@ -1539,6 +1793,7 @@
 
   // agent/app/src/main/assets/agent/app.js
   var profiles = { codex: codex_default, openclaude: openclaude_default, gemini: gemini_default, pi: pi_default };
+  var toolExpansion = createToolExpansionState();
   var drafts = /* @__PURE__ */ new Map();
   var page;
   var holder;
@@ -1562,7 +1817,7 @@
           if (!window.AsterNative) return;
           const current = scope.value;
           window.AsterNative.postMessage(JSON.stringify({ version: 1, token: current.token, workspace: current.workspace, session: current.session, engine: current.engine, command, ...data }));
-        }, local);
+        }, local, toolExpansion);
         document.getElementById("app").replaceChildren(page.root);
       }
       holder.value = state;
@@ -1590,7 +1845,7 @@
   if (!page) {
     const profile = profiles.pi, local = { text: "", dirty: false };
     const initial = createPage(profile, () => {
-    }, local);
+    }, local, toolExpansion);
     initial.update({ engine: "pi", busy: true, status: "", messages: [], history: [], tasks: [], changes: [], contextFiles: [], engines: [] });
     document.body.dataset.engine = "pi";
     document.getElementById("app").replaceChildren(initial.root);

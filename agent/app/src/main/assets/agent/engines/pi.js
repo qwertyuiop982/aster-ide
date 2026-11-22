@@ -1,9 +1,10 @@
+import {tr} from '../locale.js';
 export default {
   "id": "pi",
   "label": "Pi",
   "mark": "terminal",
-  "greeting": "开始新的对话",
-  "placeholder": "输入消息…",
+  "greeting": tr('开始新的对话','Start a conversation'),
+  "placeholder": tr('输入消息…','Type a message…'),
   "navigation": true,
   "inspector": false,
   "starters": []

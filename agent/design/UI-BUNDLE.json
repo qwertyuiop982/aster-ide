@@ -3,20 +3,21 @@
   "version": "0.28.2",
   "target": "chrome61",
   "format": "iife",
-  "sha256": "985e9d4ca685ee438bb657f6f048ee6c455595d48fc01efe6dbfde2454485670",
+  "sha256": "c7204bac56fba026e232318c1547227281846220ecbb082fafcf73477c739620",
   "inputs": {
-    "agent/app/src/main/assets/agent/icons.js": "5d761bd1e9f184bb71943340e4b9874059b3098a95e07fd9e3b9dd19da42fe70",
-    "agent/app/src/main/assets/agent/dom.js": "f59b2cca11956fd60f2afb7f1bacbe0ca38324e853d25e835b73b96bca8ff164",
-    "agent/app/src/main/assets/agent/message-renderer.js": "efb1b9a08fde39e7126a59d381dd3407b3c1410539f5975b567d17395f769ad3",
+    "agent/app/src/main/assets/agent/locale.js": "03b314ccdda161a3cd03562c97b583ec3d3ed11d885ae732594e83f6d2a83f17",
+    "agent/app/src/main/assets/agent/icons.js": "bcf8fbc2ad45dc14ad565f7ad21cabf6839f39d1c024fa806eb2fa563a771064",
+    "agent/app/src/main/assets/agent/dom.js": "ad803e57c62f71b5442dac8511dda1286420d67681dfaca329179db73f9c2f4b",
+    "agent/app/src/main/assets/agent/message-renderer.js": "446c5e0b101b34c986649d0a13698264bfb6655790d1f655418d95cc7b85d183",
     "agent/app/src/main/assets/agent/appearance.js": "7ac61e960d8a402ed08713fb63cdb7cc0267bcf8906df5df1a7dbfd6f8eacf43",
-    "agent/app/src/main/assets/agent/bubbles.js": "b76357e57c4dc662aa4a7761eb81cb2fe80312c0deaed9717f105eab4e05380a",
+    "agent/app/src/main/assets/agent/bubbles.js": "0b71ff1760041997e3f290dcc0e26ae44b30efe70a58aea911ac26d1f5165782",
     "agent/app/src/main/assets/agent/choices.js": "8027f1470f11f0cbcb0b3826c492ff1a40316032e26bdfdbbf835b33b5a34f5c",
-    "agent/app/src/main/assets/agent/patterns.js": "04e1246d25885a7e0398f88fcbac8fe12374ac3c812f2c6f0aeecc8bf45561f2",
-    "agent/app/src/main/assets/agent/components.js": "b7f8f1f9395805527660da43de77a026b7489dbb4e5f4340c2adad474835864e",
-    "agent/app/src/main/assets/agent/engines/codex.js": "177b99d9b358c7bb7ea99daa76983765cb239dc08e793a4c5549a71ceccb81c5",
-    "agent/app/src/main/assets/agent/engines/openclaude.js": "1c2ff9a81326f5f1e9c1a8848a068d944ecece01f53180571a34986908159cec",
-    "agent/app/src/main/assets/agent/engines/gemini.js": "ed3cb7f38a8f40648dd5f238216f77e6fd28e707587a3982856faf3df10501e6",
-    "agent/app/src/main/assets/agent/engines/pi.js": "47725c7eed7c2e2b06aafcb4152133d7438910b0d4e9b1cf926d14fc2ce12cfd",
-    "agent/app/src/main/assets/agent/app.js": "2bfa96d55a64e96a57d77b822c70d3e4c5c703fed2b24afbe9b83dbed24418a8"
+    "agent/app/src/main/assets/agent/patterns.js": "5e24f31d3e875917a67a20771905b475a68e15846a046b1c7fee4359b1f55c87",
+    "agent/app/src/main/assets/agent/components.js": "890638cdf09fe635f8d1b704176622687aef92eff60898edd6ff961620a79274",
+    "agent/app/src/main/assets/agent/engines/codex.js": "884deb38daffdf1a80e07956dc144250fdaa8d56a6d4abd75410317f80ab65f6",
+    "agent/app/src/main/assets/agent/engines/openclaude.js": "0d38dcca04dffb938ebcc34418ffaa02d9ee2fb7f4b6ee79fba3cb0222e1abd4",
+    "agent/app/src/main/assets/agent/engines/gemini.js": "73c767bb513ab0630567aa8616bbb7f79d98708ea9ac2e01282333bf89393bd1",
+    "agent/app/src/main/assets/agent/engines/pi.js": "a834a421899d5ec4cdf1dcf57fd36572e595ae77a00ab2f6f17bdc65c589a7db",
+    "agent/app/src/main/assets/agent/app.js": "b88735aada65afc9c8033071fa541df1b166a90f2db5b6c757abf160d53b7e61"
   }
 }

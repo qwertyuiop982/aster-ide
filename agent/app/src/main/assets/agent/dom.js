@@ -1,4 +1,5 @@
-import {icons} from './icons.js';
+import {tr} from './locale.js';
+import {icons,attachmentIcons} from './icons.js';
 export function el(tag, className = '', text) {
   const node = document.createElement(tag); node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -7,7 +8,7 @@ export function el(tag, className = '', text) {
 export function icon(name) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   for (const [key, value] of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'1.65','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false',class:'icon'})) svg.setAttribute(key,value);
-  for (const [tag, attributes] of icons[name] || icons.circle) {
+  for (const [tag, attributes] of icons[name] || attachmentIcons[name] || icons.circle) {
     const child = document.createElementNS(svg.namespaceURI, tag);
     for (const [key,value] of Object.entries(attributes)) child.setAttribute(key,value);
     svg.append(child);
@@ -45,7 +46,7 @@ export function richText(target,text,copy) {
       const nl=chunk.indexOf('\n');const language=nl<0?'':chunk.slice(0,nl).trim();
       const code=nl<0?chunk:chunk.slice(nl+1).replace(/\n$/,'');
       const block=el('div','code-block'),bar=el('div','code-header');
-      bar.append(el('span','',language.slice(0,48)||'代码'),iconButton('复制代码','copy',()=>copy(code)));
+      bar.append(el('span','',language.slice(0,48)||tr('代码','Code')),iconButton(tr('复制代码','Copy code'),'copy',()=>copy(code)));
       block.append(bar,el('pre','code-content',code));fragment.append(block);
     } else {
       let paragraph=null,list=null;

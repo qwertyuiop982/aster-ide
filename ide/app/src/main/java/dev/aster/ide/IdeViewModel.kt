@@ -68,6 +68,10 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     var showSidebar by mutableStateOf(false)
     var panel by mutableStateOf("terminal")
     var showPanel by mutableStateOf(false)
+    var showTerminalPage by mutableStateOf(false)
+        private set
+    var terminalOpening by mutableStateOf(false)
+        private set
     var panelExpanded by mutableStateOf(false)
     var settingsPage by mutableStateOf<String?>(null)
     var showAgent by mutableStateOf(false)
@@ -133,7 +137,12 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 val started = android.os.SystemClock.elapsedRealtime()
                 val initial = repo.initialize()
                 workspace = initial
-                nodes = repo.files(initial, maxDepth = 1, maxEntries = 256)
+                nodes = if (!initial.direct) repo.files(initial, maxDepth = 1, maxEntries = 256)
+                else try {
+                    repo.nativeWorkspace(initial)
+                    repo.files(initial, maxDepth = 1, maxEntries = 256)
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { notify(e.message ?: "工作目录授权已失效"); emptyList() }
                 workspaceLoaded = true
                 settings.flow.first { it.uiStyleChosen }
                 coroutineScope {
@@ -144,7 +153,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 if (workspace?.id == initial.id) {
                     indexingJob = task {
-                        val indexed = repo.files(initial)
+                        val indexed = if (!initial.direct || nodes.isNotEmpty()) repo.files(initial) else emptyList()
                         if (workspace?.id == initial.id) nodes = indexed
                     }
                 }
@@ -251,15 +260,15 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     fun openNativeProject(uri: Uri) = task {
         check(!agent.running && !agentPreparing && !buildRunning) { "请先结束当前任务或构建" }
         saveAll()
-        val project = repo.nativeWorkspace(repo.openDirectTree(uri))
+        val project = repo.openDirectTree(uri)
         settings.update { it.copy(agentPermissionMode = "native") }
-        termux.start()
         switchInternal(project)
     }
     fun newProject(name: String) = task { saveAll(); switchInternal(repo.create(name)) }
     fun switchProject(project: Workspace) = task { saveAll(); switchInternal(project) }
     private suspend fun switchInternal(project: Workspace) {
         agentWarmup?.join()
+        if (project.direct) repo.nativeWorkspace(project)
         stopAgentInternal()
         agentDraft = ""; editPreview = null
         agent.selectWorkspace(project.id)
@@ -288,9 +297,10 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun syncWorkspace() = syncing.withLock {
+    suspend fun syncWorkspace(useNative: Boolean = true, refreshMount: Boolean = true) = syncing.withLock {
         val current = workspace ?: return@withLock 0
-        bridge.sync(current, repo).also { if (workspace?.id == current.id) syncedWorkspace = current.id }
+        if (current.direct && refreshMount) repo.nativeWorkspace(current)
+        bridge.sync(current, repo, useNative).also { if (workspace?.id == current.id && useNative) syncedWorkspace = current.id }
     }
     suspend fun refreshRuntime() {
         applyRuntimeInfo(bridge.info())
@@ -344,17 +354,10 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun continueLocally() = task {
         runtimeJob?.cancelAndJoin()
-        termux.close()
+        termux.stop()
         connected = false
         startupError = null
         try { prepareEditor() } catch (e: Exception) { startupError = e.message; throw e }
-    }
-    fun changeRuntimePort(port: Int) {
-        runtimeJob?.cancel()
-        termux.close()
-        connected = false
-        settings.update { it.copy(port = port) }
-        restartLsp()
     }
     private fun scheduleLsp(doc: EditorDocument) {
         languageJob?.cancel()
@@ -366,14 +369,34 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         val server = catalog.forPath(doc.path) ?: return
         if (installed[server.id] != true && settings.value.servers[server.id]?.command.isNullOrBlank()) { serverStates = serverStates + (server.id to "未安装"); return }
         if (syncedWorkspace != current.id) syncWorkspace()
+        else repo.checkAccess(current)
         lsp.open(current, doc)
     }
     fun restartLsp() = task { lsp.restart(); diagnostics = emptyMap(); serverStates = emptyMap(); if (connected) active?.let { ensureLsp(it) } }
-    fun openTerminal() = task {
-        showPanel = true; panel = "terminal"
+    fun openTerminalPage() {
+        showTerminalPage = true
+        if (connected && terminal.session.value == null) openTerminal(showInDock = false)
+    }
+    fun closeTerminalPage() { showTerminalPage = false }
+
+    fun openTerminal(showInDock: Boolean = true) = task {
+        if (showInDock) {
+            showPanel = true
+            panel = "terminal"
+        }
         check(connected) { "请先在设置中连接 Termux" }
-        saveAll(); syncWorkspace()
-        terminal.connect(workspace?.id ?: return@task, settings.value.scrollback)
+        val project = workspace ?: return@task
+        if (terminalOpening) return@task
+        terminalOpening = true
+        try {
+            saveAll()
+            syncWorkspace()
+            if (workspace?.id != project.id) return@task
+            terminal.connect(project.id, settings.value.scrollback)
+            if (workspace?.id != project.id) terminal.close()
+        } finally {
+            terminalOpening = false
+        }
     }
     fun installServer(id: String) = task {
         check(connected) { "请先连接 Termux" }
@@ -387,12 +410,14 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         check(!buildRunning) { "已有任务在运行" }
         saveAll(); syncWorkspace()
         val project = workspace ?: return@task
-        if (command.contains("gradle") && settings.value.sdkPath.isNotBlank()) {
+        if (command.contains("gradle") && settings.value.sdkPath.isNotBlank() &&
+            !dev.aster.termux.PathRedirect.workspaceBound(getApplication(), project.id, project.directory)) {
             val data = "sdk.dir=${settings.value.sdkPath}\n".toByteArray()
             bridge.rpc("put", project.id, JSONObject().put("path", "local.properties").put("data", Base64.encodeToString(data, Base64.NO_WRAP)))
         }
         lastCommand = command
         executeStream("run", JSONObject().put("command", command), command)
+        if (project.safMirror) { repo.refreshMount(project); refreshFiles() }
     }
     private suspend fun executeStream(op: String, params: JSONObject, title: String) {
         val project = workspace ?: return
@@ -411,10 +436,12 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
     }
     suspend fun refreshArtifacts() {
         val current = workspace ?: return
+        repo.checkAccess(current)
         artifacts = bridge.rpc("artifacts", current.id).getJSONArray("artifacts").objects().map { Artifact(it.getString("path"), it.getLong("size")) }
     }
     fun exportArtifact(artifact: Artifact, destination: Uri) = task {
         val current = workspace ?: return@task
+        repo.checkAccess(current)
         withContext(Dispatchers.IO) {
             getApplication<Application>().contentResolver.openOutputStream(destination, "wt")?.use { output ->
                 var offset = 0L
@@ -447,10 +474,14 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         val current = workspace ?: return
         agentWarmup = viewModelScope.launch {
             try {
-                val prepared = if (settings.value.agentPermissionMode == "native" || current.direct) repo.nativeWorkspace(current) else current
-                workspace = prepared
-                if (prepared != current || settings.value.agentPermissionMode == "native") termux.start()
-                syncWorkspace(); if (workspace?.id == prepared.id && !agent.running) agent.prewarm(prepared)
+                val native = settings.value.agentPermissionMode == "native"
+                val oldPath = bridge.projectRoot(current.id)
+                val prepared = if (native || current.direct) repo.nativeWorkspace(current) else current
+                if (oldPath != bridge.projectRoot(current.id)) { lsp.restart(); terminal.close() }
+                if (workspace?.id == prepared.id && !agent.running) {
+                    syncWorkspace(useNative = native, refreshMount = false)
+                    agent.prewarm(prepared)
+                }
             }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { log("后台工具预加载：${e.message}") }
@@ -493,11 +524,12 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                     } finally { agentRuntimeInstalling = false }
                 }
                 val native = settings.value.agentPermissionMode == "native"
+                agentWarmup?.join()
                 if (native) {
                     saveAll()
+                    val oldPath = bridge.projectRoot(current.id)
                     current = repo.nativeWorkspace(current)
-                    workspace = current; repo.select(current)
-                    termux.start()
+                    if (oldPath != bridge.projectRoot(current.id)) { lsp.restart(); terminal.close() }
                 }
                 val overlays = JSONArray()
                 var bytes = 0L
@@ -508,12 +540,12 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                     check(bytes <= 12L * 1024 * 1024) { "未保存文件超过 Agent 的 12 MiB 上限，请先保存部分文件" }
                     overlays.put(JSONObject().put("path", doc.path).put("data", Base64.encodeToString(data, Base64.NO_WRAP)))
                 }
-                agentWarmup?.join()
-                syncWorkspace()
+                syncWorkspace(useNative = native, refreshMount = !native)
                 check(workspace?.id == current.id) { "项目已切换" }
                 if (!compactOnly) agentDraft = ""
                 agentPreparing = false
                 agent.run(current, prompt, editorContext, overlays, compactOnly || prompt == "/compact")
+                if (native && current.safMirror) { repo.refreshMount(current); refreshFiles() }
             } finally { agentPreparing = false; releaseForegroundIfIdle() }
         }
     }

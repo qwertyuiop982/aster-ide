@@ -1,3 +1,4 @@
+"""Restore the source archives for historical APKs that used PRoot."""
 from pathlib import Path
 import concurrent.futures
 import hashlib

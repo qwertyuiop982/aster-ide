@@ -16,6 +16,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
@@ -35,7 +36,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,7 +51,9 @@ import dev.aster.ide.data.EditorDocument
 import dev.aster.ide.data.FileNode
 import dev.aster.ide.data.IdeSettings
 import dev.aster.ide.data.UiStyle
+import dev.aster.ide.feature.R
 import dev.aster.ide.lsp.LspPosition
+import dev.aster.core.R as CoreR
 
 @Composable fun AsterApp(vm: IdeViewModel, settings: IdeSettings) {
     if (!settings.uiStyleChosen) {
@@ -55,11 +63,27 @@ import dev.aster.ide.lsp.LspPosition
         return
     }
     val context = LocalContext.current
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val snackbar = remember { SnackbarHostState() }
     val editors = remember(context, vm) { EditorPool(context, vm) }
     val motion = LocalMotion.current
     val settingsVisible = vm.settingsPage != null
-    val sceneVisible = settingsVisible || vm.showAgent
+    val terminalPageVisible = vm.editorReady && vm.showTerminalPage
+    val terminalScene = remember { MutableTransitionState(terminalPageVisible) }
+    terminalScene.targetState = terminalPageVisible
+    // Keep the dock view detached until the full-screen terminal finishes its exit animation.
+    val terminalOwnsView = terminalScene.currentState || terminalScene.targetState || !terminalScene.isIdle
+    val sceneVisible = settingsVisible || vm.showAgent || vm.showTerminalPage
+    val openTerminalPage: () -> Unit = {
+        focus.clearFocus()
+        keyboard?.hide()
+        vm.openTerminalPage()
+    }
+    val closeTerminalPage: () -> Unit = {
+        keyboard?.hide()
+        vm.closeTerminalPage()
+    }
     var lastSettingsPage by remember { mutableStateOf("editor") }
     SideEffect { vm.settingsPage?.let { lastSettingsPage = it } }
     val workbenchOpacity by animateFloatAsState(if (sceneVisible) 0f else 1f, tween(motion.standard), label = "workbenchScene")
@@ -80,8 +104,15 @@ import dev.aster.ide.lsp.LspPosition
     var closing by remember { mutableStateOf<EditorDocument?>(null) }
     var renameSymbol by remember { mutableStateOf(false) }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
-    BackHandler(vm.settingsPage != null || vm.showAgent || vm.showSidebar || vm.showFind || vm.showPanel) {
-        when { vm.settingsPage != null -> vm.settingsPage = null; vm.showAgent -> vm.showAgent = false; vm.showFind -> vm.showFind = false; vm.showSidebar -> vm.showSidebar = false; else -> vm.showPanel = false }
+    BackHandler(settingsVisible || vm.showAgent || vm.showTerminalPage || vm.showSidebar || vm.showFind || vm.showPanel) {
+        when {
+            settingsVisible -> vm.settingsPage = null
+            vm.showAgent -> vm.showAgent = false
+            vm.showTerminalPage -> closeTerminalPage()
+            vm.showFind -> vm.showFind = false
+            vm.showSidebar -> vm.showSidebar = false
+            else -> vm.showPanel = false
+        }
     }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -105,7 +136,7 @@ import dev.aster.ide.lsp.LspPosition
                         Box(Modifier.weight(1f)) {
                             Row(Modifier.fillMaxSize()) {
                                 if (wide && vm.showSidebar) {
-                                    Explorer(vm, Modifier.width(252.dp), onImport = { importer.launch(null) }, onNew = { folder -> createFolder = folder; newFile = "" }, onRename = { renameFile = it }, onDelete = { deleteFile = it })
+                                    Explorer(vm, Modifier.width(252.dp), onImport = { importer.launch(null) }, onNew = { folder -> createFolder = folder; newFile = "" }, onRename = { renameFile = it }, onDelete = { deleteFile = it }, onOpenTerminal = openTerminalPage)
                                     VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 }
                                 AdaptiveDock(side = sideDock, visible = vm.showPanel, expanded = vm.dockExpanded, agent = vm.panel == "agent", agentFraction = settings.agentDockFraction, modifier = Modifier.weight(1f).fillMaxHeight(), editor = {
@@ -119,8 +150,8 @@ import dev.aster.ide.lsp.LspPosition
                                                 Icon(Icons.Outlined.Code, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
                                                 Spacer(Modifier.height(16.dp)); Text(vm.workspace?.name ?: "Aster", style = MaterialTheme.typography.titleLarge)
                                                 Spacer(Modifier.height(16.dp))
-                                                TextButton(onClick = { newFile = ""; createFolder = false }) { Icon(Icons.Outlined.NoteAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("新建文件") }
-                                                TextButton(onClick = { importer.launch(null) }) { Icon(Icons.Outlined.FolderOpen, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("打开项目") }
+                                                TextButton(onClick = { newFile = ""; createFolder = false }) { Icon(Icons.Outlined.NoteAdd, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.workbench_new_file)) }
+                                                TextButton(onClick = { importer.launch(null) }) { Icon(Icons.Outlined.FolderOpen, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.workbench_open_project)) }
                                             }
                                         }
                                         if (!cramped) EditorKeys(vm, compact)
@@ -129,7 +160,7 @@ import dev.aster.ide.lsp.LspPosition
                                     Row(Modifier.fillMaxSize()) {
                                         if (sideDock) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                         Surface(Modifier.weight(1f).fillMaxHeight().then(if (acs) Modifier.padding(horizontal = 8.dp, vertical = 4.dp) else Modifier), shape = if (acs) RoundedCornerShape(if (sideDock) 12.dp else 24.dp) else RoundedCornerShape(0.dp), color = MaterialTheme.colorScheme.surface) {
-                                            Panels(vm, settings, Modifier.fillMaxSize(), side = sideDock)
+                                            Panels(vm, settings, Modifier.fillMaxSize(), side = sideDock, terminalInPage = terminalOwnsView)
                                         }
                                     }
                                 })
@@ -139,7 +170,7 @@ import dev.aster.ide.lsp.LspPosition
                             }
                             androidx.compose.animation.AnimatedVisibility(!wide && vm.showSidebar, enter = slideInHorizontally(tween(motion.standard)) { motion.offset(-it) } + fadeIn(tween(motion.quick)), exit = slideOutHorizontally(tween(motion.standard)) { motion.offset(-it) } + fadeOut(tween(motion.standard))) {
                                 Surface(Modifier.width(280.dp).fillMaxHeight(), shape = if (acs) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp) else RoundedCornerShape(0.dp), tonalElevation = if (acs) 4.dp else 0.dp, color = MaterialTheme.colorScheme.surface) {
-                                    Explorer(vm, Modifier.fillMaxSize(), onImport = { importer.launch(null) }, onNew = { folder -> createFolder = folder; newFile = "" }, onRename = { renameFile = it }, onDelete = { deleteFile = it }, onOpened = { vm.showSidebar = false })
+                                    Explorer(vm, Modifier.fillMaxSize(), onImport = { importer.launch(null) }, onNew = { folder -> createFolder = folder; newFile = "" }, onRename = { renameFile = it }, onDelete = { deleteFile = it }, onOpenTerminal = openTerminalPage, onOpened = { vm.showSidebar = false })
                                 }
                             }
                         }
@@ -149,10 +180,19 @@ import dev.aster.ide.lsp.LspPosition
                 }
             }
             androidx.compose.animation.AnimatedVisibility(!vm.editorReady, Modifier.fillMaxSize(), enter = fadeIn(tween(motion.quick)), exit = fadeOut(tween(motion.standard))) {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { StartupScreen(vm, settings) }
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { StartupScreen(vm) }
             }
             if (vm.editorReady && vm.showAgent) Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 AgentScreen(vm, settings)
+            }
+            AnimatedVisibility(
+                visibleState = terminalScene,
+                modifier = Modifier.fillMaxSize(),
+                enter = slideInHorizontally(tween(motion.standard)) { motion.offset(it) } + fadeIn(tween(motion.quick)),
+                exit = slideOutHorizontally(tween(motion.standard)) { motion.offset(it) } + fadeOut(tween(motion.quick)),
+                label = "terminalScene",
+            ) {
+                TerminalPage(vm, settings, closeTerminalPage)
             }
             androidx.compose.animation.AnimatedVisibility(vm.editorReady && settingsVisible, Modifier.fillMaxSize(), enter = fadeIn(tween(motion.standard)) + slideInHorizontally(tween(motion.standard)) { motion.offset(it / 24) }, exit = fadeOut(tween(motion.standard)) + slideOutHorizontally(tween(motion.standard)) { motion.offset(it / 24) }) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -167,14 +207,14 @@ import dev.aster.ide.lsp.LspPosition
         }
     }
     if (buildDialog) BuildDialog(vm) { buildDialog = false }
-    if (newProject) InputDialog("新建项目", "项目名称", onDismiss = { newProject = false }, onConfirm = vm::newProject)
-    newFile?.let { initial -> InputDialog(if (createFolder) "新建目录" else "新建文件", "相对路径", initial, onDismiss = { newFile = null }, onConfirm = { vm.createFile(it, createFolder) }) }
-    renameFile?.let { file -> InputDialog("重命名", "名称", file.name, onDismiss = { renameFile = null }, onConfirm = { vm.renameFile(file.path, it) }) }
-    deleteFile?.let { file -> ConfirmDialog("删除 ${file.name}？", "${file.path}\n此操作也会删除已授权原目录中的文件。", "删除", true, { deleteFile = null }) { vm.deleteFile(file.path) } }
-    closing?.let { doc -> AlertDialog(onDismissRequest = { closing = null }, title = { Text("保存 ${doc.name}？") }, shape = RoundedCornerShape(8.dp),
-        confirmButton = { TextButton(onClick = { vm.closeTab(doc); closing = null }) { Text("保存并关闭") } },
-        dismissButton = { Row { TextButton(onClick = { vm.closeTab(doc, true); closing = null }) { Text("不保存") }; TextButton(onClick = { closing = null }) { Text("取消") } } }) }
-    if (renameSymbol) InputDialog("重命名符号", "新名称", onDismiss = { renameSymbol = false }, onConfirm = vm::renameSymbol)
+    if (newProject) InputDialog(stringResource(R.string.workbench_new_project), stringResource(R.string.workbench_project_name), onDismiss = { newProject = false }, onConfirm = vm::newProject)
+    newFile?.let { initial -> InputDialog(if (createFolder) stringResource(R.string.workbench_new_directory) else stringResource(R.string.workbench_new_file), stringResource(R.string.workbench_relative_path), initial, onDismiss = { newFile = null }, onConfirm = { vm.createFile(it, createFolder) }) }
+    renameFile?.let { file -> InputDialog(stringResource(R.string.workbench_rename), stringResource(R.string.workbench_name), file.name, onDismiss = { renameFile = null }, onConfirm = { vm.renameFile(file.path, it) }) }
+    deleteFile?.let { file -> ConfirmDialog(stringResource(R.string.workbench_confirm_delete, file.name), stringResource(R.string.workbench_delete_detail, file.path), stringResource(CoreR.string.action_delete), true, { deleteFile = null }) { vm.deleteFile(file.path) } }
+    closing?.let { doc -> AlertDialog(onDismissRequest = { closing = null }, title = { Text(stringResource(R.string.workbench_confirm_save, doc.name)) }, shape = RoundedCornerShape(8.dp),
+        confirmButton = { TextButton(onClick = { vm.closeTab(doc); closing = null }) { Text(stringResource(R.string.workbench_save_and_close)) } },
+        dismissButton = { Row { TextButton(onClick = { vm.closeTab(doc, true); closing = null }) { Text(stringResource(R.string.workbench_dont_save)) }; TextButton(onClick = { closing = null }) { Text(stringResource(CoreR.string.action_cancel)) } } }) }
+    if (renameSymbol) InputDialog(stringResource(R.string.workbench_rename_symbol), stringResource(R.string.workbench_new_name), onDismiss = { renameSymbol = false }, onConfirm = vm::renameSymbol)
     if (vm.commandPalette) CommandPalette(vm, onImport = { importer.launch(null) }, onBuild = { buildDialog = true }, onNew = { newFile = ""; createFolder = false })
     LanguageDialogs(vm)
 }
@@ -194,18 +234,18 @@ import dev.aster.ide.lsp.LspPosition
             Box {
                 Row(Modifier.clickable { projects = true }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.FolderOpen, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(8.dp)); Text(vm.workspace?.name ?: "工作区", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp))
+                    Spacer(Modifier.width(8.dp)); Text(vm.workspace?.name ?: stringResource(R.string.workbench_workspace), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp))
                     Icon(Icons.Outlined.ExpandMore, null, Modifier.size(18.dp))
                 }
                 DropdownMenu(projects, { projects = false }) { vm.recent.forEach { w -> DropdownMenuItem(text = { Text(w.name) }, onClick = { vm.switchProject(w); projects = false }) } }
             }
         }
         Spacer(Modifier.weight(1f))
-        if (wide) ToolButton(Icons.Outlined.Search, "命令面板") { vm.commandPalette = true }
-        ToolButton(Icons.Outlined.Save, "保存", enabled = vm.active != null) { vm.save() }
-        ToolButton(if (vm.buildRunning) Icons.Outlined.Stop else Icons.Outlined.PlayArrow, if (vm.buildRunning) "停止任务" else "构建与运行", tint = if (vm.buildRunning) Coral else MaterialTheme.colorScheme.primary) { if (vm.buildRunning) vm.cancelBuild() else onBuild() }
+        if (wide) ToolButton(Icons.Outlined.Search, stringResource(R.string.workbench_command_palette)) { vm.commandPalette = true }
+        ToolButton(Icons.Outlined.Save, stringResource(CoreR.string.action_save), enabled = vm.active != null) { vm.save() }
+        ToolButton(if (vm.buildRunning) Icons.Outlined.Stop else Icons.Outlined.PlayArrow, if (vm.buildRunning) stringResource(R.string.workbench_stop_task) else stringResource(R.string.workbench_build_run), tint = if (vm.buildRunning) Coral else MaterialTheme.colorScheme.primary) { if (vm.buildRunning) vm.cancelBuild() else onBuild() }
         Box {
-            ToolButton(Icons.Outlined.MoreVert, "项目菜单") { more = true }
+            ToolButton(Icons.Outlined.MoreVert, stringResource(R.string.workbench_project_menu)) { more = true }
             DropdownMenu(more, { more = false }) { ProjectMenu(vm, onImport, onNewProject) { more = false } }
         }
     }
@@ -215,21 +255,21 @@ import dev.aster.ide.lsp.LspPosition
 @Composable private fun ProjectMenu(vm: IdeViewModel, onImport: () -> Unit, onNewProject: () -> Unit, dismiss: () -> Unit) {
     val activity = LocalContext.current as? Activity
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    DropdownMenuItem(text = { Text("打开项目") }, leadingIcon = { Icon(Icons.Outlined.FolderOpen, null) }, onClick = { onImport(); dismiss() })
-    DropdownMenuItem(text = { Text("新建项目") }, leadingIcon = { Icon(Icons.Outlined.CreateNewFolder, null) }, onClick = { onNewProject(); dismiss() })
-    DropdownMenuItem(text = { Text("命令面板") }, leadingIcon = { Icon(Icons.Outlined.Terminal, null) }, onClick = { vm.commandPalette = true; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.workbench_open_project)) }, leadingIcon = { Icon(Icons.Outlined.FolderOpen, null) }, onClick = { onImport(); dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.workbench_new_project)) }, leadingIcon = { Icon(Icons.Outlined.CreateNewFolder, null) }, onClick = { onNewProject(); dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.workbench_command_palette)) }, leadingIcon = { Icon(Icons.Outlined.Terminal, null) }, onClick = { vm.commandPalette = true; dismiss() })
     vm.recent.forEach { w -> DropdownMenuItem(text = { Text(w.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { vm.switchProject(w); dismiss() }) }
     Line()
     WorkbenchFeatureMenu(vm, dismiss)
     Line()
     if (activity != null) {
-        DropdownMenuItem(text = { Text(if (landscape) "竖屏编辑" else "横屏编辑") }, leadingIcon = { Icon(Icons.Outlined.ScreenRotation, null) }, onClick = {
+        DropdownMenuItem(text = { Text(if (landscape) stringResource(R.string.workbench_portrait) else stringResource(R.string.workbench_landscape)) }, leadingIcon = { Icon(Icons.Outlined.ScreenRotation, null) }, onClick = {
             activity.requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             dismiss()
         })
-        DropdownMenuItem(text = { Text("跟随系统旋转") }, onClick = { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED; dismiss() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.workbench_system_rotation)) }, onClick = { activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED; dismiss() })
     }
-    DropdownMenuItem(text = { Text("设置") }, leadingIcon = { Icon(Icons.Outlined.Settings, null) }, onClick = { vm.settingsPage = "editor"; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(CoreR.string.action_settings)) }, leadingIcon = { Icon(Icons.Outlined.Settings, null) }, onClick = { vm.settingsPage = "index"; dismiss() })
 }
 
 @Composable private fun Rail(vm: IdeViewModel) {
@@ -237,35 +277,45 @@ import dev.aster.ide.lsp.LspPosition
         val compact = maxHeight < 340.dp
         val size = if (compact) 30 else 36
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 6.dp)) {
-            ToolButton(Icons.Outlined.FolderCopy, "文件", vm.showSidebar && vm.sidebar == "files", size = size) { vm.showSidebar = if (vm.sidebar == "files") !vm.showSidebar else true; vm.sidebar = "files" }
-            ToolButton(Icons.Outlined.Search, "项目搜索", vm.showSidebar && vm.sidebar == "search", size = size) { vm.showSidebar = if (vm.sidebar == "search") !vm.showSidebar else true; vm.sidebar = "search" }
-            ToolButton(Icons.Outlined.SmartToy, "Agent 工作空间", vm.showAgent, size = size) { vm.openAgent() }
-            ToolButton(Icons.Outlined.Terminal, "终端", vm.showPanel && vm.panel == "terminal", size = size) { vm.showPanel = if (vm.panel == "terminal") !vm.showPanel else true; vm.panel = "terminal" }
-            ToolButton(Icons.Outlined.ErrorOutline, "问题", vm.showPanel && vm.panel == "problems", size = size) { vm.showPanel = if (vm.panel == "problems") !vm.showPanel else true; vm.panel = "problems" }
+            ToolButton(Icons.Outlined.FolderCopy, stringResource(R.string.settings_files), vm.showSidebar && vm.sidebar == "files", size = size) { vm.showSidebar = if (vm.sidebar == "files") !vm.showSidebar else true; vm.sidebar = "files" }
+            ToolButton(Icons.Outlined.Search, stringResource(R.string.workbench_project_search), vm.showSidebar && vm.sidebar == "search", size = size) { vm.showSidebar = if (vm.sidebar == "search") !vm.showSidebar else true; vm.sidebar = "search" }
+            ToolButton(Icons.Outlined.SmartToy, stringResource(R.string.workbench_agent_workspace), vm.showAgent, size = size) { vm.openAgent() }
+            ToolButton(Icons.Outlined.Terminal, stringResource(R.string.workbench_terminal), vm.showPanel && vm.panel == "terminal", size = size) { vm.showPanel = if (vm.panel == "terminal") !vm.showPanel else true; vm.panel = "terminal" }
+            ToolButton(Icons.Outlined.ErrorOutline, stringResource(R.string.workbench_problems), vm.showPanel && vm.panel == "problems", size = size) { vm.showPanel = if (vm.panel == "problems") !vm.showPanel else true; vm.panel = "problems" }
             Spacer(Modifier.height(if (compact) 4.dp else 24.dp))
-            ToolButton(Icons.Outlined.DataObject, "语言服务", size = size) { vm.settingsPage = "lsp" }
-            ToolButton(Icons.Outlined.Settings, "设置", size = size) { vm.settingsPage = "editor" }
+            ToolButton(Icons.Outlined.DataObject, stringResource(R.string.settings_lsp), size = size) { vm.settingsPage = "lsp" }
+            ToolButton(Icons.Outlined.Settings, stringResource(CoreR.string.action_settings), size = size) { vm.settingsPage = "index" }
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
-@Composable private fun Explorer(vm: IdeViewModel, modifier: Modifier, onImport: () -> Unit, onNew: (Boolean) -> Unit, onRename: (FileNode) -> Unit, onDelete: (FileNode) -> Unit, onOpened: () -> Unit = {}) {
+@Composable private fun Explorer(
+    vm: IdeViewModel,
+    modifier: Modifier,
+    onImport: () -> Unit,
+    onNew: (Boolean) -> Unit,
+    onRename: (FileNode) -> Unit,
+    onDelete: (FileNode) -> Unit,
+    onOpenTerminal: () -> Unit,
+    onOpened: () -> Unit = {},
+) {
     var expanded by remember(vm.workspace?.id) { mutableStateOf(setOf("src")) }
     var filter by remember { mutableStateOf("") }
     var search by remember { mutableStateOf("") }
     var menu by remember { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxHeight().background(MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (vm.sidebar == "search") "项目搜索" else "资源管理器", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            ToolButton(Icons.Outlined.NoteAdd, "新建文件", size = 32) { onNew(false) }
-            ToolButton(Icons.Outlined.CreateNewFolder, "新建目录", size = 32) { onNew(true) }
-            ToolButton(Icons.Outlined.FolderOpen, "导入目录", size = 32, onClick = onImport)
+            Text(if (vm.sidebar == "search") stringResource(R.string.workbench_project_search) else stringResource(R.string.workbench_explorer), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            ToolButton(Icons.Outlined.NoteAdd, stringResource(R.string.workbench_new_file), size = 32) { onNew(false) }
+            ToolButton(Icons.Outlined.CreateNewFolder, stringResource(R.string.workbench_new_directory), size = 32) { onNew(true) }
+            ToolButton(Icons.Outlined.FolderOpen, stringResource(R.string.workbench_import_directory), size = 32, onClick = onImport)
+            ToolButton(ImageVector.vectorResource(R.drawable.ic_sidebar_terminal), stringResource(R.string.terminal_page_open), size = 40, onClick = onOpenTerminal)
         }
         if (vm.sidebar == "search") {
-            OutlinedTextField(search, { search = it; vm.searchWorkspace(it) }, singleLine = true, placeholder = { Text("搜索项目内容") }, leadingIcon = { Icon(Icons.Outlined.Search, null, Modifier.size(18.dp)) }, modifier = Modifier.fillMaxWidth().padding(10.dp))
+            OutlinedTextField(search, { search = it; vm.searchWorkspace(it) }, singleLine = true, placeholder = { Text(stringResource(R.string.workbench_search_project_contents)) }, leadingIcon = { Icon(Icons.Outlined.Search, null, Modifier.size(18.dp)) }, modifier = Modifier.fillMaxWidth().padding(10.dp))
             if (vm.searching) LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text("${vm.workspaceHits.size} 个结果", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
+            Text(stringResource(R.string.workbench_search_results, vm.workspaceHits.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
             LazyColumn(Modifier.weight(1f)) { items(vm.workspaceHits) { hit ->
                 Column(Modifier.fillMaxWidth().clickable { vm.navigate(hit.path, LspPosition(hit.line, hit.column)); onOpened() }.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Text("${hit.path}:${hit.line + 1}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -275,10 +325,10 @@ import dev.aster.ide.lsp.LspPosition
         } else {
             Row(Modifier.fillMaxWidth().height(38.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.ExpandMore, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
-                Text(vm.workspace?.name ?: "工作区", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                ToolButton(Icons.Outlined.Refresh, "刷新文件", size = 28) { vm.refresh() }
+                Text(vm.workspace?.name ?: stringResource(R.string.workbench_workspace), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                ToolButton(Icons.Outlined.Refresh, stringResource(R.string.workbench_refresh_files), size = 28) { vm.refresh() }
             }
-            TextField(filter, { filter = it }, singleLine = true, placeholder = { Text("筛选文件", style = MaterialTheme.typography.bodySmall) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), textStyle = MaterialTheme.typography.bodySmall,
+            TextField(filter, { filter = it }, singleLine = true, placeholder = { Text(stringResource(R.string.workbench_filter_files), style = MaterialTheme.typography.bodySmall) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), textStyle = MaterialTheme.typography.bodySmall,
                 leadingIcon = { Icon(Icons.Outlined.FilterList, null, Modifier.size(16.dp)) }, colors = TextFieldDefaults.colors(unfocusedContainerColor = Color.Transparent, focusedContainerColor = Color.Transparent))
             val visible = remember(vm.nodes, expanded, filter) { vm.nodes.filter { node ->
                 if (filter.isNotBlank()) node.path.contains(filter, true)
@@ -301,16 +351,16 @@ import dev.aster.ide.lsp.LspPosition
                         Spacer(Modifier.width(8.dp))
                         Text(node.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (vm.documents.any { it.path == node.path && it.dirty }) Box(Modifier.size(5.dp).background(Amber, RoundedCornerShape(3.dp)))
-                        ToolButton(Icons.Outlined.MoreVert, "${node.name} 菜单", size = 28) { menu = node.path }
+                        ToolButton(Icons.Outlined.MoreVert, stringResource(R.string.workbench_node_menu, node.name), size = 28) { menu = node.path }
                     }
                     DropdownMenu(menu == node.path, { menu = null }) {
-                        DropdownMenuItem(text = { Text("重命名") }, onClick = { onRename(node); menu = null })
-                        DropdownMenuItem(text = { Text("删除", color = MaterialTheme.colorScheme.error) }, onClick = { onDelete(node); menu = null })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.workbench_rename)) }, onClick = { onRename(node); menu = null })
+                        DropdownMenuItem(text = { Text(stringResource(CoreR.string.action_delete), color = MaterialTheme.colorScheme.error) }, onClick = { onDelete(node); menu = null })
                     }
                 }
             } }
             Line()
-            Text("${vm.nodes.count { !it.directory }} 个文件  ·  ${vm.documents.size} 个标签", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
+            Text(stringResource(R.string.workbench_files_tabs, vm.nodes.count { !it.directory }, vm.documents.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
         }
     }
 }
@@ -326,7 +376,7 @@ import dev.aster.ide.lsp.LspPosition
                     Text(doc.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.width(8.dp))
                     if (doc.dirty) Box(Modifier.size(5.dp).background(Amber, RoundedCornerShape(3.dp)))
-                    ToolButton(Icons.Outlined.Close, "关闭 ${doc.name}", size = 28) { onClose(doc) }
+                    ToolButton(Icons.Outlined.Close, stringResource(R.string.workbench_close_document, doc.name), size = 28) { onClose(doc) }
                 }
                 Box(Modifier.height(2.dp).fillMaxWidth().graphicsLayer { alpha = indicator }.background(MaterialTheme.colorScheme.primary))
             }
@@ -338,17 +388,22 @@ import dev.aster.ide.lsp.LspPosition
     var actions by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().height(if (compact) 28.dp else 36.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(vm.activePath?.replace("/", "  /  ") ?: "", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (vm.active?.large == true) Text("大文件", style = MaterialTheme.typography.labelSmall, color = Amber)
-        ToolButton(Icons.Outlined.FindInPage, "查找与替换", vm.showFind, vm.active != null, size = 32) { vm.showFind = !vm.showFind }
+        if (vm.active?.large == true) Text(stringResource(R.string.workbench_large_file), style = MaterialTheme.typography.labelSmall, color = Amber)
+        ToolButton(Icons.Outlined.FindInPage, stringResource(R.string.workbench_find_replace), vm.showFind, vm.active != null, size = 32) { vm.showFind = !vm.showFind }
         Box {
-            ToolButton(Icons.Outlined.MoreHoriz, "代码操作", enabled = vm.active != null, size = 32) { actions = true }
+            ToolButton(Icons.Outlined.MoreHoriz, stringResource(R.string.workbench_code_actions), enabled = vm.active != null, size = 32) { actions = true }
             DropdownMenu(actions, { actions = false }) {
-                listOf("hover" to "类型与文档", "definition" to "转到定义", "references" to "查找引用", "signature" to "函数签名", "format" to "格式化文档", "symbols" to "文档符号", "actions" to "代码操作").forEach { (id, text) ->
-                    DropdownMenuItem(text = { Text(text) }, onClick = { vm.languageAction(id); actions = false })
+                listOf(
+                    "hover" to R.string.workbench_type_and_docs, "definition" to R.string.workbench_go_to_definition,
+                    "references" to R.string.workbench_find_references, "signature" to R.string.workbench_signature,
+                    "format" to R.string.workbench_format_document, "symbols" to R.string.workbench_document_symbols,
+                    "actions" to R.string.workbench_code_actions
+                ).forEach { (id, text) ->
+                    DropdownMenuItem(text = { Text(stringResource(text)) }, onClick = { vm.languageAction(id); actions = false })
                 }
-                DropdownMenuItem(text = { Text("重命名符号") }, onClick = { onRename(); actions = false })
+                DropdownMenuItem(text = { Text(stringResource(R.string.workbench_rename_symbol)) }, onClick = { onRename(); actions = false })
                 Line()
-                DropdownMenuItem(text = { Text(if (vm.active?.readOnly == true) "允许编辑" else "只读模式") }, onClick = { vm.active?.let { it.readOnly = !it.readOnly }; actions = false })
+                DropdownMenuItem(text = { Text(if (vm.active?.readOnly == true) stringResource(R.string.workbench_allow_editing) else stringResource(R.string.workbench_read_only)) }, onClick = { vm.active?.let { it.readOnly = !it.readOnly }; actions = false })
             }
         }
     }
@@ -358,10 +413,10 @@ import dev.aster.ide.lsp.LspPosition
     val settings by vm.settings.flow.collectAsState()
     Line()
     Row(Modifier.fillMaxWidth().height(if (compact) 32.dp else 40.dp).background(MaterialTheme.colorScheme.surface).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        ToolButton(Icons.Outlined.Undo, "撤销", enabled = vm.active != null, size = 36) { vm.editor?.undo() }
-        ToolButton(Icons.Outlined.Redo, "重做", enabled = vm.active != null, size = 36) { vm.editor?.redo() }
+        ToolButton(Icons.Outlined.Undo, stringResource(R.string.workbench_undo), enabled = vm.active != null, size = 36) { vm.editor?.undo() }
+        ToolButton(Icons.Outlined.Redo, stringResource(R.string.workbench_redo), enabled = vm.active != null, size = 36) { vm.editor?.redo() }
         Box(Modifier.width(1.dp).height(18.dp).background(MaterialTheme.colorScheme.outlineVariant))
-        ToolButton(Icons.Outlined.KeyboardTab, "缩进", enabled = vm.active?.readOnly == false, size = 36) { vm.editor?.insertText(if (settings.useTabs) "\t" else " ".repeat(settings.tabWidth), 0) }
+        ToolButton(Icons.Outlined.KeyboardTab, stringResource(R.string.workbench_indent), enabled = vm.active?.readOnly == false, size = 36) { vm.editor?.insertText(if (settings.useTabs) "\t" else " ".repeat(settings.tabWidth), 0) }
         listOf("{", "}", "(", ")", "[", "]", ";", "=", "_", "/").forEach { symbol ->
             TextButton(onClick = { vm.editor?.insertText(symbol, 0) }, enabled = vm.active?.readOnly == false, modifier = Modifier.width(34.dp).fillMaxHeight(), contentPadding = PaddingValues(0.dp)) { Text(symbol, fontFamily = Mono, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
@@ -375,7 +430,7 @@ import dev.aster.ide.lsp.LspPosition
     Row(Modifier.fillMaxWidth().height(28.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.clickable { vm.settingsPage = "runtime" }, verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Terminal, null, Modifier.size(13.dp), tint = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(5.dp)); Text(if (vm.connected) "Termux" else "本地", style = MaterialTheme.typography.labelSmall, color = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(5.dp)); Text(if (vm.connected) "Termux" else stringResource(R.string.workbench_local), style = MaterialTheme.typography.labelSmall, color = if (vm.connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.width(14.dp))
         Row(Modifier.clickable { vm.panel = "problems"; vm.showPanel = true }, verticalAlignment = Alignment.CenterVertically) {
@@ -393,22 +448,22 @@ import dev.aster.ide.lsp.LspPosition
     var replace by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextField(vm.findQuery, { vm.findQuery = it; vm.searchInFile() }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("查找") }, textStyle = MaterialTheme.typography.bodyMedium)
-            ToolButton(Icons.Outlined.ExpandMore, "替换", replace, size = 32) { replace = !replace }
-            ToolButton(Icons.Outlined.Close, "关闭查找", size = 32) { vm.showFind = false }
+            TextField(vm.findQuery, { vm.findQuery = it; vm.searchInFile() }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text(stringResource(R.string.workbench_find)) }, textStyle = MaterialTheme.typography.bodyMedium)
+            ToolButton(Icons.Outlined.ExpandMore, stringResource(R.string.workbench_replace), replace, size = 32) { replace = !replace }
+            ToolButton(Icons.Outlined.Close, stringResource(R.string.workbench_close_find), size = 32) { vm.showFind = false }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             FilterChip(selected = vm.matchCase, onClick = { vm.matchCase = !vm.matchCase; vm.searchInFile() }, label = { Text("Aa", fontFamily = Mono) })
             Spacer(Modifier.width(6.dp))
             FilterChip(selected = vm.regexSearch, onClick = { vm.regexSearch = !vm.regexSearch; vm.searchInFile() }, label = { Text(".*", fontFamily = Mono) })
             Spacer(Modifier.weight(1f)); Text("${if (vm.matches.isEmpty()) 0 else vm.matchIndex + 1}/${vm.matches.size}", style = MaterialTheme.typography.bodySmall)
-            ToolButton(Icons.Outlined.KeyboardArrowUp, "上一个匹配", enabled = vm.matches.isNotEmpty(), size = 32) { vm.nextMatch(-1) }
-            ToolButton(Icons.Outlined.KeyboardArrowDown, "下一个匹配", enabled = vm.matches.isNotEmpty(), size = 32) { vm.nextMatch(1) }
+            ToolButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.workbench_previous_match), enabled = vm.matches.isNotEmpty(), size = 32) { vm.nextMatch(-1) }
+            ToolButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.workbench_next_match), enabled = vm.matches.isNotEmpty(), size = 32) { vm.nextMatch(1) }
         }
         if (replace) Row(verticalAlignment = Alignment.CenterVertically) {
-            TextField(vm.replaceQuery, { vm.replaceQuery = it }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("替换为") }, textStyle = MaterialTheme.typography.bodyMedium)
-            ToolButton(Icons.Outlined.FindReplace, "替换当前匹配", enabled = vm.matches.isNotEmpty(), size = 36) { vm.replace(false) }
-            ToolButton(Icons.Outlined.DoneAll, "全部替换", enabled = vm.matches.isNotEmpty(), size = 36) { vm.replace(true) }
+            TextField(vm.replaceQuery, { vm.replaceQuery = it }, modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text(stringResource(R.string.workbench_replace_with)) }, textStyle = MaterialTheme.typography.bodyMedium)
+            ToolButton(Icons.Outlined.FindReplace, stringResource(R.string.workbench_replace_current), enabled = vm.matches.isNotEmpty(), size = 36) { vm.replace(false) }
+            ToolButton(Icons.Outlined.DoneAll, stringResource(R.string.workbench_replace_all), enabled = vm.matches.isNotEmpty(), size = 36) { vm.replace(true) }
         }
     }
 }

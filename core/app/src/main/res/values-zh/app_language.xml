@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_language">应用语言</string>
+    <string name="app_language_system">跟随系统</string>
+    <string name="app_ui_language_tag">zh-Hans</string>
+    <string name="action_back">返回</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_close">关闭</string>
+    <string name="action_confirm">确定</string>
+    <string name="action_delete">删除</string>
+    <string name="action_done">完成</string>
+    <string name="action_ok">知道了</string>
+    <string name="action_save">保存</string>
+    <string name="action_settings">设置</string>
+    <string name="action_switch_work_mode">切换工作模式</string>
+    <string name="title_workspaces">工作区</string>
+    <string name="title_account">Aster 账户</string>
+    <string name="action_open_account">账户 / 登录</string>
+    <string name="agent_question_title">补充信息</string>
+    <string name="agent_question_expired">此提问已结束或提交未被接受，请返回任务查看状态。</string>
+    <string name="agent_question_link_error">无法打开链接，请手动在浏览器中访问。</string>
+    <string name="agent_question_optional">%1$s（可选）</string>
+    <string name="agent_question_answer">回答</string>
+    <string name="agent_question_custom_answer">自定义回答</string>
+    <string name="agent_question_sending">正在提交…</string>
+    <string name="agent_question_submit">提交</string>
+    <string name="agent_question_cancel">取消提问</string>
+</resources>

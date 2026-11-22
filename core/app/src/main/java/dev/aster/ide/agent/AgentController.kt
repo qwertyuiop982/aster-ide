@@ -1,6 +1,7 @@
 package dev.aster.ide.agent
 
 import android.content.Context
+import dev.aster.client.automation.ClientTools
 import dev.aster.ide.data.SettingsStore
 import dev.aster.ide.data.Workspace
 import dev.aster.ide.runtime.BridgeClient
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 @OptIn(FlowPreview::class)
 class AgentController(context: Context, private val bridge: BridgeClient, private val settings: SettingsStore, scope: CoroutineScope, storageDirectory: String = "agent-conversations") {
-    private val clientTools = dev.aster.client.automation.ClientTools(context.applicationContext)
+    private val applicationContext = context.applicationContext
     private val account = dev.aster.ide.account.AccountRepository.get(context)
     private val accountSettings = dev.aster.core.CoreRuntime.get(context).settings
     val secrets = AgentSecretStore(context) { engine -> settings.value.agentProfile(engine).activeApiId }
@@ -31,6 +32,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
     private val endedInteractions = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var nativeAnswer: CompletableDeferred<JSONObject>? = null
     private val clock = AtomicLong(System.currentTimeMillis())
+    private val snapshotPublication = Any()
     private val deleted = ConcurrentHashMap.newKeySet<String>()
     private val saves = MutableStateFlow<AgentSnapshot?>(null)
     private val mutableMessages = MutableStateFlow<List<AgentMessage>>(emptyList())
@@ -96,7 +98,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         return AgentSnapshot(conversationId, workspaceId, title, updated, mutableMode.value, mutableMessages.value, mutableTasks.value,
             mutableChanges.value, state.status, state.step, state.tokens, state.running, runtimeSessionId, mutableContext.value, proposalRevision, mutableEngine.value.id, mutableSubagentConversations.value)
     }
-    private fun checkpoint() {
+    private fun checkpoint() = synchronized(snapshotPublication) {
         snapshot()?.let { snapshot ->
             mutableConversation.value = AgentConversationInfo(snapshot.id, snapshot.title, snapshot.updated, snapshot.mode, snapshot.changes.size, snapshot.engineId)
             saves.value = snapshot
@@ -227,24 +229,10 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         checkpoint()
     }
     private fun recordToolEvent(event: JSONObject) {
-    val name = event.optString("name")
-    val callId = event.optString("callId")
-    val result = event.optString("kind") == "tool_result"
-    val status = if (!result) "运行中" else if (event.optString("status") == "failed") "失败" else "完成"
-    val duration = if (result && event.has("durationMs")) " · ${event.optLong("durationMs")} ms" else ""
-    val heading = "$name · ${toolLabel(name)} · $status$duration"
-    val text = event.optString("text")
-    if (callId.isBlank()) append("tool", "$heading\n$text") else {
-        val id = "tool-$callId"
-        mutableMessages.update { rows ->
-            val previous = rows.firstOrNull { it.id == id }
-            val arguments = previous?.text?.substringAfter("\n参数\n")?.substringBefore("\n结果\n")
-            val body = if (result) "参数\n${arguments ?: ""}\n结果\n$text" else "参数\n$text"
-            val row = AgentMessage(id, "tool", (heading + "\n" + body).take(24000))
-            boundedAgentMessages(if (previous == null) rows + row else rows.map { if (it.id == id) row else it })
-        }
-    }
-    log.append("$heading\n$text\n")
+        val tool = AgentToolEvent.from(job, event, ::toolLabel)
+        mutableMessages.update(tool::applyTo)
+        if (tool.kind == "tool_delta") log.append(tool.text)
+        else log.append("${tool.name} · ${tool.label} · ${tool.statusLabel}\n${tool.text}\n")
     }
 
     private fun subagentEvent(label: String, event: JSONObject) {
@@ -252,6 +240,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         if (kind == "client_tool_end") { endInteraction(event.getString("requestId")); return }
         val identifier = event.optString("subagentId", label)
         if (identifier.isBlank()) return
+        val tool = if (kind in setOf("tool", "tool_delta", "tool_result")) AgentToolEvent.from(job, event, ::toolLabel) else null
         mutableSubagentConversations.update { rows ->
             val previous = rows.firstOrNull { it.id == identifier }
                 ?: AgentSubagentConversation(identifier, label, event.optString("engineId"), event.optString("model"))
@@ -273,25 +262,13 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                     if (kind != "message_start" || messages.none { it.id == id })
                         put(id, event.optString("role", "assistant"), event.optString("text"), kind == "message_delta")
                 }
-                "tool_delta" -> {
-                    val id = "tool-" + event.optString("callId")
-                    val before = messages.firstOrNull { it.id == id }
-                    put(id, "tool", (before?.text ?: (event.optString("name") + " · 运行中\n输出\n")) + event.optString("text"))
-                }
-                "tool", "tool_result" -> {
-                    val id = "tool-" + event.optString("callId").ifBlank { event.optString("name") }
-                    val before = messages.firstOrNull { it.id == id }
-                    val arguments = before?.text?.substringAfter("\n参数\n")?.substringBefore("\n结果\n").orEmpty()
-                    val text = event.optString("text")
-                    val done = kind == "tool_result"
-                    val body = if (done) "参数\n$arguments\n结果\n$text" else "参数\n$text"
-                    put(id, "tool", event.optString("name") + " · " + (if (!done) "运行中" else if (event.optString("status") == "failed") "失败" else "完成") + "\n" + body)
-                }
+                "tool", "tool_delta", "tool_result" -> messages = requireNotNull(tool).applyTo(messages)
                 "command" -> put(UUID.randomUUID().toString(), "tool", "$ " + event.optString("command") + "\n" + event.optString("text"))
                 "error" -> { child = child.copy(status = "失败"); put(UUID.randomUUID().toString(), "error", event.optString("text")) }
                 "result" -> {
                     val status = event.optString("status")
                     child = child.copy(running = false, status = when (status) { "Submitted", "completed" -> "完成"; "Cancelled", "interrupted" -> "已停止"; "TimeExceeded" -> "已超时"; else -> "失败" })
+                    messages = interruptAgentTools(messages, allowLateResults = true)
                     val summary = event.optString("summary")
                     if (summary.isNotBlank() && messages.lastOrNull { it.role == "assistant" }?.text != summary) put("result", "assistant", summary)
                 }
@@ -337,18 +314,20 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         }
     }
 
-    suspend fun run(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean = false, onAccepted: () -> Unit = {}) = withContext(Dispatchers.IO) {
+    suspend fun run(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean = false,
+                    images: JSONArray = JSONArray(), displayTask: String = task, onAccepted: () -> Unit = {}) = withContext(Dispatchers.IO) {
         check(!running) { "Agent 已在运行" }
         selectWorkspace(workspace.id)
         // Keep startup and cleanup in the same lifecycle as engine selection.
         engineLifecycle.withLock {
             check(!running) { "Agent 已在运行" }
             check(workspaceId == workspace.id) { "工作区已切换，请重新发送" }
-            runSelected(workspace, task, context, overlays, compactOnly, onAccepted)
+            runSelected(workspace, task, context, overlays, compactOnly, images, displayTask, onAccepted)
         }
     }
 
-    private suspend fun runSelected(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean, onAccepted: () -> Unit) = coroutineScope {
+    private suspend fun runSelected(workspace: Workspace, task: String, context: String, overlays: JSONArray, compactOnly: Boolean,
+                                    images: JSONArray, displayTask: String, onAccepted: () -> Unit) = coroutineScope {
         val preferences = settings.value
         val selected = mutableEngine.value
         val usingFree = accountSettings.value.agentUseFree && selected == AgentEngine.PI
@@ -365,11 +344,12 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         cancelRequested = false
         endedInteractions.clear()
         val history = JSONArray(mutableMessages.value.filter { it.role == "user" || it.role == "assistant" }.takeLast(60).map { JSONObject().put("role", it.role).put("content", it.text) })
-        if (!compactOnly && title == "新会话") title = task.replace('\n', ' ').take(64)
-        if (!compactOnly) append("user", task)
+        if (!compactOnly && title == "新会话") title = displayTask.replace('\n', ' ').take(64)
+        if (!compactOnly) append("user", displayTask)
         log.clear()
         val identifier = UUID.randomUUID().toString()
         val request = JSONObject().put("job", identifier).put("engineId", selected.id).put("sessionId", runtimeSessionId).put("proposalRevision", proposalRevision).put("compactOnly", compactOnly).put("task", task).put("context", context).put("overlays", overlays).put("history", history)
+            .put("images", images)
             .put("mode", mutableMode.value.id).put("tasks", AgentJson.tasks(mutableTasks.value)).put("stagedChanges", AgentJson.changes(previousChanges))
             .put("options", bridge.options()).put("excludedDirs", JSONArray(preferences.excludedDirs.split(",").map(String::trim).filter(String::isNotEmpty)))
             .put("configuration", runtimeConfiguration(configuration, apiKey, usingFree))
@@ -389,8 +369,9 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                 }
             }
         }
+        val clientTools = ClientTools(applicationContext)
         val coordinator = AgentSubagents(bridge, workspace.id, identifier, mutableMode.value, primaryConfiguration, candidates, ::subagentEvent) { name, args ->
-            executeClientTool(name, args)
+            executeClientTool(clientTools, name, args)
         }
         try {
             job = identifier
@@ -419,7 +400,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                         "message_delta" -> streamed(event.getString("messageId"), event.optString("text"))
                         "message_end" -> streamed(event.getString("messageId"), event.optString("text"), true)
                         "plan" -> mutableTasks.value = AgentJson.readTasks(event.optJSONArray("tasks"))
-                        "tool", "tool_result" -> {
+                        "tool", "tool_delta", "tool_result" -> {
                             recordToolEvent(event)
                         }
                         "client_tool" -> {
@@ -430,7 +411,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
                                 val result = try {
                                     val name = event.getString("name")
                                     if (name == "subagent") coordinator.execute(event.getJSONObject("arguments"))
-                                    else executeClientTool(name, event.getJSONObject("arguments").also { if (name == "user_input") it.put("_requestId", event.getString("requestId")) })
+                                    else executeClientTool(clientTools, name, event.getJSONObject("arguments").also { if (name == "user_input") it.put("_requestId", event.getString("requestId")) })
                                 } catch (e: CancellationException) { throw e }
                                 catch (e: Exception) { JSONObject().put("ok", false).put("error", AgentDiagnostics.redact(e.message ?: "Client operation failed", candidates.map { it.configuration.optString("apiKey") }.filter(String::isNotBlank))) }
                                 recordToolEvent(JSONObject().put("kind", "tool_result").put("callId", clientCallId)
@@ -478,13 +459,18 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
             mutableState.value = mutableState.value.copy(running = false, status = "失败", approval = null, userInput = null)
             append("error", e.message ?: "Agent 连接中断"); throw e
         } finally {
+            clientTools.close()
             withContext(NonCancellable) {
                 clientTasks.forEach { it.cancel() }
                 coordinator.cancel()
                 clientTasks.joinAll()
             }
-            mutableSubagentConversations.update { rows -> rows.map { if (it.running) it.copy(running = false, status = "已结束") else it } }
-            checkpoint()
+            mutableMessages.update { interruptAgentTools(it) }
+            mutableSubagentConversations.update { rows -> rows.map { child ->
+                val messages = interruptAgentTools(child.messages)
+                if (child.running) child.copy(running = false, status = "已结束", messages = messages)
+                else if (messages !== child.messages) child.copy(messages = messages) else child
+            } }
             subagents = null
             connection = null
             mutableState.update { it.copy(running = false, approval = null, userInput = null) }
@@ -498,7 +484,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         else -> false
     }
 
-    private suspend fun executeClientOperation(name: String, args: JSONObject): JSONObject {
+    private suspend fun executeClientOperation(clientTools: ClientTools, name: String, args: JSONObject): JSONObject {
         val attempts = if (retryableClientTool(name, args)) 2 else 1
         var failure: Exception? = null
         repeat(attempts) { attempt ->
@@ -517,10 +503,12 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         throw failure ?: IllegalStateException("Client operation failed")
     }
 
-    private suspend fun executeClientTool(name: String, args: JSONObject): JSONObject {
+    private suspend fun executeClientTool(clientTools: ClientTools, name: String, args: JSONObject): JSONObject {
         if (name != "user_input") {
-            check(settings.value.agentPermissionMode == "native" || mutableMode.value == AgentMode.EXECUTE) { "Client tools require execute mode" }
-            return executeClientOperation(name, args)
+            check(name == "web_webview_search" || mutableMode.value == AgentMode.EXECUTE) {
+                "Client tools require execute mode"
+            }
+            return executeClientOperation(clientTools, name, args)
         }
         return nativeQuestions.withLock {
             val identifier = args.optString("_requestId").ifBlank { UUID.randomUUID().toString() }
@@ -608,6 +596,7 @@ class AgentController(context: Context, private val bridge: BridgeClient, privat
         "list_agents" -> "查看子代理"
         "request_permissions" -> "请求权限"
         "tool_search" -> "搜索工具"
+        "web_webview_search" -> "网页与图片搜索"
         "mcp_resource" -> "MCP 资源"
         "multi_agents" -> "多智能体"
         "get_context_remaining" -> "查看上下文"

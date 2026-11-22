@@ -1,25 +1,17 @@
 // Runs production renderer code with a small structural DOM, without npm downloads.
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
-import {resolve,dirname} from 'node:path';
-import {fileURLToPath} from 'node:url';
-import vm from 'node:vm';
-const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const require=createRequire(resolve(root,'research/pi-agent/package.json'));
-const {buildSync}=require('esbuild');
-const built=buildSync({entryPoints:[resolve(root,'agent/app/src/main/assets/agent/message-renderer.js')],bundle:true,format:'cjs',platform:'node',write:false});
-const sandbox={module:{exports:{}},exports:{}};sandbox.exports=sandbox.module.exports;
-vm.runInNewContext(built.outputFiles[0].text,sandbox);
-const {createMessageRenderer}=sandbox.module.exports;
+import {createMessageRenderer,createToolExpansionState} from '../agent/app/src/main/assets/agent/message-renderer.js';
 let richCalls=0,created=0,moves=0;
 class Node {
-  constructor(tag,cls='',text=''){this.tag=tag;this.className=cls;this.textContent=text;this.children=[];this.parentElement=null;this.dataset={};created++;}
+  constructor(tag,cls='',text=''){this.tag=tag;this.className=cls;this.textContent=text;this.children=[];this.parentElement=null;this.dataset={};this.listeners={};created++;}
   get firstChild(){return this.children[0]||null;}
   get nextSibling(){if(!this.parentElement)return null;const a=this.parentElement.children;return a[a.indexOf(this)+1]||null;}
   get previousElementSibling(){if(!this.parentElement)return null;const a=this.parentElement.children;return a[a.indexOf(this)-1]||null;}
   append(...nodes){for(const node of nodes)this.insertBefore(node,null);}
   insertBefore(node,before){if(node===before)return;if(node.parentElement)node.remove();const i=before?this.children.indexOf(before):this.children.length;assert.ok(i>=0);this.children.splice(i,0,node);node.parentElement=this;moves++;}
   remove(){if(this.parentElement){const a=this.parentElement.children;a.splice(a.indexOf(this),1);this.parentElement=null;}}
+  addEventListener(kind,fn){this.listeners[kind]=fn;}
+  toggle(open){this.open=open;this.listeners.toggle?.();}
 }
 const dom={el:(...args)=>new Node(...args),icon:name=>new Node('svg',name),richText:(body,text,copy)=>{richCalls++;body.textContent=text;body.copy=copy;}};
 const host=new Node('div');let copied;
@@ -40,4 +32,31 @@ test('copy callback preserves command boundary',()=>{host.firstChild.children[1]
 test('empty transcript removes all prior nodes',()=>{assert.equal(render('child',[],'Worker'),true);assert.equal(host.children.length,0);assert.equal(render('child',[],'Worker'),false);});
 test('session switches do not leak transcript nodes',()=>{for(let i=0;i<100;i++){render('session-'+i,[msg('same','assistant','x')],'Worker');assert.equal(host.children.length,1);}});
 test('in-place text mutation is detected',()=>{const row=msg('same','assistant','before');render('mutation',[row],'Worker');row.text='after';assert.equal(render('mutation',[row],'Worker'),true);assert.equal(host.firstChild.children[1].textContent,'after');});
+test('switching Agents restores only that transcript’s expanded tool output',()=>{
+  const running=msg('tool','tool','shell · 运行中\n参数\npwd');
+  const completed=msg('tool','tool','shell · 完成\n结果\n/project');
+  render('workspace/parent/child', [running], 'Child');
+  // Switching in the same frame must capture open before the browser's toggle event.
+  host.firstChild.open=true;
+  render('workspace/parent', [running], 'Parent');
+  assert.equal(host.firstChild.open,false);
+  render('workspace/parent/child', [completed], 'Child');
+  assert.equal(host.firstChild.open,true);
+  assert.match(host.firstChild.children[1].textContent,/\/project/);
+  host.firstChild.toggle(false);
+  render('workspace/other-parent/child', [running], 'Other child');
+  host.firstChild.toggle(true);
+  render('workspace/parent/child', [completed], 'Child');
+  assert.equal(host.firstChild.open,false);
+});
+test('page recreation reuses tool expansion without reusing DOM nodes',()=>{
+  const expansion=createToolExpansionState(),scope='workspace/engine/session/child';
+  const items=[msg('call','tool','shell · 完成\nresult')];
+  const first=new Node('div'), second=new Node('div');
+  createMessageRenderer(first,()=>{},dom,expansion)(scope,items,'Child');
+  first.firstChild.toggle(true);
+  createMessageRenderer(second,()=>{},dom,expansion)(scope,items,'Child');
+  assert.equal(second.firstChild.open,true);
+  assert.notEqual(second.firstChild,first.firstChild);
+});
 console.log(JSON.stringify({success:true,cases,created,moves,richCalls}));

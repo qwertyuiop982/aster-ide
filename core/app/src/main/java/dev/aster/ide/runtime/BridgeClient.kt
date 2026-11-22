@@ -5,6 +5,7 @@ import android.util.Base64
 import dev.aster.ide.data.SettingsStore
 import dev.aster.ide.data.Workspace
 import dev.aster.ide.data.WorkspaceRepository
+import dev.aster.termux.PathRedirect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -51,14 +52,28 @@ class BridgeClient(private val context: Context, private val settings: SettingsS
     private data class Signature(val modified: Long, val length: Long, val hash: String)
     private val signatures = ConcurrentHashMap<String, Signature>()
     private val synchronizing = Mutex()
+    @Volatile private var activePort = 0
     @Volatile var remoteRoot: String = "/data/data/com.termux/files/home/.aster/workspaces"
+    val port get() = activePort
+
+    fun activatePort(port: Int) {
+        require(port in 1..65535)
+        activePort = port
+    }
+
+    fun resetRuntime() {
+        activePort = 0
+        sockets.forEach { runCatching { it.close() } }
+        sockets.clear()
+    }
 
     suspend fun open(op: String, workspace: String? = null, extra: JSONObject = JSONObject(), timeoutMillis: Int = settings.value.requestTimeout * 1000): BridgeConnection = withContext(Dispatchers.IO) {
+        val port = activePort.takeIf { it in 1..65535 } ?: error("本地工具桥接尚未就绪")
         val socket = Socket()
         sockets += socket
         try {
             socket.tcpNoDelay = true
-            socket.connect(InetSocketAddress("127.0.0.1", settings.value.port), minOf(2500, timeoutMillis))
+            socket.connect(InetSocketAddress("127.0.0.1", port), minOf(2500, timeoutMillis))
             socket.soTimeout = timeoutMillis
             val connection = BridgeConnection(socket) { sockets.remove(socket) }
             extra.put("op", op).put("token", token)
@@ -78,10 +93,11 @@ class BridgeClient(private val context: Context, private val settings: SettingsS
 
     suspend fun info(timeoutMillis: Int = settings.value.requestTimeout * 1000): JSONObject = rpc("info", extra = JSONObject().put("options", options()), timeoutMillis = timeoutMillis).also { remoteRoot = it.getString("root") }
     fun invalidate(workspace: String, path: String) { signatures.remove("$workspace:$path") }
+    fun projectRoot(workspace: String): String = PathRedirect.workspaceDirectory(context, workspace)?.path ?: "$remoteRoot/$workspace"
 
-    suspend fun sync(workspace: Workspace, repo: WorkspaceRepository): Int = withContext(Dispatchers.IO) {
+    suspend fun sync(workspace: Workspace, repo: WorkspaceRepository, useNative: Boolean = true): Int = withContext(Dispatchers.IO) {
         synchronizing.withLock {
-        if (dev.aster.termux.PathRedirect.workspaceBound(context, workspace.id, workspace.directory)) return@withLock 0
+        if (useNative && PathRedirect.workspaceBound(context, workspace.id, workspace.directory)) return@withLock 0
         val files = repo.files(workspace).filter { !it.directory && it.name != "local.properties" && dev.aster.ide.data.WorkspaceTransferPolicy.shouldCopy(it.path) }
         var updated = 0
         val seen = HashSet<String>()
@@ -109,7 +125,7 @@ class BridgeClient(private val context: Context, private val settings: SettingsS
         }
     }
 
-    fun options(): JSONObject = settings.value.let { s -> JSONObject().put("registry", s.npmRegistry).put("mirror", s.termuxMirror)
+    fun options(): JSONObject = settings.value.let { s -> JSONObject().put("registry", s.npmRegistry)
         .put("proxy", s.githubProxy).put("sdk", s.sdkPath).put("sdkBuildTools", s.sdkBuildTools).put("sdkJdk", s.sdkJdk).put("sdkNdk", s.sdkNdk).put("sdkCmdlineTools", s.sdkCmdlineTools).put("memory", s.buildMemory).put("workers", s.buildWorkers) }
 
     suspend fun stream(op: String, workspace: String, job: String, extra: JSONObject, onOutput: (String) -> Unit): Int = withContext(Dispatchers.IO) {
@@ -132,5 +148,5 @@ class BridgeClient(private val context: Context, private val settings: SettingsS
     }
 
     suspend fun cancel(job: String) { rpc("cancel", extra = JSONObject().put("job", job)) }
-    override fun close() { sockets.forEach { runCatching { it.close() } }; sockets.clear() }
+    override fun close() = resetRuntime()
 }

@@ -1,32 +1,31 @@
 package dev.aster.agent
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.aster.core.LocalAsterDialogMotion
 import dev.aster.ide.agent.AgentContextPolicy
 import dev.aster.ide.agent.AgentEngine
 import dev.aster.ide.agent.AgentThinkingPolicy
@@ -37,35 +36,46 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import dev.aster.core.AppLanguages
+import dev.aster.core.R as CoreR
 
 @Composable internal fun ModelSettings(vm: AgentViewModel, engine: AgentEngine) {
     val settings by vm.settings.flow.collectAsStateWithLifecycle()
-    key(engine, settings.agentProfile(engine).activeApiId) { ModelSettingsContent(vm, engine) }
+    var section by rememberSaveable(engine.id) { mutableStateOf<Int?>(null) }
+    val navigation = SettingsSectionNavigation(section) { section = it }
+    key(engine, settings.agentProfile(engine).activeApiId) { ModelSettingsContent(vm, engine, navigation) }
 }
 
-@Composable private fun ModelSettingsContent(vm: AgentViewModel, engine: AgentEngine) {
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun ModelSettingsContent(vm: AgentViewModel, engine: AgentEngine, navigation: SettingsSectionNavigation) {
+    val uiContext = LocalContext.current
     val accountSettings by vm.core.settings.flow.collectAsStateWithLifecycle()
     val permissionSettings by vm.settings.flow.collectAsStateWithLifecycle()
     if (engine == AgentEngine.PI && accountSettings.agentUseFree) {
-        ModelSettingsPage(if (accountSettings.agentFreeTier == "go") "Aster-free go" else "Aster-free", { vm.showSettings = false }, { vm.showSettings = false }, "完成") {
-            ModelSettingsSection("账号与服务", "免费服务的模型和额度由账号方案决定。") {
-            dev.aster.ide.account.AccountSourceControls(engine)
+        ModelSettingsPage(if (accountSettings.agentFreeTier == "go") "Aster-free go" else "Aster-free",
+            { vm.showSettings = false }, { vm.showSettings = false }, stringResource(CoreR.string.action_done), sections = navigation) {
+            ModelSettingsSection(R.string.agent_settings_account, R.string.agent_settings_free_detail) {
+                dev.aster.ide.account.AccountSourceControls(engine)
+                Text(stringResource(R.string.agent_settings_free_limits))
+                Text(if (accountSettings.agentFreeTier == "go") stringResource(R.string.agent_settings_go_reasoning) else stringResource(R.string.agent_settings_free_reasoning))
+            }
+            ModelSettingsSection(R.string.agent_settings_tools, R.string.agent_settings_tools_detail) {
                 dev.aster.ide.agent.AgentPermissionControls(permissionSettings, !vm.locked,
                     { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
                     { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeWorkspace)
                 dev.aster.ide.agent.AgentToolConfigurationControls(permissionSettings, permissionSettings.agentProfile(engine), !vm.locked,
                     { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
                     { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
-                TextButton(onClick = vm::openEnvironmentSettings) { Text("环境安装设置 · 编译工具 / SDK / NDK") }
-                Text("128000 token 上下文上限 · 每轮任务最多 64 次工具调用")
-                Text(if (accountSettings.agentFreeTier == "go") "固定推理，只显示最终内容 · 1000 token = 50 积分（含推理输出）" else "无思考 · 算力正常 · 1000 token = 1 积分")
             }
+            AgentSettingsLinks(vm, navigation)
         }
         return
     }
     val profile = permissionSettings.agentProfile(engine)
     val connectionId = profile.activeApiId.ifBlank { "default" }
-    val apiChoices = profile.apiConfigurations.ifEmpty { listOf(AgentApiConfiguration("default", "默认 API", profile.endpoint, profile.model, profile.models, profile.protocol)) }
+    val apiChoices = profile.apiConfigurations.ifEmpty { listOf(AgentApiConfiguration("default", stringResource(R.string.agent_settings_default_api), profile.endpoint, profile.model, profile.models, profile.protocol)) }
     var apiName by remember(engine) { mutableStateOf(apiChoices.firstOrNull { it.id == connectionId }?.name ?: "API") }
     var confirmDeleteApi by remember { mutableStateOf(false) }
     var loadingModels by remember { mutableStateOf(false) }
@@ -91,66 +101,66 @@ import kotlinx.coroutines.withContext
     val minimum = AgentContextPolicy.minimum(engine)
     val persist: () -> Boolean = {
         runCatching {
-            check(!vm.locked) { "请先停止当前任务再切换 API 配置" }
+            check(!vm.locked) { uiContext.getString(R.string.agent_settings_api_busy) }
             val uri = java.net.URI(endpoint.trim())
-            require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.rawFragment == null && uri.rawQuery == null) { "请输入不含查询参数、账号和片段的完整 API 基础地址" }
-            val window = context.trim().toIntOrNull() ?: error("上下文窗口必须是整数 tokens")
-            val output = if (outputConfigurable) tokens.trim().toIntOrNull() ?: error("最大输出必须是整数 tokens") else profile.maxTokens
+            require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.rawFragment == null && uri.rawQuery == null) { uiContext.getString(R.string.agent_settings_invalid_url) }
+            val window = context.trim().toIntOrNull() ?: error(uiContext.getString(R.string.agent_settings_invalid_window))
+            val output = if (outputConfigurable) tokens.trim().toIntOrNull() ?: error(uiContext.getString(R.string.agent_settings_invalid_output)) else profile.maxTokens
             val modelIds = parseAgentModels(model)
             AgentContextPolicy.validate(engine, window, output)
-            val nextProfile = profile.copy(subagentModels = subagentModels.trim(), mcpServers = vm.settings.value.agentProfile(engine).mcpServers, mcpDefinitions = vm.settings.value.agentProfile(engine).mcpDefinitions, enabledSkills = enabledSkills.trim(), reviewEnabled = reviewEnabled, reviewModel = reviewModel.trim(), protocol = protocol, endpoint = endpoint.trim(), model = modelIds.firstOrNull().orEmpty(), models = modelIds.joinToString(","), activeApiId = connectionId, apiConfigurations = apiChoices.map { if (it.id == connectionId) it.copy(name = apiName.trim().ifBlank { "API" }) else it }, contextWindow = window, maxTokens = output, thinkingLevel = thinking.trim(), thinkingMode = if (engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)) thinkingMode else if (thinking in setOf("auto", "off")) thinking else "strength", thinkingBudget = if (thinkingMode == "budget") thinkingBudget.toIntOrNull() ?: error("思考预算必须是整数") else thinkingBudget.toIntOrNull() ?: profile.thinkingBudget)
+            val nextProfile = profile.copy(subagentModels = subagentModels.trim(), mcpServers = vm.settings.value.agentProfile(engine).mcpServers, mcpDefinitions = vm.settings.value.agentProfile(engine).mcpDefinitions, enabledSkills = enabledSkills.trim(), reviewEnabled = reviewEnabled, reviewModel = reviewModel.trim(), protocol = protocol, endpoint = endpoint.trim(), model = modelIds.firstOrNull().orEmpty(), models = modelIds.joinToString(","), activeApiId = connectionId, apiConfigurations = apiChoices.map { if (it.id == connectionId) it.copy(name = apiName.trim().ifBlank { "API" }) else it }, contextWindow = window, maxTokens = output, thinkingLevel = thinking.trim(), thinkingMode = if (engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)) thinkingMode else if (thinking in setOf("auto", "off")) thinking else "strength", thinkingBudget = if (thinkingMode == "budget") thinkingBudget.toIntOrNull() ?: error(uiContext.getString(R.string.agent_settings_invalid_budget)) else thinkingBudget.toIntOrNull() ?: profile.thinkingBudget)
             AgentThinkingPolicy.validate(engine, nextProfile)
             if (key.isNotBlank()) vm.agent.secrets.save(key.trim(), engine, connectionId)
             vm.settings.updateAgentProfile(engine) { nextProfile }
             vm.settings.update { it.copy(agentStreaming = streaming) }
             vm.agent.secrets.select(engine)
             key = ""; validationError = null
-        }.fold({ true }, { validationError = it.message ?: "配置无效"; false })
+        }.fold({ true }, { validationError = it.message ?: uiContext.getString(R.string.agent_settings_invalid); false })
     }
     val save: () -> Unit = { if (persist()) vm.showSettings = false }
-    if (confirmDeleteApi) AlertDialog(
+    if (confirmDeleteApi) AgentDialog(
         onDismissRequest = { confirmDeleteApi = false },
-        title = { Text("删除 API 配置？") },
-        text = { Text("删除「$apiName」及其本地密钥，不影响其他 API 配置。") },
+        title = stringResource(R.string.agent_settings_remove_api_prompt),
         confirmButton = { TextButton(onClick = {
             vm.settings.removeAgentApi(engine, connectionId)
             vm.agent.secrets.save("", engine, connectionId)
             vm.agent.secrets.select(engine)
             confirmDeleteApi = false
-        }) { Text("删除") } },
-        dismissButton = { TextButton(onClick = { confirmDeleteApi = false }) { Text("取消") } }
-    )
-    ModelSettingsPage("${engine.label} · 模型配置", { key = ""; vm.showSettings = false }, save, message = validationError) {
-        ModelSettingsSection("API 配置", "多份地址、协议、模型和密钥独立保存，切换前保存当前编辑。") {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        }) { Text(stringResource(CoreR.string.action_delete)) } },
+        dismissButton = { TextButton(onClick = { confirmDeleteApi = false }) { Text(stringResource(CoreR.string.action_cancel)) } }
+    ) { Text(stringResource(R.string.agent_settings_remove_api_detail, apiName)) }
+    ModelSettingsPage("${engine.label} · ${stringResource(CoreR.string.action_settings)}", { key = ""; vm.showSettings = false }, save,
+        message = validationError, sections = navigation) {
+        ModelSettingsSection(R.string.agent_settings_api, R.string.agent_settings_provider_detail) {
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 apiChoices.forEach { api ->
                     FilterChip(selected = api.id == connectionId, enabled = !vm.locked && !loadingModels, onClick = {
                         if (api.id != connectionId && persist()) {
                             vm.settings.selectAgentApi(engine, api.id)
                             vm.agent.secrets.select(engine)
                         }
-                    }, label = { Text(api.name + if (api.id == connectionId) " · 当前" else "") })
+                    }, label = { Text(if (api.id == connectionId) stringResource(R.string.agent_settings_api_active, api.name) else api.name) })
                 }
             }
-            OutlinedTextField(apiName, { apiName = it }, label = { Text("配置名称") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(enabled = !vm.locked && !loadingModels, onClick = { if (persist()) { vm.settings.addAgentApi(engine); vm.agent.secrets.select(engine) } }) { Text("新增 API") }
-                TextButton(enabled = !vm.locked && !loadingModels && apiChoices.size > 1, onClick = { confirmDeleteApi = true }) { Text("删除当前配置") }
+            OutlinedTextField(apiName, { apiName = it }, label = { Text(stringResource(R.string.agent_settings_api_name)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(enabled = !vm.locked && !loadingModels, onClick = { if (persist()) { vm.settings.addAgentApi(engine); vm.agent.secrets.select(engine) } }) { Text(stringResource(R.string.agent_settings_add_api)) }
+                TextButton(enabled = !vm.locked && !loadingModels && apiChoices.size > 1, onClick = { confirmDeleteApi = true }) { Text(stringResource(R.string.agent_settings_remove_api)) }
             }
-            Text("密钥按配置使用 Android Keystore 加密保存，不写入普通设置或模型列表。", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.agent_settings_key_storage), style = MaterialTheme.typography.bodySmall)
         }
-        ModelSettingsSection("连接模型", "模型用英文逗号分隔，例如 model-a,model-b；点击对话上方模型名快速切换。") {
-            Text("真实底层 ${engine.displayName} · ${engine.apiLabel}", style = MaterialTheme.typography.labelLarge)
+        ModelSettingsSection(R.string.agent_settings_connect_model, R.string.agent_settings_connect_model_detail) {
+            Text("${engine.displayName} · ${engine.apiLabel}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             if (engine == AgentEngine.GEMINI) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("gemini" to "Gemini API", "openai" to "OpenAI API").forEach { (id, label) ->
                         FilterChip(selected = protocol == id, onClick = { protocol = id; if (id == "openai" && thinkingMode == "budget") thinkingMode = "auto"; validationError = null }, label = { Text(label) })
                     }
                 }
-                Text(if (protocol == "openai") "使用 Chat Completions 基础地址；文本与工具调用，回复整段显示。" else "使用 Gemini generateContent 基础地址。", style = MaterialTheme.typography.bodySmall)
+                Text(if (protocol == "openai") stringResource(R.string.agent_settings_chat_completions) else stringResource(R.string.agent_settings_generate_content), style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API 地址") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(model, { model = it }, label = { Text("模型列表（model-a,model-b）") }, supportingText = { Text("第一个为当前模型；云端列表合并到这里，保存后可在顶部气泡切换。") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(endpoint, { endpoint = it }, label = { Text(stringResource(R.string.agent_settings_api_url)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(model, { model = it }, label = { Text(stringResource(R.string.agent_settings_model_list)) }, supportingText = { Text(stringResource(R.string.agent_settings_model_list_hint)) }, modifier = Modifier.fillMaxWidth())
             OutlinedButton(enabled = !loadingModels && !vm.locked && endpoint.isNotBlank(), onClick = {
                 val requestedEndpoint = endpoint.trim()
                 val requestedProtocol = protocol
@@ -166,43 +176,42 @@ import kotlinx.coroutines.withContext
                         if (endpoint.trim() == requestedEndpoint && protocol == requestedProtocol)
                             model = (parseAgentModels(model) + found).distinct().joinToString(",")
                     } catch (error: CancellationException) { throw error }
-                    catch (error: Exception) { validationError = AgentDiagnostics.redact(error.message ?: "获取模型列表失败", listOf(usedKey)) }
+                    catch (error: Exception) { validationError = AgentDiagnostics.redact(error.message ?: uiContext.getString(R.string.agent_settings_fetch_failed), listOf(usedKey)) }
                     finally { usedKey = ""; loadingModels = false }
                 }
-            }) { Text(if (loadingModels) "正在请求模型列表…" else "从云端获取模型列表") }
-            Text("仅向当前填写的 API 发起只读列表请求；不会发送对话或自动执行模型任务。", style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(key, { key = it }, label = { Text(if (hasKey) "API Key（留空保留）" else "API Key") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
-            if (hasKey) TextButton(onClick = { vm.agent.secrets.save("", engine) }) { Text("清除已保存的 Key") }
+            }) { Text(if (loadingModels) stringResource(R.string.agent_settings_fetching_models) else stringResource(R.string.agent_settings_fetch_models)) }
+            OutlinedTextField(key, { key = it }, label = { Text(if (hasKey) stringResource(R.string.agent_settings_keep_key) else "API Key") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation())
+            if (hasKey) TextButton(onClick = { vm.agent.secrets.save("", engine) }) { Text(stringResource(R.string.agent_settings_clear_key)) }
         }
-        ModelSettingsSection("上下文与输出", "根据模型实际能力设置任务预算。") {
-            OutlinedTextField(context, { context = it; validationError = null }, label = { Text("自定义上下文窗口（tokens）") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                supportingText = { Text("$minimum–${AgentContextPolicy.MAX_WINDOW}；按引擎分别保存") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ModelSettingsSection(R.string.agent_settings_context_output, R.string.agent_settings_context_output_detail) {
+            OutlinedTextField(context, { context = it; validationError = null }, label = { Text(stringResource(R.string.agent_settings_context_window)) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                supportingText = { Text(stringResource(R.string.agent_settings_window_range, minimum, AgentContextPolicy.MAX_WINDOW)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(32768 to "32K", 65536 to "64K", 131072 to "128K", 262144 to "256K", 1048576 to "1M").filter { it.first >= minimum }.forEach { (value, label) ->
                     FilterChip(selected = context == value.toString(), onClick = { context = value.toString(); validationError = null }, label = { Text(label) })
                 }
             }
             Text(AgentContextPolicy.description(engine), style = MaterialTheme.typography.bodySmall)
-            Text("这是客户端预算，不会扩大服务端模型能力。保存后从下一次任务生效；若引擎采用更小窗口，工作信息会显示实际报告。", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.agent_settings_window_detail), style = MaterialTheme.typography.bodySmall)
             if (outputConfigurable) {
-                OutlinedTextField(tokens, { tokens = it; validationError = null }, label = { Text("最大输出（tokens）") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                OutlinedTextField(tokens, { tokens = it; validationError = null }, label = { Text(stringResource(R.string.agent_settings_output_limit)) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                if (engine == AgentEngine.OPENCLAUDE) Text("本地 SDK 使用上游输出选项；模型自身上限仍可能更低。完整任务循环尚待验证。", style = MaterialTheme.typography.bodySmall)
-            } else Text("Codex 最大输出仍由原生引擎/模型决定；未验证的输出上限不会伪装成已生效设置。上下文窗口可以独立修改。", style = MaterialTheme.typography.bodySmall)
+                if (engine == AgentEngine.OPENCLAUDE) Text(stringResource(R.string.agent_settings_openclaude_output), style = MaterialTheme.typography.bodySmall)
+            } else Text(stringResource(R.string.agent_settings_codex_output), style = MaterialTheme.typography.bodySmall)
         }
-        ModelSettingsSection("思考", "设置当前模型的思考模式、强度或预算。") {
+        ModelSettingsSection(R.string.agent_settings_reasoning, R.string.agent_settings_reasoning_detail) {
             val dualThinking = engine in setOf(AgentEngine.GEMINI, AgentEngine.OPENCLAUDE)
             if (dualThinking) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (listOf("auto" to "自动", "budget" to "思考预算", "strength" to "思考强度", "off" to "关闭") + if (engine == AgentEngine.GEMINI) listOf("manual" to "手动填入") else emptyList()).filter { (id, _) -> val candidate = profile.copy(protocol = protocol, model = parseAgentModels(model).firstOrNull().orEmpty(), maxTokens = tokens.toIntOrNull() ?: profile.maxTokens); when (id) { "budget" -> AgentThinkingPolicy.supportsBudget(engine, candidate); "strength" -> AgentThinkingPolicy.supportsStrength(engine, candidate); "off" -> "off" in AgentThinkingPolicy.available(engine, candidate); else -> true } }.forEach { (id, label) ->
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (listOf("auto" to stringResource(R.string.agent_settings_reasoning_auto), "budget" to stringResource(R.string.agent_settings_reasoning_budget), "strength" to stringResource(R.string.agent_settings_reasoning_level), "off" to stringResource(R.string.agent_settings_reasoning_off)) + if (engine == AgentEngine.GEMINI) listOf("manual" to stringResource(R.string.agent_settings_reasoning_manual)) else emptyList()).filter { (id, _) -> val candidate = profile.copy(protocol = protocol, model = parseAgentModels(model).firstOrNull().orEmpty(), maxTokens = tokens.toIntOrNull() ?: profile.maxTokens); when (id) { "budget" -> AgentThinkingPolicy.supportsBudget(engine, candidate); "strength" -> AgentThinkingPolicy.supportsStrength(engine, candidate); "off" -> "off" in AgentThinkingPolicy.available(engine, candidate); else -> true } }.forEach { (id, label) ->
                         FilterChip(selected = thinkingMode == id, onClick = { thinkingMode = id; validationError = null }, label = { Text(label) })
                     }
                 }
-                if (thinkingMode == "budget") OutlinedTextField(thinkingBudget, { thinkingBudget = it; validationError = null }, label = { Text("思考预算（tokens）") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                if (thinkingMode == "budget") OutlinedTextField(thinkingBudget, { thinkingBudget = it; validationError = null }, label = { Text(stringResource(R.string.agent_settings_reasoning_tokens)) }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             }
             if (engine == AgentEngine.GEMINI && thinkingMode == "manual") {
-                OutlinedTextField(thinking, { thinking = it; validationError = null }, label = { Text("手动思考等级（例如 high）") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Text(if (protocol == "openai") "直接发送为 reasoning_effort，不按模型名称过滤；服务端不支持时显示错误。" else "直接发送为 thinkingConfig.thinkingLevel（转为大写），支持自定义模型别名；服务端不支持时显示错误。", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(thinking, { thinking = it; validationError = null }, label = { Text(stringResource(R.string.agent_settings_reasoning_manual_label)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text(if (protocol == "openai") stringResource(R.string.agent_settings_reasoning_openai) else stringResource(R.string.agent_settings_reasoning_gemini), style = MaterialTheme.typography.bodySmall)
             }
             val currentProfile = profile.copy(
                 protocol = protocol, model = parseAgentModels(model).firstOrNull().orEmpty(),
@@ -225,96 +234,113 @@ import kotlinx.coroutines.withContext
                     }
                 } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text(AgentThinkingPolicy.label(engine, levels.first())); Text(AgentThinkingPolicy.label(engine, levels.last())) }
             }
-            Text("预算与强度互斥；只发送当前模式参数。模型不支持时会明确报错。", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.agent_settings_reasoning_constraint), style = MaterialTheme.typography.bodySmall)
             Text(AgentThinkingPolicy.note(engine, currentProfile), style = MaterialTheme.typography.bodySmall)
         }
-        ModelSettingsSection("协作与审阅", "配置子代理候选模型、审阅和项目 Skill。") {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("完成修改后自动模型审阅")
+        ModelSettingsSection(R.string.agent_settings_collaboration, R.string.agent_settings_collaboration_detail) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.agent_settings_auto_review), Modifier.weight(1f))
                 Switch(reviewEnabled, { reviewEnabled = it })
             }
             if (reviewEnabled) {
-                OutlinedTextField(reviewModel, { reviewModel = it }, label = { Text("审阅模型（留空使用当前模型）") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                Text("使用当前引擎、API 地址和密钥；审阅仅可读取与检查修改。关闭此项不改变命令批准和修改应用流程。", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(reviewModel, { reviewModel = it }, label = { Text(stringResource(R.string.agent_settings_review_model)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text(stringResource(R.string.agent_settings_review_detail), style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedTextField(subagentModels, { subagentModels = it }, modifier = Modifier.fillMaxWidth(), label = { Text("子代理候选模型（逗号或换行分隔）") }, supportingText = { Text("沿用此供应商和 Key，每个引擎最多 8 个候选；主模型可以选择模型、思考强度、system 和 Prompt。留空时使用当前模型。") })
-            OutlinedTextField(enabledSkills, { enabledSkills = it }, modifier = Modifier.fillMaxWidth(), label = { Text("启用的项目 Skill（逗号分隔）") }, supportingText = { Text("读取 .aster/skills/名称/SKILL.md 或 .agents/skills/名称/SKILL.md；每个引擎分别保存。") })
+            OutlinedTextField(subagentModels, { subagentModels = it }, modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.agent_settings_child_models)) }, supportingText = { Text(stringResource(R.string.agent_settings_child_models_detail)) })
+            OutlinedTextField(enabledSkills, { enabledSkills = it }, modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.agent_settings_skills)) }, supportingText = { Text(stringResource(R.string.agent_settings_skills_detail)) })
         }
-        ModelSettingsSection("账号与工具", "管理账号来源、运行权限和环境。") {
+        ModelSettingsSection(R.string.agent_settings_account, R.string.agent_settings_account_detail) {
             dev.aster.ide.account.AccountSourceControls(engine)
-                dev.aster.ide.agent.AgentPermissionControls(permissionSettings, !vm.locked,
-                    { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
-                    { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeWorkspace)
-                dev.aster.ide.agent.AgentToolConfigurationControls(permissionSettings, permissionSettings.agentProfile(engine), !vm.locked,
-                    { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
-                    { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
-            TextButton(onClick = vm::openEnvironmentSettings) { Text("环境安装设置 · 编译工具 / SDK / NDK") }
         }
-        ModelSettingsSection("任务运行", "不限调用次数 · 输出方式与任务行为。") {
-            Text("工具调用与模型轮次不限次数；任务可随时停止。", style = MaterialTheme.typography.bodyMedium)
-            if (engine == AgentEngine.PI) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { Text("流式输出"); Switch(streaming, { streaming = it }) }
-            else Text("此引擎使用原生事件流。", style = MaterialTheme.typography.bodySmall)
-            if (model.isBlank()) Text("可以先保存预算；发送任务前仍需填写模型名称。", style = MaterialTheme.typography.bodySmall)
+        ModelSettingsSection(R.string.agent_settings_tools, R.string.agent_settings_tools_detail) {
+            dev.aster.ide.agent.AgentPermissionControls(permissionSettings, !vm.locked,
+                { mode -> vm.settings.update { it.copy(agentPermissionMode = mode) } },
+                { unchecked -> vm.settings.update { it.copy(agentNativeCommandsUnchecked = unchecked) } }, vm::openNativeWorkspace)
+            dev.aster.ide.agent.AgentToolConfigurationControls(permissionSettings, permissionSettings.agentProfile(engine), !vm.locked,
+                { commands -> vm.settings.update { it.copy(terminalAllowedCommands = commands) } },
+                { names, definitions -> vm.settings.updateAgentProfile(engine) { it.copy(mcpServers = names, mcpDefinitions = definitions) } })
         }
-        ModelSettingsSection("界面配置", "布局与配色单独管理。") {
-            TextButton(onClick = { vm.showAppearance = true }) { Text("打开界面配置") }
+        ModelSettingsSection(R.string.agent_settings_task, R.string.agent_settings_task_detail) {
+            Text(stringResource(R.string.agent_settings_task_limits), style = MaterialTheme.typography.bodyMedium)
+            if (engine == AgentEngine.PI) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { Text(stringResource(R.string.agent_settings_streaming)); Switch(streaming, { streaming = it }) }
+            else Text(stringResource(R.string.agent_settings_native_events), style = MaterialTheme.typography.bodySmall)
+            if (model.isBlank()) Text(stringResource(R.string.agent_settings_model_required), style = MaterialTheme.typography.bodySmall)
         }
+        AgentSettingsLinks(vm, navigation)
     }
 }
 
-private data class SettingsSectionNavigation(val selected: String?, val open: (String?) -> Unit)
+internal data class SettingsSectionNavigation(val selected: Int?, val open: (Int?) -> Unit)
 private val LocalSettingsSectionNavigation = staticCompositionLocalOf { SettingsSectionNavigation(null, {}) }
 
-@Composable internal fun ModelSettingsPage(title: String, close: () -> Unit, save: () -> Unit, action: String = "保存", message: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    var selected by remember(title) { mutableStateOf<String?>(null) }
-    val back = { if (selected != null) selected = null else close() }
+@Composable internal fun ModelSettingsPage(
+    title: String, close: () -> Unit, save: () -> Unit, action: String = stringResource(CoreR.string.action_save), message: String? = null,
+    sections: SettingsSectionNavigation? = null, content: @Composable ColumnScope.() -> Unit,
+) {
+    var local by rememberSaveable(title) { mutableStateOf<Int?>(null) }
+    val navigation = sections ?: SettingsSectionNavigation(local) { local = it }
+    val selected = navigation.selected
+    val back = { if (selected != null) navigation.open(null) else close() }
     val sectionState = rememberSaveableStateHolder()
-    AgentConfigurationPage(selected ?: title, back, actions = { TextButton(onClick = save) { Text(action) } }) {
+    val motion = if (LocalAsterDialogMotion.current) 160 else 0
+    AgentConfigurationPage(selected?.let { stringResource(it) } ?: title, back, actions = { TextButton(onClick = save) { Text(action) } }) {
         message?.let { Text(it, Modifier.fillMaxWidth().padding(20.dp, 12.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            CompositionLocalProvider(LocalSettingsSectionNavigation provides SettingsSectionNavigation(selected) { selected = it }) {
-                sectionState.SaveableStateProvider(selected ?: "settings-index") {
-                    key(selected) { Column(Modifier.widthIn(max = 760.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content) }
+        Crossfade(selected, Modifier.weight(1f).fillMaxWidth(), animationSpec = tween(motion), label = "settings-section") { page ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                CompositionLocalProvider(LocalSettingsSectionNavigation provides navigation.copy(selected = page)) {
+                    sectionState.SaveableStateProvider(page ?: "settings-index") {
+                        Column(Modifier.widthIn(max = 680.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = if (page == null) 12.dp else 20.dp),
+                            content = content)
+                    }
                 }
             }
         }
     }
 }
 
-@Composable internal fun ModelSettingsSection(title: String, description: String, content: @Composable ColumnScope.() -> Unit) {
+@Composable internal fun ModelSettingsSection(@androidx.annotation.StringRes title: Int, @androidx.annotation.StringRes description: Int, content: @Composable ColumnScope.() -> Unit) {
     val navigation = LocalSettingsSectionNavigation.current
     if (navigation.selected == null) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-        ) {
-            Row(Modifier.fillMaxWidth().clickable { navigation.open(title) }.padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                val symbol = when (title) {
-                    "连接模型" -> Icons.Outlined.Cloud
-                    "上下文与输出" -> Icons.Outlined.Storage
-                    "思考" -> Icons.Outlined.Psychology
-                    "协作与审阅" -> Icons.Outlined.Groups
-                    "账号与工具", "账号与服务" -> Icons.Outlined.Security
-                    "任务运行" -> Icons.Outlined.Timer
-                    else -> Icons.Outlined.Settings
-                }
-                val accent = MaterialTheme.colorScheme.onSurface
-                Surface(shape = CircleShape, color = accent, modifier = Modifier.size(44.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(symbol, null, Modifier.size(25.dp), tint = MaterialTheme.colorScheme.surface) }
-                }
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(title, style = MaterialTheme.typography.bodyLarge)
-                    Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.padding(start = 16.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        val symbol = when (title) {
+            R.string.agent_settings_api -> Icons.Outlined.Lan
+            R.string.agent_settings_connect_model -> Icons.Outlined.Cloud
+            R.string.agent_settings_context_output -> Icons.Outlined.Storage
+            R.string.agent_settings_reasoning -> Icons.Outlined.Psychology
+            R.string.agent_settings_collaboration -> Icons.Outlined.Groups
+            R.string.agent_settings_tools -> Icons.Outlined.Security
+            R.string.agent_settings_account -> Icons.Outlined.AccountCircle
+            R.string.agent_settings_task -> Icons.Outlined.Timer
+            else -> Icons.Outlined.Palette
         }
+        SettingsLink(stringResource(title), stringResource(description), symbol) { navigation.open(title) }
     } else if (navigation.selected == title) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(stringResource(description), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             content()
         }
     }
+}
+
+@Composable private fun AgentSettingsLinks(vm: AgentViewModel, navigation: SettingsSectionNavigation) {
+    if (navigation.selected != null) return
+    SettingsLink(stringResource(R.string.agent_settings_build), stringResource(R.string.agent_settings_build_detail), Icons.Outlined.Terminal, vm::openEnvironmentSettings)
+    SettingsLink(stringResource(R.string.agent_settings_appearance), stringResource(R.string.agent_settings_appearance_detail), Icons.Outlined.Palette) { vm.showAppearance = true }
+    AppLanguages.Picker(Modifier.padding(vertical = 12.dp))
+}
+
+@Composable private fun SettingsLink(
+    title: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector, open: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).clickable(onClick = open).padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(19.dp), tint = MaterialTheme.colorScheme.primary) }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

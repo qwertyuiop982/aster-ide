@@ -16,39 +16,42 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.aster.ide.IdeViewModel
+import dev.aster.ide.feature.R
+import dev.aster.core.R as CoreR
 
 @Composable internal fun AcsHeader(vm: IdeViewModel, compact: Boolean, onBuild: () -> Unit, menuContent: @Composable (dismiss: () -> Unit) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().height(if (compact) 48.dp else 64.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        ToolButton(Icons.Outlined.Menu, "文件", vm.showSidebar && vm.sidebar == "files", size = 40) {
+        ToolButton(Icons.Outlined.Menu, stringResource(R.string.settings_files), vm.showSidebar && vm.sidebar == "files", size = 40) {
             vm.showSidebar = if (vm.sidebar == "files") !vm.showSidebar else true
             vm.sidebar = "files"
         }
         Column(Modifier.weight(1f).padding(horizontal = 10.dp).clickable { vm.commandPalette = true }) {
             Text(vm.workspace?.name ?: "Aster", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (!compact) Text(vm.active?.name ?: "Android Code Studio 样式", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!compact) Text(vm.active?.name ?: stringResource(R.string.workbench_acs_style), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        ToolButton(Icons.Outlined.Save, "保存", enabled = vm.active != null, size = 36) { vm.save() }
-        ToolButton(if (vm.buildRunning) Icons.Outlined.Stop else Icons.Outlined.PlayArrow, if (vm.buildRunning) "停止任务" else "构建与运行", tint = if (vm.buildRunning) Coral else MaterialTheme.colorScheme.primary, size = 36) { if (vm.buildRunning) vm.cancelBuild() else onBuild() }
+        ToolButton(Icons.Outlined.Save, stringResource(CoreR.string.action_save), enabled = vm.active != null, size = 36) { vm.save() }
+        ToolButton(if (vm.buildRunning) Icons.Outlined.Stop else Icons.Outlined.PlayArrow, if (vm.buildRunning) stringResource(R.string.workbench_stop_task) else stringResource(R.string.workbench_build_run), tint = if (vm.buildRunning) Coral else MaterialTheme.colorScheme.primary, size = 36) { if (vm.buildRunning) vm.cancelBuild() else onBuild() }
         Box {
-            ToolButton(Icons.Outlined.MoreVert, "项目菜单", size = 36) { menu = true }
+            ToolButton(Icons.Outlined.MoreVert, stringResource(R.string.workbench_project_menu), size = 36) { menu = true }
             DropdownMenu(menu, { menu = false }, modifier = Modifier.widthIn(min = 210.dp)) { menuContent { menu = false } }
         }
     }
 }
 
 @Composable internal fun WorkbenchFeatureMenu(vm: IdeViewModel, dismiss: () -> Unit) {
-    DropdownMenuItem(text = { Text("文件") }, leadingIcon = { Icon(Icons.Outlined.FolderCopy, null) }, onClick = { vm.sidebar = "files"; vm.showSidebar = true; dismiss() })
-    DropdownMenuItem(text = { Text("项目搜索") }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, onClick = { vm.sidebar = "search"; vm.showSidebar = true; dismiss() })
-    DropdownMenuItem(text = { Text("Agent 工作空间") }, leadingIcon = { Icon(Icons.Outlined.SmartToy, null) }, onClick = { vm.openAgent(); dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.settings_files)) }, leadingIcon = { Icon(Icons.Outlined.FolderCopy, null) }, onClick = { vm.sidebar = "files"; vm.showSidebar = true; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.workbench_project_search)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, onClick = { vm.sidebar = "search"; vm.showSidebar = true; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.workbench_agent_workspace)) }, leadingIcon = { Icon(Icons.Outlined.SmartToy, null) }, onClick = { vm.openAgent(); dismiss() })
     WorkbenchPanels.forEach { panel ->
         DropdownMenuItem(text = { Text(panel.menuTitle) }, leadingIcon = { Icon(panel.icon, null) }, onClick = { vm.panel = panel.id; vm.showPanel = true; dismiss() })
     }
-    DropdownMenuItem(text = { Text("语言服务") }, leadingIcon = { Icon(Icons.Outlined.DataObject, null) }, onClick = { vm.settingsPage = "lsp"; dismiss() })
-    DropdownMenuItem(text = { Text("编译环境") }, leadingIcon = { Icon(Icons.Outlined.Terminal, null) }, onClick = { vm.settingsPage = "runtime"; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.settings_lsp)) }, leadingIcon = { Icon(Icons.Outlined.DataObject, null) }, onClick = { vm.settingsPage = "lsp"; dismiss() })
+    DropdownMenuItem(text = { Text(stringResource(R.string.settings_runtime)) }, leadingIcon = { Icon(Icons.Outlined.Terminal, null) }, onClick = { vm.settingsPage = "runtime"; dismiss() })
 }
 
 @Composable internal fun AcsToolShelf(vm: IdeViewModel, compact: Boolean) {
@@ -76,8 +79,8 @@ import dev.aster.ide.IdeViewModel
                         Text(panel.title, style = MaterialTheme.typography.labelMedium)
                     }
                 }
-                ToolButton(Icons.Outlined.Settings, "设置", size = 32) { vm.settingsPage = "editor" }
-                ToolButton(Icons.Outlined.DataObject, "语言服务", size = 32) { vm.settingsPage = "lsp" }
+                ToolButton(Icons.Outlined.Settings, stringResource(CoreR.string.action_settings), size = 32) { vm.settingsPage = "index" }
+                ToolButton(Icons.Outlined.DataObject, stringResource(R.string.settings_lsp), size = 32) { vm.settingsPage = "lsp" }
             }
         }
     }

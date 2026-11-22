@@ -69,13 +69,16 @@ val prepareCodexNative by tasks.registering(Exec::class) {
     // or toolchain itself changed.
     val forceNative = project.providers.gradleProperty("asterForceNative").orNull == "true"
     if (forceNative) {
+        outputs.upToDateWhen { false }
         commandLine("python3", "-B", "scripts/prepare_native.py", "--component", "codex", "--force")
     } else {
         commandLine("python3", "-B", "scripts/prepare_native.py", "--component", "codex")
     }
-    inputs.files(rootProject.file("scripts/prepare_native.py"), rootProject.file("core/termux-runtime/src/main/assets/runtime/checksums.json"))
     inputs.dir(rootProject.file("vendor/codex/codex-rs"))
-    inputs.files(rootProject.file("scripts/prepare_native.py"), rootProject.file("scripts/build_codex_agent.py"), rootProject.file("scripts/build_codex_host.py"), rootProject.file("scripts/termux_agent_sysroot.py"))
+    inputs.files(listOf("prepare_native.py", "build_codex_agent.py", "build_codex_host.py", "codex_build_tools.py", "termux_agent_sysroot.py")
+        .map { rootProject.file("scripts/$it") })
+    inputs.file(rootProject.file("core/termux-runtime/src/main/assets/runtime/checksums.json"))
+    inputs.property("rustToolchain", providers.environmentVariable("ASTER_CODEX_RUST_TOOLCHAIN").orElse("1.95.0"))
     outputs.dir(rootProject.file("build/native/codex"))
 }
 tasks.named("preBuild").configure { dependsOn(prepareCodexNative) }

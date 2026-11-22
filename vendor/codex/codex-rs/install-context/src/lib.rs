@@ -192,6 +192,12 @@ impl InstallContext {
                 .and_then(canonical_absolute_path)
         };
         if let Some(executable_dir) = executable_dir {
+            #[cfg(target_os = "android")]
+            let apk_host = executable_dir.join("libaster_codex_host.so");
+            #[cfg(target_os = "android")]
+            if apk_host.is_file() {
+                return apk_host.into_path_buf();
+            }
             let executable = executable_dir.join(CODE_MODE_HOST_EXECUTABLE_NAME);
             if executable.is_file() {
                 return executable.into_path_buf();

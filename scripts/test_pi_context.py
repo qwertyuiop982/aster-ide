@@ -86,6 +86,19 @@ class PiContextTests(unittest.TestCase):
         self.assertEqual(result['toolCalls'], 132)
         self.assertEqual(result['steps'], 133)
 
+    def test_selected_image_is_a_native_user_content_part(self):
+        def reply(packet):
+            self.assertEqual(packet['method'], 'model')
+            user = [item for item in packet['payload']['messages'] if item['role'] == 'user'][-1]
+            self.assertEqual(user['content'], [
+                {'type': 'text', 'text': 'Complete the project task.'},
+                {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,/9j//9k='}},
+            ])
+            return {'content': 'Image received.'}
+        with tempfile.TemporaryDirectory() as folder:
+            result, _ = self.run_engine(folder, reply, images=[{'mimeType': 'image/jpeg', 'data': '/9j//9k='}])
+        self.assertEqual(result['status'], 'Submitted')
+
     def test_compaction_has_its_own_budget_and_invalidates_retained_usage(self):
         ordinary = []
         summaries = []

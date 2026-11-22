@@ -7,9 +7,7 @@ Termux terminal-emulator and terminal-view
 https://github.com/termux/termux-app
 Version v0.118.3, commit 5b657c6adf4304e5198951ce815fe0205dcac29c.
 Copyright Termux contributors. GPL-3.0.
-Modifications: AGP 8.13 / CMake build integration, API 24 baseline and external-transport TerminalSession adapter. Upstream application and package prefix are unchanged. The Termux bootstrap and PRoot are embedded in termux-runtime. PRoot redirects guest paths to Aster private storage; no separate Termux APK is required.
-
-PRoot 5.1.107.96: https://github.com/termux/proot, GPL-2.0. libtalloc 2.5.0: LGPL-3.0-or-later. libandroid-shmem 0.7: Apache-2.0. Binary payload checksums and upstream source/build recipes are in termux-runtime/src/main/assets/runtime/checksums.json and research/runtime-sources/.
+Modifications: AGP / CMake integration, API 24 baseline and external-transport TerminalSession adapter. The checksum-verified Termux bootstrap is embedded in termux-runtime. Aster's native path compatibility maps legacy Termux package paths into Aster's private storage; no separate Termux APK is required. The APK no longer includes the PRoot launcher.
 
 Sora Editor and language-textmate 0.24.4
 https://github.com/Rosemoe/sora-editor

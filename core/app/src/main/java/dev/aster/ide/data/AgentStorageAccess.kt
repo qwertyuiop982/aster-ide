@@ -21,13 +21,14 @@ object AgentStorageAccess {
     fun permissionIntent(context: Context): Intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
         Uri.parse("package:" + context.packageName))
 
-    fun directory(context: Context, uri: Uri): File {
-        check(granted(context)) { "请先授予文件访问权限，再打开原目录" }
-        require(uri.authority == "com.android.externalstorage.documents") { "原生命令需要设备存储目录，请选择内部存储或 SD 卡中的文件夹" }
+    fun directory(context: Context, uri: Uri): File? {
+        WorkspaceDocumentsProvider.selectedDirectory(context, uri)?.let { return it }
+        if (uri.authority != "com.android.externalstorage.documents" || !granted(context)) return null
         val id = DocumentsContract.getTreeDocumentId(uri)
         val volume = id.substringBefore(':')
         val relative = id.substringAfter(':', "")
-        require(relative.split('/').none { it == ".." } && !relative.startsWith('/')) { "目录路径无效" }
+        require(volume.equals("primary", true) || volume.matches(Regex("[0-9A-Fa-f-]+"))) { "存储卷无效" }
+        require(relative.isEmpty() || relative.split('/').all(::validDocumentName)) { "目录路径无效" }
         val root = if (volume.equals("primary", true)) Environment.getExternalStorageDirectory()
         else if (Build.VERSION.SDK_INT >= 30) {
             val manager = context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
@@ -36,11 +37,14 @@ object AgentStorageAccess {
         val base = root.canonicalFile
         val target = File(base, relative).canonicalFile
         require(target == base || target.path.startsWith(base.path + "/")) { "目录路径无效" }
-        check(target.isDirectory && target.canRead() && target.canWrite()) { "此目录没有文件系统读写权限；请重新授权或选择其他目录" }
-        return target
+        return target.takeIf { it.isDirectory && it.canRead() && it.canWrite() }
     }
 
     fun persist(context: Context, uri: Uri) {
+        require(uri.scheme == "content" && DocumentsContract.isTreeUri(uri)) { "请选择一个可读写的目录" }
         context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
+
+    fun hasTreeAccess(context: Context, uri: Uri): Boolean =
+        context.contentResolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission && it.isWritePermission }
 }

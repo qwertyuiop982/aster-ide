@@ -432,3 +432,22 @@ body .agent-layout .quick-picker .choice-title{font-size:13px}
 body .agent-layout .quick-picker .choice-detail{font-size:11px}
 body .agent-layout.codex[data-nebula-all=true] .quick-picker{background-color:var(--nebula-bg);background-image:linear-gradient(90deg,var(--nebula-from),var(--nebula-to));background-size:var(--nebula-canvas-width,100vw) var(--nebula-canvas-height,100vh);background-position:var(--nebula-canvas-x,0px) var(--nebula-canvas-y,0px);background-repeat:no-repeat;color:var(--nebula-ink);border-color:var(--nebula-line)}
 @media(max-height:450px){body .agent-layout .quick-picker .choice-option{min-height:46px;padding-top:5px;padding-bottom:5px}.quick-picker-bar{min-height:38px;padding-top:3px;padding-bottom:3px}}
+
+/* Chat attachments and the floating subagent control share the local surface style. */
+.agent-layout{position:relative;isolation:isolate;animation:workbench-fade .2s var(--ease-out)}
+.main-column{isolation:isolate}
+.conversation-backdrop{position:absolute;inset:0;z-index:-1;width:100%;height:100%;pointer-events:none}
+.sidebar-host:not([hidden]),.info-host:not([hidden]),.subagent-footer:not([hidden]){animation:workbench-fade .18s var(--ease-out)}
+@keyframes workbench-fade{from{opacity:0}to{opacity:1}}
+body .agent-layout .quick-picker[data-kind=attachment]{width:min(226px,calc(100vw - 24px));border-radius:12px}
+.attachment-options{display:grid;gap:2px;padding:5px}
+body .agent-layout .attachment-option{justify-content:flex-start;min-height:44px;gap:11px;padding:7px 10px;font-size:13px;border-radius:8px}
+.attachment-option>.icon{width:18px;height:18px;color:var(--accent)}
+.context-picker[aria-expanded=true]{background:var(--accent-soft);color:var(--accent)}
+.attachment-chip{display:flex;align-items:center;gap:6px;min-height:34px;max-width:min(202px,52vw);flex:none;padding:0 2px 0 8px;background:var(--soft);color:var(--fg);border:1px solid var(--line);border-radius:8px;font-size:12px}
+.attachment-chip>.icon{width:16px;height:16px;color:var(--accent)}
+body .agent-layout .attachment-remove{width:32px;height:32px;min-height:32px;padding:8px}
+.attachment-remove>.icon{width:16px;height:16px}
+body .agent-layout .agent-bubble{position:relative;width:54px;height:64px;min-height:64px;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:grab}
+body .agent-layout .agent-dock[data-dragging=true] .agent-bubble{cursor:grabbing;color:var(--accent);background:var(--accent-soft);border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px;transform:scale(1.04)}
+.agent-dock .agent-list-panel{right:auto;width:min(300px,calc(100vw - 20px));max-height:min(420px,calc(100vh - 20px));max-height:min(420px,calc(100dvh - 20px));border-radius:12px;padding:12px}

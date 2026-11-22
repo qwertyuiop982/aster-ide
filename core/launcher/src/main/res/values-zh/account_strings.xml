@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_sign_in">登录账户</string>
+    <string name="account_sync">同步积分与账户状态</string>
+    <string name="account_github">使用 GitHub 登录</string>
+    <string name="account_email">邮箱地址</string>
+    <string name="account_code_sent">验证码已发送，请查收邮件</string>
+    <string name="account_send_code">发送验证码</string>
+    <string name="account_code">6 位验证码</string>
+    <string name="account_sign_in_email">邮箱登录</string>
+    <string name="account_change_email">更换邮箱</string>
+    <string name="account_back_to_workspace">返回工作空间</string>
+    <string name="account_signed_in">已登录</string>
+    <string name="account_available_points">可用积分</string>
+    <string name="account_points_detail">总积分 %1$s · 预占 %2$s</string>
+    <string name="account_points_date">%1$s · 每日更新</string>
+    <string name="account_checked_in">今日已签到</string>
+    <string name="account_check_in">签到 +100 积分</string>
+    <string name="account_refresh">刷新账户</string>
+    <string name="account_ledger">积分明细</string>
+    <string name="account_sign_out">退出登录</string>
+    <string name="account_pi_model">Pi 模型设置</string>
+    <string name="account_custom_api">自定义 API</string>
+    <string name="account_use_model">使用账户模型</string>
+    <string name="account_tier_options">Free 或 Go</string>
+    <string name="account_collapse">收起</string>
+    <string name="account_free_pricing">Free：1000 tokens / 1 积分（%1$s）</string>
+    <string name="account_go_pricing">Go：1000 tokens / 50 积分（%1$s）</string>
+    <string name="account_available">可用</string>
+    <string name="account_unavailable">暂不可用</string>
+    <string name="account_reconnect">重新连接账户服务</string>
+    <string name="account_failed">操作未完成，请重试</string>
+    <string name="account_ledger_registration">注册奖励</string>
+    <string name="account_ledger_checkin">签到奖励</string>
+    <string name="account_ledger_usage">模型使用</string>
+    <string name="account_ledger_line">%1$s · %2$s 积分\n%3$s</string>
+    <string name="account_no_history">暂无记录</string>
+</resources>

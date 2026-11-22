@@ -1,6 +1,9 @@
 """Package an assembled/signed release and an exact Git source snapshot without build outputs."""
 from pathlib import Path
 import argparse, datetime, hashlib, json, shutil, subprocess, zipfile
+
+from prepare_native import BOOTSTRAP_ASSET, BOOTSTRAP_MANIFEST, BOOTSTRAP_OUTPUT
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '1.0.5'
 
@@ -33,23 +36,30 @@ def main():
     if signed['version'] != VERSION: raise RuntimeError('Packaging version differs from signed APK')
     source_apk = ROOT/signed['apk']
     if sha256(source_apk) != signed['sha256']: raise RuntimeError('Signed APK changed')
+    bootstrap = ROOT / BOOTSTRAP_OUTPUT
+    expected = json.loads((ROOT / BOOTSTRAP_MANIFEST).read_text())['bootstrap']['aarch64']
+    if sha256(bootstrap) != expected:
+        raise RuntimeError('Prepared bootstrap differs from the pinned Termux archive')
     apk_name = f'aster-v{VERSION}-release.apk'
     shutil.copy2(source_apk,output/apk_name)
     with zipfile.ZipFile(source_apk) as archive:
         names=set(archive.namelist())
         required={'lib/arm64-v8a/libaster_codex.so','lib/arm64-v8a/libaster_codex_host.so',
-                  'lib/arm64-v8a/libaster_proot.so','lib/arm64-v8a/libaster_loader.so',
-                  'lib/arm64-v8a/libaster_loader32.so','lib/arm64-v8a/libtalloc.so',
-                  'lib/arm64-v8a/libandroid-shmem.so','assets/runtime/bootstrap-aarch64.zip',
+                  'lib/arm64-v8a/libaster_runtime.so', BOOTSTRAP_ASSET,
                   'assets/licenses/CLIENT-SOURCES.json','assets/bridge/agent_vendor/pi-agent.mjs',
                   'assets/bridge/agent_vendor/gemini-agent.mjs'}
         if required-names: raise RuntimeError('Missing APK runtime inputs: '+str(required-names))
+        legacy_runtime = {'libaster_proot.so', 'libaster_loader.so', 'libaster_loader32.so',
+                          'libaster_redirect.so', 'libtalloc.so', 'libandroid-shmem.so'}
+        if any(entry.startswith('lib/') and Path(entry).name in legacy_runtime for entry in names):
+            raise RuntimeError('Obsolete PRoot launcher entered APK')
         asset_sources = {
             'assets/bridge/agent_vendor/pi-agent.mjs': ROOT/'core/app/src/main/assets/bridge/agent_vendor/pi-agent.mjs',
             'assets/bridge/agent_vendor/gemini-agent.mjs': ROOT/'core/app/src/main/assets/bridge/agent_vendor/gemini-agent.mjs',
             'assets/licenses/CLIENT-SOURCES.json': ROOT/'client/browser/src/main/assets/licenses/CLIENT-SOURCES.json',
             'assets/licenses/CLIENT-NOTICE.txt': ROOT/'client/browser/src/main/assets/licenses/CLIENT-NOTICE.txt',
-            'assets/runtime/bootstrap-aarch64.zip': ROOT/'build/native/runtime-assets/runtime/bootstrap-aarch64.zip',
+            BOOTSTRAP_ASSET: bootstrap,
+            'assets/runtime/checksums.json': ROOT / BOOTSTRAP_MANIFEST,
         }
         for entry, source in asset_sources.items():
             digest = hashlib.sha256()

@@ -3,11 +3,17 @@
 Aster is an Android ARM64 development workbench with a Compose interface, code editor, embedded Termux environment, language services, native Android builds and Pi/Codex/Gemini agents. The first launch offers VS Code and ACS interface styles.
 
 - Android 7.0+ (API 24), arm64-v8a; target SDK 28 allows app-private compiler executables.
-- Qingzhou's BrowserEngine and WebViewEngine provide the embedded browser tools.
+- The embedded browser and webpage automation use Android WebView. Pi, Codex, Gemini and OpenClaude (with a separately configured SDK) can run `web_webview_search` for rendered Bing web and image results.
 - Device tools call the separately installed, running **Shizuku app** through `dev.rikka.shizuku:api` and `provider` 13.1.5. Install/start Shizuku and grant Aster permission. Shizuku's server and API source trees are not included in this repository.
 - Use Aster account models or configure your own provider and API key.
 
 Get the APK, compact corresponding source, checksums and validation record from [GitHub Releases](https://github.com/qwertyuiop982/aster-ide/releases/tag/v1.06-aster). Website download buttons use GitHub Release assets through the existing gh-proxy.org proxy; direct GitHub asset URLs remain available.
+
+## Project folders
+
+Use **Bind working folder** in Agent workspaces (or in the IDE's Agent permissions) to open a writable tree from Android's system picker. Native project tools run in the bound directory when it is directly accessible. Otherwise Aster keeps a synchronized mirror under its app-private `home/app_sda/<workspace-id>` and writes changes through the provider. This is not an OS mount: an app must publish a tree in the picker before Aster can read it. Sync detects edits to the same file on both sides and reports a conflict instead of choosing one.
+
+In the system picker, **Aster Files** (`Aster 文件`) exposes the app's private `home/shared` folder, and **Aster Projects** (`Aster 项目`) exposes app-managed local projects. Neither exposes the entire private app data directory, credentials, or other apps' granted trees.
 
 ## Build
 
@@ -19,7 +25,7 @@ cd aster-ide
 ./gradlew :app:assembleRelease
 ```
 
-The published source excludes `.so` files and generated build intermediates. Gradle prepares native runtime dependencies and builds the two Codex programs into the ignored `build/native/` directory. A fresh native build additionally needs Rust 1.95.0, its `aarch64-linux-android` target, `ar`, `readelf`, `zstd` and network access. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup and caching. The Termux bootstrap and pinned .deb dependencies are fetched and checksum-verified at build time; the separate native-dependencies Release asset retains them when upstream rolling repositories remove old versions.
+The published source excludes `.so` files and generated build intermediates. Gradle prepares native runtime dependencies and builds the two Codex programs into the ignored `build/native/` directory. A fresh native build needs Rust with the `aarch64-linux-android` standard library, `ar`, `readelf`, `zstd` and network access. Desktop builds default to Rust 1.95.0; ARM64 Termux can use its APT-installed Rust and Protobuf. See [DEVELOPMENT.md](DEVELOPMENT.md) for setup and caching. The Termux bootstrap and pinned .deb dependencies are fetched and checksum-verified at build time; the separate native-dependencies Release asset retains them when upstream rolling repositories remove old versions.
 
 The release build enables R8/resource shrinking and produces an unsigned APK. Sign your own builds with your own key; release signing keys are excluded. A different signing key cannot replace an existing Aster installation without migration.
 

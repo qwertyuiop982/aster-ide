@@ -12,7 +12,9 @@ export class OpenAIContentGenerator {
     for (const content of request.contents || []) {
       if (typeof content === 'string') { messages.push({ role: 'user', content }); continue; }
       const parts = content.parts || [];
-      if (parts.some((part: any) => part.inlineData || part.fileData)) throw new Error('OpenAI protocol currently supports text and tool content only');
+      if (parts.some((part: any) => part.fileData || (part.inlineData && !/^image\/(jpeg|png|webp|gif)$/.test(part.inlineData.mimeType)))) {
+        throw new Error('OpenAI protocol supports inline images, text and tool content only');
+      }
       const calls = parts.filter((part: any) => part.functionCall).map((part: any) => ({ id: part.functionCall.id || randomUUID(), type: 'function', function: { name: part.functionCall.name, arguments: JSON.stringify(part.functionCall.args || {}) } }));
       const responses = parts.filter((part: any) => part.functionResponse);
       if (responses.length) {
@@ -24,7 +26,14 @@ export class OpenAIContentGenerator {
           messages.push({ role: 'tool', tool_call_id: id, content: JSON.stringify(response.response || {}) });
         }
       }
-      const body = parts.filter((part: any) => !part.thought).map((part: any) => part.text || '').join('');
+      const visible = parts.filter((part: any) => !part.thought);
+      const body = visible.some((part: any) => part.inlineData) ? visible.flatMap((part: any) => {
+        if (part.inlineData) {
+          const { mimeType, data } = part.inlineData;
+          return [{ type: 'image_url', image_url: { url: `data:${mimeType};base64,${data}` } }];
+        }
+        return part.text ? [{ type: 'text', text: part.text }] : [];
+      }) : visible.map((part: any) => part.text || '').join('');
       if (body || calls.length) messages.push({ role: content.role === 'model' ? 'assistant' : 'user', content: body || null, ...(calls.length ? { tool_calls: calls } : {}) });
     }
     const declarations = (request.config?.tools || []).flatMap((tool: any) => tool.functionDeclarations || []);
@@ -79,6 +88,14 @@ export class OpenAIContentGenerator {
     const response = await this.generateContent(request);
     return (async function* () { yield response; })();
   }
-  async countTokens(request: any) { return { totalTokens: Math.ceil(JSON.stringify(request.contents || []).length / 3) }; }
+  async countTokens(request: any) {
+    let images = 0;
+    const visible = JSON.stringify(request.contents || [], (key, value) => {
+      if (key !== 'inlineData') return value;
+      images++;
+      return undefined;
+    });
+    return { totalTokens: Math.ceil(visible.length / 3) + images * 1024 };
+  }
   async embedContent(): Promise<any> { throw new Error('Embeddings are unavailable for the OpenAI chat protocol'); }
 }

@@ -18,12 +18,33 @@ function assistant(model, text = '') {
 function asText(content) {
   return typeof content === 'string' ? content : (content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
 }
-function toOpenAI(context) {
+function toOpenAI(context, freeMode) {
   const messages = [];
   const system = getCurrentSystemPrompt(context.messages);
   if (system) messages.push({ role: 'system', content: system });
+  // Keep the latest visual inputs under the bridge's 4 MiB model RPC limit.
+  const retainedImages = new Set();
+  let imageBudget = freeMode ? 0 : 1536 * 1024 + 128;
+  for (const message of [...context.messages].reverse()) {
+    if (message.role !== 'user' || !Array.isArray(message.content)) continue;
+    for (const part of message.content) {
+      if (part.type !== 'image' || part.data.length + 32 > imageBudget) continue;
+      imageBudget -= part.data.length + 32;
+      retainedImages.add(part);
+    }
+  }
   for (const message of context.messages) {
-    if (message.role === 'user') messages.push({ role: 'user', content: asText(message.content) });
+    if (message.role === 'user') {
+      const content = message.content;
+      if (!Array.isArray(content) || !content.some(part => part.type === 'image')) {
+        messages.push({ role: 'user', content: asText(content) });
+      } else {
+        const parts = content.map(part => part.type === 'text' ? { type: 'text', text: part.text } :
+          retainedImages.has(part) ? { type: 'image_url', image_url: { url: `data:${part.mimeType};base64,${part.data}` } } :
+            { type: 'text', text: '[Image omitted from older context.]' });
+        messages.push({ role: 'user', content: freeMode ? asText(parts) : parts });
+      }
+    }
     else if (message.role === 'assistant') {
       const calls = message.content.filter(c => c.type === 'toolCall').map(c => ({ id: c.id, type: 'function',
         function: { name: c.name, arguments: JSON.stringify(c.arguments) } }));
@@ -46,7 +67,7 @@ async function main(config) {
   const thinkingLevel = config.thinkingLevel && config.thinkingLevel !== 'auto' ? config.thinkingLevel : 'off';
   const contextWindow = Math.max(8192, Math.min(config.contextWindow || 32768, 1048576));
   const model = { id: config.model || 'aster', name: config.model || 'Aster', api: 'openai-completions',
-    provider: 'aster', baseUrl: '', reasoning: thinkingLevel !== 'off', input: ['text'],
+    provider: 'aster', baseUrl: '', reasoning: thinkingLevel !== 'off', input: freeMode ? ['text'] : ['text', 'image'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow, maxTokens: config.maxTokens || 4096 };
   const manager = SessionManager.open(config.sessionFile, dirname(config.sessionFile), config.workspace);
   let steps = 0;
@@ -110,7 +131,7 @@ async function main(config) {
       stream.push({ type: 'start', partial: message });
       try {
         if (options?.signal?.aborted) throw new Error('Agent cancelled');
-        const result = await rpc('model', { messages: toOpenAI(context), step: compacting ? steps : ++steps,
+        const result = await rpc('model', { messages: toOpenAI(context, freeMode), step: compacting ? steps : ++steps,
           purpose: compacting ? 'compaction' : 'task', maxTokens: options?.maxTokens, reasoning: options?.reasoning, tools: compacting ? [] : getCurrentTools(context.messages).map(t => t.name) });
         if (result.content) message.content.push({ type: 'text', text: result.content });
         for (const call of result.tool_calls || []) {
@@ -184,7 +205,7 @@ async function main(config) {
     const changed = await compactContext(true);
     summary = changed ? '上下文已压缩，完整会话记录仍保留。' : '当前上下文较短，无需压缩。';
   } else {
-    await agent.prompt(config.task);
+    await agent.prompt(config.task, (config.images || []).map(image => ({ type: 'image', ...image })));
     if (agent.state.errorMessage) throw new Error(agent.state.errorMessage);
     const last = agent.state.messages.filter(m => m.role === 'assistant').at(-1);
     if (last?.stopReason === 'error') throw new Error(last.errorMessage || 'Model request failed');

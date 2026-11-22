@@ -1,9 +1,15 @@
 """Generate native APK inputs under ignored build/native; no binaries are stored in source."""
 from pathlib import Path
 import argparse, fcntl, hashlib, io, json, os, shutil, subprocess, sys, tarfile, urllib.request, zipfile
+
+from codex_build_tools import open_project_lock
+
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = Path(os.environ.get('ASTER_NATIVE_CACHE', str(Path.home() / '.cache/aster-native')))
 RELEASE = 'https://gh-proxy.org/https://github.com/qwertyuiop982/aster-ide/releases/download/v1.0.5/'
+BOOTSTRAP_MANIFEST = 'core/termux-runtime/src/main/assets/runtime/checksums.json'
+BOOTSTRAP_ASSET = 'assets/runtime/bootstrap-aarch64.zip'
+BOOTSTRAP_OUTPUT = 'build/native/runtime-assets/runtime/bootstrap-aarch64.zip'
 
 def verified_download(url, destination, expected):
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -18,7 +24,7 @@ def _verified_download(url, destination, expected):
     temporary = destination.with_suffix(destination.suffix + '.part')
     try:
         request = urllib.request.Request(url, headers={'User-Agent':'Aster-native-build/1.0.1'})
-        with urllib.request.urlopen(request, timeout=90) as inp, temporary.open('wb') as out:
+        with urllib.request.urlopen(request) as inp, temporary.open('wb') as out:
             shutil.copyfileobj(inp, out)
         if hashlib.sha256(temporary.read_bytes()).hexdigest() != expected:
             raise RuntimeError('Official package checksum mismatch: ' + destination.name)
@@ -30,7 +36,7 @@ def _verified_download(url, destination, expected):
             fcntl.flock(archive_lock.fileno(), fcntl.LOCK_EX)
             if not archive.is_file():
                 request = urllib.request.Request(RELEASE + archive.name, headers={'User-Agent':'Aster-native-build/1.0.1'})
-                with urllib.request.urlopen(request, timeout=120) as inp, archive.with_suffix('.part').open('wb') as out:
+                with urllib.request.urlopen(request) as inp, archive.with_suffix('.part').open('wb') as out:
                     shutil.copyfileobj(inp, out)
                 archive.with_suffix('.part').replace(archive)
             with zipfile.ZipFile(archive) as bundle:
@@ -52,36 +58,20 @@ def deb_entries(path):
             if entry.isfile(): yield entry.name, archive.extractfile(entry).read()
 
 def prepare_bootstrap():
-    record=json.loads((ROOT/'core/termux-runtime/src/main/assets/runtime/checksums.json').read_text())['bootstrap']
-    source=verified_download('https://gh-proxy.org/https://github.com/termux/termux-packages/releases/download/bootstrap-'+record['tag']+'/bootstrap-aarch64.zip',CACHE/'bootstrap-aarch64.zip',record['aarch64'])
-    output=ROOT/'build/native/runtime-assets/runtime/bootstrap-aarch64.zip'
-    output.parent.mkdir(parents=True,exist_ok=True)
-    with (ROOT / 'build/bootstrap-assets.lock').open('a') as asset_lock:
-        fcntl.flock(asset_lock.fileno(), fcntl.LOCK_EX)
-        if not output.is_file() or hashlib.sha256(output.read_bytes()).hexdigest()!=record['aarch64']:
-            temporary=output.with_suffix('.part')
-            shutil.copy2(source,temporary)
-            temporary.replace(output)
+    record = json.loads((ROOT / BOOTSTRAP_MANIFEST).read_text())['bootstrap']
+    expected = record['aarch64']
+    output = ROOT / BOOTSTRAP_OUTPUT
+    name = output.name
+    with open_project_lock(ROOT, 'bootstrap-assets.lock'):
+        if output.is_file() and hashlib.sha256(output.read_bytes()).hexdigest() == expected:
+            return output
+        url = 'https://gh-proxy.org/https://github.com/termux/termux-packages/releases/download/'
+        source = verified_download(f'{url}bootstrap-{record["tag"]}/{name}', CACHE / name, expected)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = output.with_suffix('.part')
+        shutil.copy2(source, temporary)
+        temporary.replace(output)
     return output
-
-def prepare_runtime(force=False):
-    prepare_bootstrap()
-    destination = ROOT / 'build/native/runtime/arm64-v8a'
-    destination.mkdir(parents=True, exist_ok=True)
-    expected = {'libaster_proot.so','libaster_loader.so','libaster_loader32.so','libtalloc.so','libandroid-shmem.so'}
-    if not force and all((destination/name).is_file() for name in expected): return
-    records = json.loads((ROOT/'core/termux-runtime/src/main/assets/runtime/checksums.json').read_text())
-    for item in records['hostPackages']:
-        path = verified_download('https://packages.termux.dev/apt/termux-main/'+item['Filename'], CACHE/Path(item['Filename']).name, item['SHA256'])
-        for name,data in deb_entries(path):
-            file=Path(name).name; target=None
-            if item['Package']=='proot' and file=='proot': target='libaster_proot.so'
-            elif item['Package']=='proot' and file.startswith('loader') and data.startswith(b'\x7fELF'): target='libaster_'+file.replace('-','_')+'.so'
-            elif item['Package']=='libtalloc' and file.startswith('libtalloc.so'): target='libtalloc.so'
-            elif item['Package']=='libandroid-shmem' and file.startswith('libandroid-shmem.so'): target='libandroid-shmem.so'
-            if target:
-                (destination/target).write_bytes(data); (destination/target).chmod(0o755)
-    if not all((destination/name).is_file() for name in expected): raise RuntimeError('Incomplete native runtime inputs')
 
 def prepare_v8():
     prefix=Path(os.environ.get('ASTER_V8_PREFIX',str(CACHE/'v8/usr')))
@@ -95,27 +85,39 @@ def prepare_v8():
     if not all((prefix/name).is_file() for name in names): raise RuntimeError('Incomplete V8 input; set ASTER_V8_PREFIX')
     return prefix
 
+def codex_source_inputs(source):
+    # Rust builds also consume .proto files, templates, and embedded assets.
+    for directory, subdirs, names in os.walk(source):
+        subdirs[:] = [name for name in subdirs if name not in {'.git', 'target'}]
+        for name in names:
+            path = Path(directory) / name
+            if name != '.git' and path.is_file():
+                yield path
+
 def prepare_codex(force=False):
+    from codex_build_tools import RUST_TOOLCHAIN
+    toolchain = os.environ.get('ASTER_CODEX_RUST_TOOLCHAIN', RUST_TOOLCHAIN)
     dest=ROOT/'build/native/codex/arm64-v8a'
     outputs = [dest/name for name in ['libaster_codex.so', 'libaster_codex_host.so']]
-    if not force and all(path.is_file() for path in outputs):
-        source = ROOT/'vendor/codex/codex-rs'
-        inputs = [path for path in source.rglob('*') if path.is_file() and path.suffix in {'.rs', '.toml', '.lock'} and not {'target', '.git'} & set(path.relative_to(source).parts)]
-        inputs += [ROOT/'scripts'/name for name in ['build_codex_agent.py', 'build_codex_host.py', 'termux_agent_sysroot.py']]
+    stamp = dest.parent / 'rust-toolchain.txt'
+    if not force and all(path.is_file() for path in outputs) and stamp.is_file() and stamp.read_text().strip() == toolchain:
+        inputs = list(codex_source_inputs(ROOT/'vendor/codex/codex-rs'))
+        inputs.append(ROOT / BOOTSTRAP_MANIFEST)
+        inputs += [ROOT/'scripts'/name for name in ['build_codex_agent.py', 'build_codex_host.py', 'codex_build_tools.py', 'termux_agent_sysroot.py', 'prepare_native.py']]
         if max(path.stat().st_mtime_ns for path in inputs) <= min(path.stat().st_mtime_ns for path in outputs):
             return
     for name in ['build_codex_agent.py','build_codex_host.py']:
         subprocess.run([sys.executable,'-B',str(ROOT/'scripts'/name)],cwd=ROOT,check=True)
+    stamp.write_text(toolchain + '\n')
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--component',choices=['codex','runtime','all'],default='all')
     parser.add_argument('--force',action='store_true')
     args=parser.parse_args(); (ROOT/'build').mkdir(exist_ok=True)
-    with (ROOT/'build'/('prepare-'+args.component+'.lock')).open('a') as lock:
-        fcntl.flock(lock.fileno(),fcntl.LOCK_EX)
-        if args.component in ['runtime','all']: prepare_runtime(args.force)
+    with open_project_lock(ROOT, 'prepare-'+args.component+'.lock'):
+        if args.component in ['runtime','all']: prepare_bootstrap()
         if args.component in ['codex','all']: prepare_codex(args.force)
-    print('Native inputs ready in build/native/'+args.component)
+    print('Native inputs ready in build/native')
 
 if __name__=='__main__': main()

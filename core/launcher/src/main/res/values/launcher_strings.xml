@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="aster_app_name">Aster Account Edition</string>
+    <string name="launcher_current_mode">Current: %1$s</string>
+    <string name="launcher_home">Back to home</string>
+    <string name="launcher_switch_failed_title">Could not switch modes</string>
+    <string name="launcher_switch_failed">Could not switch work modes.</string>
+    <string name="launcher_ide_busy">Wait for the current IDE task to finish or stop it first.</string>
+    <string name="launcher_mode_ide">IDE mode</string>
+    <string name="launcher_mode_agent">Agent mode</string>
+    <string name="launcher_ide_subtitle">Edit, build, run a terminal, and use an Agent</string>
+</resources>

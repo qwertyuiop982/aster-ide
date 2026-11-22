@@ -1,5 +1,6 @@
 package dev.aster.ide.account
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -14,13 +15,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.aster.core.AppLanguages
+import dev.aster.core.AsterDialog
 import dev.aster.core.CoreRuntime
+import dev.aster.core.LocalAsterDialogMotion
+import dev.aster.ide.R
 import dev.aster.ide.ui.AsterTheme
+import dev.aster.core.R as CoreR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -33,6 +40,9 @@ class AccountActivity : ComponentActivity() {
     private var callback by mutableStateOf<Uri?>(null)
     private var resumed by mutableIntStateOf(0)
     private val network = Mutex()
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguages.wrapLegacyContext(newBase))
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -56,7 +66,7 @@ class AccountActivity : ComponentActivity() {
                     network.withLock {
                         busy = true
                         try { accept(withContext(Dispatchers.IO) { action() }) }
-                        catch (e: Exception) { error = e.message ?: "操作未完成，请重试" }
+                        catch (e: Exception) { error = e.message ?: getString(R.string.account_failed) }
                         finally { busy = false }
                     }
                 }
@@ -71,8 +81,8 @@ class AccountActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize().systemBarsPadding()) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { finish() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") }
-                            Text("Aster 账户", style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { finish() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(CoreR.string.action_back)) }
+                            Text(stringResource(CoreR.string.title_account), style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.weight(1f))
                         }
                         HorizontalDivider()
@@ -85,58 +95,58 @@ class AccountActivity : ComponentActivity() {
                                     Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text("Aster", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-                                            Text("登录账户", style = MaterialTheme.typography.titleLarge)
-                                            Text("同步积分与账户状态", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.account_sign_in), style = MaterialTheme.typography.titleLarge)
+                                            Text(stringResource(R.string.account_sync), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        Button(onClick = { run({ JSONObject().put("url", repository.githubStart()) }, { reply -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(reply.getString("url")))) }) }, enabled = !busy && capabilities.optBoolean("github_login"), modifier = Modifier.fillMaxWidth()) { Text("使用 GitHub 登录") }
+                                        Button(onClick = { run({ JSONObject().put("url", repository.githubStart()) }, { reply -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(reply.getString("url")))) }) }, enabled = !busy && capabilities.optBoolean("github_login"), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_github)) }
                                         if (capabilities.optBoolean("email_login")) {
                                             HorizontalDivider()
-                                            OutlinedTextField(email, { email = it; accountNotice = null }, label = { Text("邮箱地址") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy && challenge.isBlank(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+                                            OutlinedTextField(email, { email = it; accountNotice = null }, label = { Text(stringResource(R.string.account_email)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy && challenge.isBlank(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                                             if (challenge.isBlank()) {
-                                                OutlinedButton(onClick = { run({ repository.emailStart(email) }, { reply -> challenge = reply.getString("challenge_id"); accountNotice = "验证码已发送，请查收邮件" }) }, enabled = !busy && email.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("发送验证码") }
+                                                OutlinedButton(onClick = { run({ repository.emailStart(email) }, { reply -> challenge = reply.getString("challenge_id"); accountNotice = getString(R.string.account_code_sent) }) }, enabled = !busy && email.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_send_code)) }
                                             } else {
-                                                OutlinedTextField(code, { code = it }, label = { Text("6 位验证码") }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                                                Button(onClick = { run({ repository.emailVerify(challenge, code); repository.state() }) }, enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth()) { Text("邮箱登录") }
-                                                TextButton(onClick = { challenge = ""; code = ""; accountNotice = null }, enabled = !busy) { Text("更换邮箱") }
+                                                OutlinedTextField(code, { code = it }, label = { Text(stringResource(R.string.account_code)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                                                Button(onClick = { run({ repository.emailVerify(challenge, code); repository.state() }) }, enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.account_sign_in_email)) }
+                                                TextButton(onClick = { challenge = ""; code = ""; accountNotice = null }, enabled = !busy) { Text(stringResource(R.string.account_change_email)) }
                                             }
                                             accountNotice?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
                                         }
                                     }
                                 }
-                                TextButton(onClick = { finish() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("返回工作空间") }
+                                TextButton(onClick = { finish() }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.account_back_to_workspace)) }
                             } else {
                                 val wallet = account.optJSONObject("wallet") ?: JSONObject()
-                                Text(account.optJSONObject("identity")?.optString("display_name") ?: "已登录", style = MaterialTheme.typography.titleLarge)
+                                Text(account.optJSONObject("identity")?.optString("display_name") ?: stringResource(R.string.account_signed_in), style = MaterialTheme.typography.titleLarge)
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("可用积分", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.account_available_points), style = MaterialTheme.typography.labelLarge)
                                         Text(wallet.optString("available", "—"), style = MaterialTheme.typography.displaySmall)
-                                        Text("总积分 ${wallet.optString("balance", "—")} · 预占 ${wallet.optString("reserved", "0.000")}", style = MaterialTheme.typography.bodySmall)
-                                        Text("${wallet.optString("beijing_date")} · 每日更新", style = MaterialTheme.typography.bodySmall)
+                                        Text(stringResource(R.string.account_points_detail, wallet.optString("balance", "—"), wallet.optString("reserved", "0.000")), style = MaterialTheme.typography.bodySmall)
+                                        Text(stringResource(R.string.account_points_date, wallet.optString("beijing_date")), style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
-                                Button(onClick = { run({ repository.checkin(); repository.state() }) }, enabled = !busy && !wallet.optBoolean("checked_in"), modifier = Modifier.fillMaxWidth()) { Text(if (wallet.optBoolean("checked_in")) "今日已签到" else "签到 +100 积分") }
+                                Button(onClick = { run({ repository.checkin(); repository.state() }) }, enabled = !busy && !wallet.optBoolean("checked_in"), modifier = Modifier.fillMaxWidth()) { Text(if (wallet.optBoolean("checked_in")) stringResource(R.string.account_checked_in) else stringResource(R.string.account_check_in)) }
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    OutlinedButton(onClick = { run({ repository.state() }) }, enabled = !busy) { Text("刷新账户") }
-                                    OutlinedButton(onClick = { run({ repository.ledger() }, { ledger = it.optJSONArray("items") }) }, enabled = !busy) { Text("积分明细") }
+                                    OutlinedButton(onClick = { run({ repository.state() }) }, enabled = !busy) { Text(stringResource(R.string.account_refresh)) }
+                                    OutlinedButton(onClick = { run({ repository.ledger() }, { ledger = it.optJSONArray("items") }) }, enabled = !busy) { Text(stringResource(R.string.account_ledger)) }
                                 }
-                                TextButton(onClick = { run({ repository.logout(); repository.state() }) }, enabled = !busy) { Text("退出登录") }
+                                TextButton(onClick = { run({ repository.logout(); repository.state() }) }, enabled = !busy) { Text(stringResource(R.string.account_sign_out)) }
                             }
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Text("Pi 模型设置", style = MaterialTheme.typography.titleMedium)
-                                            Text(if (settings.agentUseFree) "Aster-free · ${if (settings.agentFreeTier == "go") "Go" else "Free"}" else "自定义 API", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.account_pi_model), style = MaterialTheme.typography.titleMedium)
+                                            Text(if (settings.agentUseFree) "Aster-free · ${if (settings.agentFreeTier == "go") "Go" else "Free"}" else stringResource(R.string.account_custom_api), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        TextButton(onClick = { modelSettingsExpanded = !modelSettingsExpanded }) { Text(if (modelSettingsExpanded) "收起" else "设置") }
+                                        TextButton(onClick = { modelSettingsExpanded = !modelSettingsExpanded }) { Text(if (modelSettingsExpanded) stringResource(R.string.account_collapse) else stringResource(CoreR.string.action_settings)) }
                                     }
                                     if (modelSettingsExpanded) {
                                         HorizontalDivider()
                                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                                Text("使用账户模型")
-                                                Text("Free 或 Go", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(stringResource(R.string.account_use_model))
+                                                Text(stringResource(R.string.account_tier_options), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                             Switch(settings.agentUseFree, { enabled -> core.settings.update { it.copy(agentUseFree = enabled) } })
                                         }
@@ -145,28 +155,34 @@ class AccountActivity : ComponentActivity() {
                                                 FilterChip(selected = settings.agentFreeTier == "free", onClick = { core.settings.update { it.copy(agentFreeTier = "free") } }, label = { Text("Free") })
                                                 FilterChip(selected = settings.agentFreeTier == "go", onClick = { core.settings.update { it.copy(agentFreeTier = "go") } }, label = { Text("Go") })
                                             }
-                                            Text("Free：1000 tokens / 1 积分（${if (capabilities.optBoolean("free")) "可用" else "暂不可用"}）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text("Go：1000 tokens / 50 积分（${if (capabilities.optBoolean("free_go")) "可用" else "暂不可用"}）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.account_free_pricing, stringResource(if (capabilities.optBoolean("free")) R.string.account_available else R.string.account_unavailable)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.account_go_pricing, stringResource(if (capabilities.optBoolean("free_go")) R.string.account_available else R.string.account_unavailable)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
                             }
-                            if (account.length() == 0) OutlinedButton(onClick = { run({ repository.state() }) }, enabled = !busy) { Text("重新连接账户服务") }
+                            if (account.length() == 0) OutlinedButton(onClick = { run({ repository.state() }) }, enabled = !busy) { Text(stringResource(R.string.account_reconnect)) }
                         }
                     }
                 }
-                error?.let { message -> AlertDialog(onDismissRequest = { error = null }, title = { Text("Aster") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { error = null }) { Text("知道了") } }) }
-                ledger?.let { entries ->
-                    AlertDialog(onDismissRequest = { ledger = null }, title = { Text("积分明细") }, text = {
-                        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            for (i in 0 until entries.length()) {
-                                val row = entries.getJSONObject(i)
-                                val kind = when(row.optString("kind")) { "registration" -> "注册奖励"; "checkin" -> "签到奖励"; else -> "模型使用" }
-                                Text("$kind  ${row.optString("points")} 积分\n${row.optString("created_at")}")
+                CompositionLocalProvider(LocalAsterDialogMotion provides (settings.animations && !settings.reducedMotion)) {
+                    error?.let { message ->
+                        AsterDialog("Aster", onDismissRequest = { error = null },
+                            confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(CoreR.string.action_ok)) } }) { Text(message) }
+                    }
+                    ledger?.let { entries ->
+                        AsterDialog(stringResource(R.string.account_ledger), onDismissRequest = { ledger = null },
+                            confirmButton = { TextButton(onClick = { ledger = null }) { Text(stringResource(CoreR.string.action_close)) } }) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                for (i in 0 until entries.length()) {
+                                    val row = entries.getJSONObject(i)
+                                    val kind = when(row.optString("kind")) { "registration" -> stringResource(R.string.account_ledger_registration); "checkin" -> stringResource(R.string.account_ledger_checkin); else -> stringResource(R.string.account_ledger_usage) }
+                                    Text(stringResource(R.string.account_ledger_line, kind, row.optString("points"), row.optString("created_at")))
+                                }
+                                if (entries.length() == 0) Text(stringResource(R.string.account_no_history))
                             }
-                            if (entries.length() == 0) Text("暂无记录")
                         }
-                    }, confirmButton = { TextButton(onClick = { ledger = null }) { Text("关闭") } })
+                    }
                 }
             }
         }

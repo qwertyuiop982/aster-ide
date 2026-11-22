@@ -1,9 +1,11 @@
 import {createPage} from './components.js';
+import {createToolExpansionState} from './message-renderer.js';
 import codex from './engines/codex.js';
 import openclaude from './engines/openclaude.js';
 import gemini from './engines/gemini.js';
 import pi from './engines/pi.js';
 const profiles={codex,openclaude,gemini,pi};
+const toolExpansion=createToolExpansionState();
 const drafts=new Map();let page,holder,key='',confirmingFrame=false;
 window.AsterReceive=(state,revision=0)=>{
  try {
@@ -19,7 +21,7 @@ window.AsterReceive=(state,revision=0)=>{
       if(!window.AsterNative)return;
       const current=scope.value;
       window.AsterNative.postMessage(JSON.stringify({version:1,token:current.token,workspace:current.workspace,session:current.session,engine:current.engine,command,...data}));
-    },local);
+    },local,toolExpansion);
     document.getElementById('app').replaceChildren(page.root);
   }
   holder.value=state;page.update(state);
@@ -38,7 +40,7 @@ window.AsterClosePanel=()=>page?.closePanel()||false;
 // Build all static labels and panels before workspace/runtime discovery completes.
 if (!page) {
  const profile=profiles.pi, local={text:'',dirty:false};
- const initial=createPage(profile,()=>{},local);
+ const initial=createPage(profile,()=>{},local,toolExpansion);
  initial.update({engine:'pi',busy:true,status:'',messages:[],history:[],tasks:[],changes:[],contextFiles:[],engines:[]});
  document.body.dataset.engine='pi';
  document.getElementById('app').replaceChildren(initial.root);

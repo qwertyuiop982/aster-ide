@@ -7,10 +7,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.aster.core.AppLanguages
 import dev.aster.core.CoreRuntime
 import dev.aster.ide.agent.*
 import dev.aster.ide.data.*
 import dev.aster.ide.runtime.BuildKeepAliveService
+import dev.aster.ide.runtime.BuildEnvironmentPresets
 import dev.aster.ide.runtime.AgentRuntimePreparation
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -103,6 +105,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     var showContextFiles by mutableStateOf(false)
     var contextCandidates by mutableStateOf<List<FileNode>>(emptyList()); private set
     var contextFiles by mutableStateOf<List<String>>(emptyList()); private set
+    private val attachments = linkedMapOf<String, List<AgentAttachments.Item>>()
+    private var pendingAttachmentScope: String? = null
     var pendingDelete by mutableStateOf<AgentConversationInfo?>(null)
     var webPanelOpen by mutableStateOf(false)
     var stopping by mutableStateOf(false); private set
@@ -110,39 +114,42 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     private var acceptedText = ""
     var prompt by mutableStateOf(""); private set
     private val preferences = application.getSharedPreferences("agent-prompts", 0)
+    private val nativeProject get() = settings.value.agentPermissionMode == "native"
     private var activeJob: Job? = null
     private var warming: Job? = null
     private fun prewarmWorkspace() {
         if (warming?.isActive == true || agent.running || setupState.phase != AgentSetupPhase.READY) return
-        val current = workspace ?: return
+        if (workspace == null) return
         warming = viewModelScope.launch {
             try {
                 val prepared = prepareProjectAccess()
-                core.bridge.sync(prepared, core.repo)
+                core.bridge.sync(prepared, core.repo, useNative = nativeProject)
                 if (workspace?.id == prepared.id && !agent.running) agent.prewarm(prepared)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { core.logs.append("后台预加载：${e.message}\n") }
         }
     }
     private suspend fun prepareProjectAccess(): Workspace {
-        var current = checkNotNull(workspace) { "工作区尚未就绪" }
-        if (settings.value.agentPermissionMode == "native" || current.direct) {
-            current = core.repo.nativeWorkspace(current)
-            workspace = current
-            if (current.id != "agent-chat") core.repo.select(current)
-            workspaces = core.repo.recent()
-            core.termux.start()
-        }
+        val current = checkNotNull(workspace) { "工作区尚未就绪" }
+        if (nativeProject) core.repo.nativeWorkspace(current)
+        else if (current.direct) core.repo.refreshMount(current)
         return current
+    }
+    private fun rememberWorkspace(current: Workspace) {
+        workspace = current
+        preferences.edit().putString("bound-workspace", current.id.takeUnless { it == "agent-chat" }).apply()
     }
     fun openNativeWorkspace(uri: Uri) = action {
         warming?.join()
-        val opened = core.repo.openDirectTree(uri)
+        val mounted = core.repo.openDirectTree(uri)
         settings.update { it.copy(agentPermissionMode = "native") }
-        val mounted = core.repo.nativeWorkspace(opened)
-        agent.selectWorkspace(mounted.id); workspace = mounted; core.repo.select(mounted)
+        agent.selectWorkspace(mounted.id); rememberWorkspace(mounted); core.repo.select(mounted)
         workspaces = core.repo.recent(); showWorkspaces = false; showSettings = false; webPanelOpen = false
-        loadContextFiles(); core.termux.start(); prewarmWorkspace()
+        loadContextFiles(); prewarmWorkspace()
+    }
+    fun syncBoundWorkspace() = action {
+        warming?.join()
+        core.repo.refreshMount(checkNotNull(workspace))
     }
     private val refresh = MutableStateFlow(0L)
     private val mutablePage = MutableStateFlow("{}")
@@ -173,7 +180,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             withForeground {
                 AgentStartup.prepare(
                     workspace = {
-                        if (workspace == null) workspace = core.repo.conversationWorkspace()
+                        if (workspace == null) workspace = preferences.getString("bound-workspace", null)
+                            ?.let { core.repo.find(it) } ?: core.repo.conversationWorkspace()
                         workspaces = core.repo.recent()
                         agent.selectWorkspace(checkNotNull(workspace).id)
                         loadContextFiles(); changed()
@@ -221,7 +229,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         withForeground {
             val prepared = prepareProjectAccess()
             ensureRuntime()
-            core.bridge.sync(prepared, core.repo)
+            core.bridge.sync(prepared, core.repo, useNative = nativeProject)
             agent.prewarm(prepared)
         }
     }
@@ -239,7 +247,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         warming?.join()
         val chat = core.repo.conversationWorkspace()
         agent.selectWorkspace(chat.id)
-        workspace = chat
+        rememberWorkspace(chat)
         contextFiles = emptyList()
         showWorkspaces = false
         webPanelOpen = false
@@ -248,24 +256,79 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     fun selectWorkspace(id: String) = action {
         warming?.join()
         val selected = workspaces.firstOrNull { it.id == id } ?: error("工作区不存在")
-        agent.selectWorkspace(selected.id); workspace = selected; core.repo.select(selected)
+        if (selected.direct) core.repo.nativeWorkspace(selected)
+        agent.selectWorkspace(selected.id); rememberWorkspace(selected); core.repo.select(selected)
         showWorkspaces = false; webPanelOpen = false; loadContextFiles(); prewarmWorkspace()
     }
     fun createWorkspace(name: String) = action {
         warming?.join()
         require(name.trim().length in 1..100)
         val created = core.repo.create(name)
-        agent.selectWorkspace(created.id); workspace = created; workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles(); prewarmWorkspace()
+        agent.selectWorkspace(created.id); rememberWorkspace(created); workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles(); prewarmWorkspace()
     }
     fun importWorkspace(uri: Uri) = action {
         warming?.join()
         val (imported, skipped) = core.repo.importTree(uri)
-        agent.selectWorkspace(imported.id); workspace = imported; workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles()
+        agent.selectWorkspace(imported.id); rememberWorkspace(imported); workspaces = core.repo.recent(); showWorkspaces = false; webPanelOpen = false; loadContextFiles()
         if (skipped > 0) error = "已导入工作区，跳过 $skipped 个不支持或超出限制的文件"
     }
     private fun draftKey() = "draft-${workspace?.id}-${agent.selectedEngine.value.id}-${agent.conversation.value?.id}"
     private fun draft() = preferences.getString(draftKey(), "").orEmpty()
     private fun saveDraft(text: String) { require(text.length <= 12000); preferences.edit().putString(draftKey(), text).apply() }
+    private fun supportsImages() = agent.selectedEngine.value != AgentEngine.OPENCLAUDE &&
+        !(agent.selectedEngine.value == AgentEngine.PI && core.settings.value.agentUseFree)
+
+    internal fun receiveAttachments(uris: List<Uri>, photos: Boolean) {
+        val scope = pendingAttachmentScope
+        pendingAttachmentScope = null
+        if (uris.isEmpty() || scope == null || scope != draftKey()) return
+        action {
+            val all = attachments[scope].orEmpty().toMutableList()
+            val failures = mutableListOf<String>()
+            val limit = if (photos) AgentAttachments.MAX_IMAGES else AgentAttachments.MAX_DOCUMENTS
+            val imageSupport = supportsImages()
+            withContext(Dispatchers.IO) {
+                if (uris.size > limit) failures += "已忽略超过选择上限的文件"
+                for (uri in uris.distinct().take(limit)) {
+                    ensureActive()
+                    try {
+                        val item = AgentAttachments.load(getApplication(), uri, photos)
+                        if (item.image != null) {
+                            check(imageSupport) { "当前模型通道不支持图片，请切换到支持视觉的通道" }
+                            check(all.count { it.image != null } < AgentAttachments.MAX_IMAGES) { "每条消息最多附带 ${AgentAttachments.MAX_IMAGES} 张图片" }
+                        } else {
+                            check(all.count { it.text != null } < AgentAttachments.MAX_DOCUMENTS) { "每条消息最多附带 ${AgentAttachments.MAX_DOCUMENTS} 个文档" }
+                        }
+                        all += item
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        failures += if (failure is java.nio.charset.CharacterCodingException) "请选择 UTF-8 文本或图片" else (failure.message ?: "无法读取附件")
+                    }
+                }
+            }
+            attachments.remove(scope)
+            if (all.isNotEmpty()) attachments[scope] = all
+            // Bound unsent attachments without mixing drafts from different conversations.
+            while (attachments.size > 8) attachments.remove(attachments.keys.first())
+            if (failures.isNotEmpty()) error = failures.distinct().joinToString("\n")
+        }
+    }
+
+    private fun removeAttachment(id: String) {
+        check(!locked)
+        val scope = draftKey()
+        attachments[scope] = attachments[scope].orEmpty().filterNot { it.id == id }
+        if (attachments[scope].isNullOrEmpty()) attachments.remove(scope)
+        changed()
+    }
+
+    private fun bubblePosition(): JSONObject? {
+        val x = preferences.getFloat("bubble-x", -1f)
+        val y = preferences.getFloat("bubble-y", -1f)
+        return if (x in 0f..1f && y in 0f..1f) JSONObject().put("x", x.toDouble()).put("y", y.toDouble()) else null
+    }
+
     private fun loadContextFiles() { contextFiles = preferences.getStringSet("files-${workspace?.id}", emptySet()).orEmpty().filter { it.length <= 512 }.sorted().take(8) }
     fun openContextFiles() = action {
         val current = checkNotNull(workspace)
@@ -279,17 +342,18 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         contextFiles = if (path in contextFiles) contextFiles - path else contextFiles + path
         preferences.edit().putStringSet("files-${workspace?.id}", contextFiles.toSet()).apply(); changed()
     }
-    private suspend fun taskContext(current: Workspace): String = withContext(Dispatchers.IO) {
+    private suspend fun taskContext(current: Workspace, documents: List<AgentAttachments.Item>): String = withContext(Dispatchers.IO) {
         val excluded = core.settings.value.excludedDirs.split(',').map(String::trim).toSet()
-        val texts = contextFiles.map { path ->
+        val bound = current.id != "agent-chat"
+        val texts = contextFiles.filter { bound }.map { path ->
             check(path.split('/').none { it in excluded || it == ".aster-workspace.json" }) { "上下文文件已被排除：$path" }
             val file = core.repo.resolve(current, path)
             check(file.isFile && file.length() <= AgentExplicitContext.FILE_BYTES) { "上下文文件不可读取或超过 64 KiB：$path" }
             val text = file.inputStream().use { AgentExplicitContext.readUtf8(it) }
             AgentExplicitContext.FileText(path, text)
         }
-        if (current.id == "agent-chat") "No project workspace is bound. This is a general conversation. Do not assume a project or inspect project files unless the user asks.\n" + prompt
-        else AgentExplicitContext.compose(current.name, prompt, texts)
+        val external = documents.mapNotNull { item -> item.text?.let { AgentExplicitContext.FileText(item.name, it) } }
+        AgentExplicitContext.compose(current.name, prompt, external + texts, bound)
     }
     fun confirmDelete() {
         val selected = pendingDelete ?: return
@@ -354,17 +418,12 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             environmentStatus = "本地连接与工具检查完成"
         }
     }
-    fun changeEnvironmentPort(port: Int) {
-        if (locked) { error = "请先停止当前任务"; return }
-        require(port in 1024..65535)
-        core.termux.close()
-        core.settings.update { it.copy(port = port) }
-        environmentTools = emptyMap()
-        checkBuildEnvironment()
-    }
     fun installBuildEnvironment(kind: String) = action {
-        require(kind in setOf("base", "android"))
-        val label = if (kind == "android") "Android SDK / NDK" else "基础编译工具"
+        val label = when (kind) {
+            "android" -> "Android SDK / NDK"
+            "base" -> "基础编译工具"
+            else -> requireNotNull(BuildEnvironmentPresets.get(kind)) { "未知的环境安装选项" }.title
+        }
         val identifier = "environment-" + UUID.randomUUID().toString()
         environmentInstalling = true
         environmentStatus = "正在安装 $label"
@@ -373,9 +432,11 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         try {
             withForeground {
                 core.termux.start()
-                val code = withTimeout(3600000) {
-                    core.bridge.stream("install", workspace?.id ?: "environment", identifier,
-                        JSONObject().put("server", kind)) { core.output.append(it) }
+                val code = core.bridge.stream("install", workspace?.id ?: "environment", identifier,
+                    JSONObject().put("server", kind)) { core.output.append(it) }
+                if (code == 130) {
+                    environmentStatus = "$label 安装已停止，可重新安装"
+                    return@withForeground
                 }
                 check(code == 0) { "$label 安装失败（退出码 $code），请查看日志并重试" }
                 refreshEnvironmentInventory()
@@ -398,7 +459,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun prepareEnvironment(install: Boolean): JSONObject {
-        val report = AgentRuntimePreparation.run(getApplication(), core.settings.value.termuxMirror, install) { core.output.append(it) }
+        val report = AgentRuntimePreparation.run(getApplication(), install) { core.output.append(it) }
         runtimeInventory = "Node：${report.optString("nodePath")} ${report.optString("nodeVersion")}\nGit：${report.optString("gitReady")}；ripgrep：${report.optString("rgReady")}\nOpenSSL：${report.optString("opensslReady")}；CA：${report.optString("caReady")}"
         return report
     }
@@ -433,34 +494,46 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun send(text: String, compact: Boolean = false) = action {
         val task = text.trim()
-        require(compact || task.isNotEmpty()) { "请输入任务" }
+        val compactRequested = compact || task == "/compact"
+        val sentDraftKey = draftKey()
+        val items = if (compactRequested) emptyList() else attachments[sentDraftKey].orEmpty()
+        val images = items.mapNotNull { it.imagePart() }
+        require(compactRequested || task.isNotEmpty() || items.isNotEmpty()) { "请输入任务" }
         require(task.length <= 12000) { "任务超过 12000 字符" }
+        check(images.isEmpty() || supportsImages()) { "当前模型通道不支持图片，请移除图片或切换通道" }
         var current = checkNotNull(workspace) { "工作区尚未就绪" }
         if (agent.profile.model.isBlank() || agent.profile.endpoint.isBlank()) {
             showSettings = true
             error = "请先配置模型"
             return@action
         }
-        val compactRequested = compact || task == "/compact"
         check(!compactRequested || agent.selectedEngine.value != AgentEngine.OPENCLAUDE) { "此引擎暂不支持手动压缩" }
-        val sentDraftKey = draftKey()
+        val modelTask = if (compactRequested) "压缩当前会话上下文" else task.ifEmpty {
+            if (images.isNotEmpty()) "请查看我附上的图片。" else "请查看我附上的文件。"
+        }
+        val displayTask = listOf(task, items.joinToString("\n") { item ->
+            (if (item.image != null) "图片：" else "文件：") + item.name
+        }).filter(String::isNotBlank).joinToString("\n")
         withForeground {
             warming?.join()
             current = prepareProjectAccess()
-            val context = taskContext(current)
+            val context = taskContext(current, items)
             ensureRuntime()
             val availability = agent.availableEngines.value.firstOrNull { it.id == agent.selectedEngine.value.id }
             check(availability?.available == true) { availability?.reason ?: "引擎尚未就绪" }
-            core.bridge.sync(current, core.repo)
-            agent.run(current, if (compactRequested) "压缩当前会话上下文" else task, context, JSONArray(), compactRequested,
+            core.bridge.sync(current, core.repo, useNative = nativeProject)
+            agent.run(current, modelTask, context, JSONArray(), compactRequested, images = JSONArray(images),
+                displayTask = displayTask.ifBlank { modelTask },
                 onAccepted = {
                     viewModelScope.launch {
                         if (!compactRequested) {
                             if (preferences.getString(sentDraftKey, "").orEmpty().trim() == task) preferences.edit().remove(sentDraftKey).apply()
+                            attachments.remove(sentDraftKey)
                             acceptedText = task; acceptance++; changed()
                         }
                     }
                 })
+            if (nativeProject && current.safMirror) core.repo.refreshMount(current)
         }
     }
     fun cancel() {
@@ -510,7 +583,12 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         agent.persistNow()
     }
     fun persist() { viewModelScope.launch { runCatching { agent.persistNow() } } }
-    fun handle(request: JSONObject, chooseWorkMode: () -> Unit = {}) {
+    fun handle(
+        request: JSONObject,
+        chooseWorkMode: () -> Unit = {},
+        pickAttachments: (Boolean) -> Unit = {},
+        bubbleHaptic: () -> Unit = {}
+    ) {
         try {
             val current = workspace ?: error("工作区尚未就绪")
             // A closing WebView may deliver final UI-only events after a session switch.
@@ -536,14 +614,36 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 "appearance" -> { webPanelOpen = false; showAppearance = true }
                 "environment" -> openEnvironmentSettings()
                 "diagnostics" -> { showDiagnostics = true }
-                "browser" -> dev.aster.client.browser.BrowserRuntime.open(getApplication())
-                "device_permissions" -> getApplication<Application>().startActivity(android.content.Intent(getApplication(), dev.aster.client.shizuku.PermissionActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                "browser" -> getApplication<Application>().let {
+                    dev.aster.client.browser.BrowserRuntime.open(it, AppLanguages.legacyTag(it))
+                }
+                "device_permissions" -> getApplication<Application>().let {
+                    dev.aster.client.shizuku.PermissionActivity.open(it, AppLanguages.legacyTag(it))
+                }
                 "workspaces" -> { check(!locked); showWorkspaces = true }
                 "review" -> { check(!locked); reviewChanges = true }
                 "connect" -> connect()
                 "draft" -> saveDraft(request.getString("text"))
                 "panel" -> webPanelOpen = request.optString("id") == "open"
                 "context_files" -> openContextFiles()
+                "pick_images", "pick_documents" -> {
+                    check(!locked) { "请先停止或等待当前任务完成" }
+                    val photos = request.getString("command") == "pick_images"
+                    check(!photos || supportsImages()) { "当前模型通道不支持图片" }
+                    if (photos) check(attachments[draftKey()].orEmpty().count { it.image != null } < AgentAttachments.MAX_IMAGES) {
+                        "每条消息最多附带 ${AgentAttachments.MAX_IMAGES} 张图片"
+                    }
+                    pendingAttachmentScope = draftKey()
+                    try { pickAttachments(photos) }
+                    catch (e: Exception) { pendingAttachmentScope = null; throw e }
+                }
+                "remove_attachment" -> removeAttachment(request.getString("id"))
+                "bubble_hold" -> bubbleHaptic()
+                "bubble_position" -> {
+                    preferences.edit().putFloat("bubble-x", request.getDouble("x").toFloat())
+                        .putFloat("bubble-y", request.getDouble("y").toFloat()).apply()
+                    changed()
+                }
                 "work_mode" -> { check(!locked) { "请先停止当前任务" }; chooseWorkMode() }
                 "delete" -> {
                     check(!locked) { "请先停止当前任务" }
@@ -583,13 +683,15 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             }))
             .put("draft", draft()).put("acceptance", acceptance).put("acceptedText", acceptedText)
             .put("contextFiles", JSONArray(contextFiles)).put("stopping", stopping)
+            .put("attachments", JSONArray(attachments[draftKey()].orEmpty().map { it.label() }))
+            .put("imagesSupported", supportsImages()).put("bubblePosition", bubblePosition())
             .put("compactSupported", engine != AgentEngine.OPENCLAUDE)
             .put("busy", locked).put("running", state.running).put("status", if (busy && !state.running) "准备中" else state.status)
             .put("runtime", if (setupState.error != null) core.termux.state.value.message else "").put("runtimeError", setupState.error ?: "").put("saveError", agent.saveError.value ?: "")
             .put("approval", state.approval != null).put("steps", state.step)
             .put("tokens", usage.tokens).put("window", usage.window).put("compactions", usage.compactions)
             .put("configuredWindow", agent.profile.contextWindow).put("contextSource", usage.source).put("contextUpdatedAt", usage.updatedAt)
-            .put("contextPolicy", AgentContextPolicy.description(engine)).put("engineVersion", engine.version).put("setupPhase", setupState.phase.title)
+            .put("contextPolicy", AgentContextPolicy.description(engine)).put("engineVersion", engine.version).put("setupPhaseId", setupState.phase.name)
             .put("prompt", prompt).put("messages", JSONArray(agent.messages.value.map { JSONObject().put("id", it.id).put("role", it.role).put("text", it.text) }))
             .put("subagents", AgentJson.subagents(agent.subagentConversations.value))
             .put("tasks", JSONArray(agent.tasks.value.map { JSONObject().put("task", it.task).put("status", it.status) }))

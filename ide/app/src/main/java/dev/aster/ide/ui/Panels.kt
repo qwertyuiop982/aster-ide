@@ -1,6 +1,5 @@
 package dev.aster.ide.ui
 
-import android.graphics.Typeface
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -25,12 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import com.termux.view.TerminalView
 import dev.aster.ide.IdeViewModel
 import dev.aster.ide.data.IdeSettings
 import dev.aster.ide.lsp.LspRange
@@ -40,7 +36,7 @@ import dev.aster.ide.runtime.LogBuffer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.emptyFlow
 
-@Composable fun Panels(vm: IdeViewModel, settings: IdeSettings, modifier: Modifier, side: Boolean = false) {
+@Composable fun Panels(vm: IdeViewModel, settings: IdeSettings, modifier: Modifier, side: Boolean = false, terminalInPage: Boolean = false) {
     val motion = LocalMotion.current
     val tabs = WorkbenchPanels.map { it.id to it.title }
     Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
@@ -59,7 +55,7 @@ import kotlinx.coroutines.flow.emptyFlow
         AnimatedContent(vm.panel, transitionSpec = { (fadeIn(tween(motion.standard)) togetherWith fadeOut(tween(motion.quick))).using(SizeTransform(clip = true)) }, label = "dockPanel", modifier = Modifier.weight(1f)) { shownPanel ->
         Column(Modifier.fillMaxSize()) {
         when (shownPanel) {
-            "terminal" -> TerminalPanel(vm, settings, Modifier.weight(1f))
+            "terminal" -> if (!terminalInPage) TerminalPanel(vm, settings, Modifier.weight(1f))
             "build" -> {
                 Row(Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusLabel(when { vm.buildRunning -> "运行中 · ${vm.buildElapsed}s"; vm.buildExit == 0 -> "完成 · exit 0"; vm.buildExit != null -> "失败 · exit ${vm.buildExit}"; else -> "等待任务" }, when { vm.buildExit == 0 -> MaterialTheme.colorScheme.primary; vm.buildExit != null -> Coral; else -> MaterialTheme.colorScheme.onSurfaceVariant })
@@ -76,51 +72,6 @@ import kotlinx.coroutines.flow.emptyFlow
             "artifacts" -> Artifacts(vm, Modifier.weight(1f))
         }
         }
-        }
-    }
-}
-
-@Composable private fun TerminalPanel(vm: IdeViewModel, settings: IdeSettings, modifier: Modifier) {
-    val session by vm.terminal.session.collectAsState()
-    val state by vm.terminal.state.collectAsState()
-    val dark = LocalDark.current
-    val acs = settings.uiStyle == dev.aster.ide.data.UiStyle.ACS
-    val palette = dev.aster.ide.runtime.TerminalPalette.forStyle(acs, dark)
-    var ctrl by remember { mutableStateOf(false) }
-    Column(modifier) {
-        Row(Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            StatusLabel(state, if (session != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.weight(1f))
-            if (session != null) {
-                TextButton(onClick = { ctrl = !ctrl; vm.terminal.control = ctrl }, contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.height(30.dp)) { Text("Ctrl", color = if (ctrl) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
-                ToolButton(Icons.Outlined.KeyboardTab, "终端 Tab", size = 28) { vm.terminal.input("\t") }
-                ToolButton(Icons.Outlined.KeyboardArrowUp, "上一条命令", size = 28) { vm.terminal.input("\u001b[A") }
-                ToolButton(Icons.Outlined.Close, "结束终端会话", size = 28) { vm.terminal.close() }
-            }
-            ToolButton(Icons.Outlined.Add, "新终端会话", size = 28, enabled = vm.connected) { vm.openTerminal() }
-        }
-        if (session == null) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            TextButton(onClick = { if (vm.connected) vm.openTerminal() else vm.settingsPage = "runtime" }) {
-                Icon(if (vm.connected) Icons.Outlined.Terminal else Icons.Outlined.Link, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp)); Text(if (vm.connected) "打开终端" else "连接 Termux")
-            }
-        } else {
-            val context = LocalContext.current
-            val terminalView = remember(session, context) {
-                TerminalView(context, null).apply {
-                    setTextSize((12 * resources.displayMetrics.scaledDensity).toInt())
-                    setTypeface(Typeface.MONOSPACE)
-                    isFocusableInTouchMode = true
-                }
-            }
-            DisposableEffect(terminalView) {
-                vm.terminal.attach(terminalView)
-                onDispose { vm.terminal.detach(terminalView) }
-            }
-            AndroidView(factory = { terminalView }, update = {
-                vm.terminal.setPalette(palette)
-                it.setBackgroundColor(palette.background)
-            }, modifier = Modifier.weight(1f).fillMaxWidth())
         }
     }
 }

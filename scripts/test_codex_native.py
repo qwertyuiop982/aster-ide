@@ -178,6 +178,7 @@ class NativeTransportTest(unittest.TestCase):
         self.wire.notification('item/agentMessage/delta', {'threadId': 'v2-child', 'itemId': 'answer', 'delta': 'actual child output'})
         activity = {'type': 'subAgentActivity', 'id': 'spawn-v2', 'kind': 'started', 'agentThreadId': 'v2-child', 'agentPath': '/root/project_structure', 'model': 'fixture'}
         self.wire.notification('item/started', {'threadId': 'parent', 'turnId': 'turn', 'item': activity})
+        self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'turn', 'item': activity})
         self.assertIn('v2-child', self.wire.child_threads)
         events = [data for kind, data in self.session.events if kind == 'subagent_event']
         self.assertTrue(any(data['event'].get('text') == 'actual child output' for data in events))
@@ -186,7 +187,7 @@ class NativeTransportTest(unittest.TestCase):
         self.assertEqual((tools[0]['callId'], tools[0]['name']), ('spawn-v2', 'spawn_agent'))
         self.wire.notification('item/completed', {'threadId': 'v2-child', 'item': {'type': 'subAgentActivity', 'id': 'grand-spawn', 'kind': 'started', 'agentThreadId': 'v2-grandchild', 'agentPath': '/root/project_structure/docs'}})
         self.assertIn('v2-grandchild', self.wire.child_threads)
-        self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'old-turn', 'item': {**activity, 'kind': 'completed'}})
+        self.wire.notification('item/completed', {'threadId': 'parent', 'turnId': 'old-turn', 'item': {**activity, 'id': 'subagent-completed-child-turn', 'kind': 'completed'}})
         self.assertIn('v2-child', self.wire.child_completed)
         tools = [(kind, data.get('callId'), data.get('name'), data.get('status'))
                  for kind, data in self.session.events if kind in ('tool', 'tool_result')]
@@ -260,7 +261,7 @@ class NativeTransportTest(unittest.TestCase):
         self.wire.notification('item/completed', {'threadId': 'child', 'turnId': 'child-turn', 'item': {'id': 'call-1', 'type': 'commandExecution', 'status': 'completed', 'command': 'printf child', 'aggregatedOutput': 'child output'}})
         events = [data['event'] for kind, data in self.session.events if kind == 'subagent_event']
         self.assertEqual([event['kind'] for event in events[-3:]], ['tool', 'tool_delta', 'tool_result'])
-        self.assertEqual(events[-1]['callId'], 'call-1')
+        self.assertEqual([(event['turnId'], event['callId']) for event in events[-3:]], [('child-turn', 'call-1')] * 3)
         self.assertIn('child output', events[-1]['text'])
 
     def test_early_child_events_replay_only_after_parentage_confirmed(self):

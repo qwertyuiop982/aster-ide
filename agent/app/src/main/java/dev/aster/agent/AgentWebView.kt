@@ -11,25 +11,29 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.Keep
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import dev.aster.core.R as CoreR
 
 private const val PAGE = AgentWebAssets.PAGE
 internal fun trustedAgentAsset(uri: Uri): String? = AgentWebAssets.resolve(uri.toString())
 
 @Keep
 class AgentJavascriptBridge(private val token: String, private val receive: (String) -> Unit,
-                            private val read: (String, String) -> String = { _, _ -> "" }) {
+                            private val read: (String, String) -> String = { _, _ -> "" },
+                            private val locale: String = "en") {
     @JavascriptInterface fun bootstrapToken(): String = token
+    @JavascriptInterface fun bootstrapLocale(): String = locale
     @JavascriptInterface fun postMessage(value: String) { if (value.length <= 80000) receive(value) }
     @JavascriptInterface fun readUiState(providedToken: String, after: String): String = read(providedToken, after)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-private class AgentPage(context: Context, private val onRequest: (JSONObject) -> Unit,
+private class AgentPage(context: Context, locale: String, private val onRequest: (JSONObject) -> Unit,
                         private val onState: (AgentWebState) -> Unit, private val diagnostic: (String) -> Unit) : WebView(context) {
     private val token = UUID.randomUUID().toString()
     private val mailbox = AgentUiMailbox(token)
@@ -43,7 +47,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
     private val resources = AtomicInteger()
     private val timeout = Runnable {
         if (attached && !painted && !failed) {
-            val message = if (!scriptsReady) "界面正在准备，可从顶部查看日志或重新加载" else "正在等待工作区与会话就绪…"
+            val message = if (!scriptsReady) context.getString(R.string.agent_web_still_loading) else context.getString(R.string.agent_web_wait_workspace)
             diagnostic("UI startup still pending: scriptsReady=$scriptsReady; assets=${resources.get()}; native ${width}×${height}")
             onState(AgentWebState(AgentWebPhase.LOADING, message))
         }
@@ -76,7 +80,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
                     if (request.optString("command") == "web_boot" && request.optInt("version") == 1) {
                         when (request.optString("phase")) {
                             "ready" -> if (!failed) { scriptsReady = true; diagnostic("UI scripts ready; awaiting authenticated snapshot pull") }
-                            "loading" -> if (!failed && !painted) onState(AgentWebState(AgentWebPhase.LOADING, "界面仍在准备，可从顶部查看日志"))
+                            "loading" -> if (!failed && !painted) onState(AgentWebState(AgentWebPhase.LOADING, context.getString(R.string.agent_web_pending)))
                             "rendered" -> if (scriptsReady && !failed && width > 0 && height > 0 &&
                                 mailbox.wasRead(request.optLong("revision", 0)) &&
                                 request.optJSONObject("layout")?.let { layout ->
@@ -84,14 +88,14 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
                                 } == true) {
                                 painted = true; main.removeCallbacks(timeout)
                                 diagnostic("UI first frame: ${request.optString("message")} / native ${width}×${height}")
-                                onState(AgentWebState(AgentWebPhase.READY, "Agent 界面已显示"))
+                                onState(AgentWebState(AgentWebPhase.READY, context.getString(R.string.agent_web_ready)))
                             }
-                            "error" -> fail(request.optString("message", "界面脚本失败").take(1200))
+                            "error" -> fail(request.optString("message", context.getString(R.string.agent_web_script_error)).take(1200))
                         }
                     } else if (scriptsReady && painted && !failed) onRequest(request)
                 }
             }
-        }, { key, after -> if (attached && trustedDocument) mailbox.read(key, after) else "" }), "AsterNative")
+        }, { key, after -> if (attached && trustedDocument) mailbox.read(key, after) else "" }, locale), "AsterNative")
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                 !request.isForMainFrame || request.url.toString() != PAGE
@@ -132,7 +136,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
             }
             @androidx.annotation.RequiresApi(26)
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-                fail("WebView 渲染进程已退出，请重新加载界面。")
+                fail(context.getString(R.string.agent_web_renderer_error))
                 release(); return true
             }
         }
@@ -168,7 +172,7 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
         // Workspace discovery can finish after the WebView. Keep the last valid
         // snapshot through startup and conversation switches instead of latching failure.
         if (snapshot != null && (snapshot.optString("workspace").isBlank() || snapshot.optString("session").isBlank())) return
-        if (!mailbox.offer(value) && !failed) fail("页面状态无效或超过界面容量；请从顶部日志复制诊断。")
+        if (!mailbox.offer(value) && !failed) fail(context.getString(R.string.agent_web_snapshot_error))
     }
     fun release() {
         if (!attached) return
@@ -182,6 +186,13 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
 @Composable fun AgentWebView(state: String, onRequest: (JSONObject) -> Unit, modifier: Modifier = Modifier,
                             panelOpen: Boolean = false, dark: Boolean = false,
                             onState: (AgentWebState) -> Unit = {}, onDiagnostic: (String) -> Unit = {}) {
+    val locale = stringResource(CoreR.string.app_ui_language_tag)
+    key(locale) { LocalizedAgentWebView(state, onRequest, modifier, panelOpen, dark, onState, onDiagnostic, locale) }
+}
+
+@Composable private fun LocalizedAgentWebView(state: String, onRequest: (JSONObject) -> Unit, modifier: Modifier,
+    panelOpen: Boolean, dark: Boolean, onState: (AgentWebState) -> Unit,
+    onDiagnostic: (String) -> Unit, locale: String) {
     val request by rememberUpdatedState(onRequest)
     val status by rememberUpdatedState(onState)
     val diagnostic by rememberUpdatedState(onDiagnostic)
@@ -192,13 +203,13 @@ private class AgentPage(context: Context, private val onRequest: (JSONObject) ->
     DisposableEffect(Unit) { onDispose { page?.release() } }
     if (allowCreation) AndroidView(factory = { context ->
         runCatching {
-            AgentPage(context, { request(it) }, { status(it) }, { diagnostic(it) }).also { created ->
+            AgentPage(context, locale, { request(it) }, { status(it) }, { diagnostic(it) }).also { created ->
                 page = created
                 created.display(state, dark)
                 created.post { created.begin() }
             }
         }.getOrElse { error ->
-            val message = "无法启动系统 WebView：${error.message ?: "未知错误"}"
+            val message = context.getString(R.string.agent_web_create_error, error.message ?: context.getString(R.string.agent_web_unknown_error))
             Handler(Looper.getMainLooper()).post { diagnostic(message); status(AgentWebState(AgentWebPhase.FAILED, message)) }
             android.widget.TextView(context).apply { text = message }
         }

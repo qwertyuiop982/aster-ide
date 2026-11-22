@@ -28,7 +28,7 @@ VENDOR = Path(__file__).resolve().parent / "agent_vendor"
 sys.path.insert(0, str(VENDOR))
 from aster_diagnostics import strip_linker_warnings, strip_runtime_diagnostics, clean_runtime_output
 from aster_model import OpenAIModel
-from aster_tools import EXCLUDED, MAX_TEXT, READ_TOOLS, TOOLS, ProjectEnvironment, source_files
+from aster_tools import CLIENT_TOOLS, EXCLUDED, MAX_TEXT, READ_TOOLS, TOOLS, WEBVIEW_SEARCH, ProjectEnvironment, source_files
 
 from agent_engines import engine_info, require_available
 from agent_thinking import resolve_thinking
@@ -69,6 +69,10 @@ class AgentSession:
         self.identifier, self.workspace = identifier, workspace.resolve()
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", identifier):
             raise ValueError("Agent 任务 ID 无效")
+        workspace_id = request.get("workspace")
+        if workspace_id is not None and (not isinstance(workspace_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", workspace_id)):
+            raise ValueError("Agent 工作区 ID 无效")
+        self.workspace_id = self.workspace.name if workspace_id is None else workspace_id
         self.stage = (base / "agent-runs" / identifier).resolve()
         self.request, self.environment, self.send = request, environment, send
         configuration = request.get('configuration') or {}
@@ -80,7 +84,9 @@ class AgentSession:
         self.session_id = str(request.get("sessionId") or identifier)
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", self.session_id):
             raise ValueError("Agent 会话 ID 无效")
-        project_key = hashlib.sha256(str(self.workspace).encode()).hexdigest()[:24]
+        # Keep session files created before the Android runtime switched from guest paths to actual directories.
+        project_scope = f"/data/data/com.termux/files/home/.aster/workspaces/{workspace_id}" if workspace_id is not None and environment.get("ASTER_WORKSPACE_BINDINGS") else str(self.workspace)
+        project_key = hashlib.sha256(project_scope.encode()).hexdigest()[:24]
         session_root = base / "agent-sessions"
         if self.engine_id != "pi":
             session_root = session_root / self.engine_id
@@ -99,6 +105,8 @@ class AgentSession:
         self.approval = threading.Condition()
         self.approval_serial = threading.RLock()
         self.emit_lock = threading.RLock()
+        self.tool_starts = {}
+        self.unidentified_tool_starts = {}
         self.stage_tool_lock = threading.RLock()
         self.client_tool_lock = threading.RLock()
         self.interaction_context = threading.local()
@@ -159,30 +167,38 @@ class AgentSession:
             self._emit(kind, **values)
 
     def _emit(self, kind: str, **values):
-        if kind in ('tool_result', 'error', 'status'):
+        if kind in ('tool_delta', 'tool_result', 'error', 'status'):
             values = clean_runtime_output(values)
         if self.permission_mode == 'native' and kind == 'tool' and values.get('name') in ('write_file', 'replace_text', 'write_files', 'apply_edits', 'delete_file', 'move_file'):
             values['status'] = 'running'; values['direct'] = True
         if self.summarizing and kind in ("message", "message_start", "message_delta", "message_end"):
             return
         if kind in ('tool', 'tool_result'):
-            pending = getattr(self, '_tool_events', None)
-            if pending is None:
-                pending = self._tool_events = {}
             name = str(values.get('name', ''))
+            identifier = str(values.get('callId') or '')
+            key = (str(values.get('turnId') or ''), identifier)
             if kind == 'tool':
-                identifier = uuid.uuid4().hex
-                pending.setdefault(name, []).append((identifier, time.monotonic()))
+                started = time.monotonic()
+                if identifier:
+                    self.tool_starts.setdefault(key, started)
+                else:
+                    identifier = uuid.uuid4().hex
+                    self.unidentified_tool_starts.setdefault(name, []).append((identifier, started))
                 values.update(callId=identifier, status='running')
-            elif pending.get(name):
-                identifier, started = pending[name].pop(0)
-                try:
-                    result = json.loads(values.get('text', '{}'))
-                    failed = isinstance(result, dict) and (result.get('ok') is False or result.get('isError') is True)
-                except (ValueError, TypeError):
-                    failed = False
-                values.update(callId=identifier, durationMs=max(0, int((time.monotonic() - started) * 1000)),
-                              status='failed' if failed else 'succeeded')
+            else:
+                started = self.tool_starts.pop(key, None) if identifier else None
+                if not identifier and self.unidentified_tool_starts.get(name):
+                    identifier, started = self.unidentified_tool_starts[name].pop(0)
+                    values['callId'] = identifier
+                if started is not None:
+                    values.setdefault('durationMs', max(0, int((time.monotonic() - started) * 1000)))
+                if not values.get('status'):
+                    try:
+                        result = json.loads(values.get('text', '{}'))
+                        failed = isinstance(result, dict) and (result.get('ok') is False or result.get('isError') is True)
+                    except (ValueError, TypeError):
+                        failed = False
+                    values['status'] = 'failed' if failed else 'succeeded'
         self.send({"type": "agent", "kind": kind, **self.redact_event(values)})
 
     def consume_tool_budget(self):
@@ -389,9 +405,16 @@ class AgentSession:
             if self.request.get('isSubagent') and not (self.request.get('configuration') or {}).get('subagentsUnlimited'):
                 raise ValueError('子代理继续派发需要极端协作与 Ultra')
         elif name != 'user_input':
-            if self.mode != 'execute':
+            if name == WEBVIEW_SEARCH:
+                arguments = {key: value for key, value in arguments.items() if key in ('query', 'type', 'maxResults')}
+                approval = 'Client ' + name
+            elif self.mode == 'execute':
+                action = arguments.get('action', '')
+                approval = ('Screenshot upload to configured model · ' if name == 'desktop' and action == 'inspect' else '')
+                approval += 'Client ' + name + ' · ' + str(action)
+            else:
                 raise ValueError('Client tools require execute mode')
-            if not self.approve_external(('Screenshot upload to configured model · ' if arguments.get('action') == 'inspect' else '') + 'Client ' + name + ' · ' + str(arguments.get('action', '')) + ' · ' + json.dumps(self.redact_event(arguments), ensure_ascii=False)[:1000]):
+            if not self.approve_external(approval + ' · ' + json.dumps(self.redact_event(arguments), ensure_ascii=False)[:1000]):
                 return {'ok': False, 'error': 'Client operation was not approved'}
         with self.approval:
             self.client_request, self.client_result = uuid.uuid4().hex, None
@@ -421,7 +444,7 @@ class AgentSession:
                     with contextlib.suppress(OSError):
                         self.emit('client_tool_end', requestId=request_id)
         capture = result.pop('imageData', None)
-        if arguments.get('action') == 'inspect' and result.get('ok') is True:
+        if name == 'desktop' and arguments.get('action') == 'inspect' and result.get('ok') is True:
             from agent_vision import analyze_capture
             self.emit('status', text='正在分析截图', step=self.steps)
             try:
@@ -646,7 +669,7 @@ class AgentSession:
         collaboration = collaboration_prompt(self)
         system += "\nPersistent terminal tool: shell sessions survive tool returns and subsequent turns in this conversation. Use terminal/list to resume, terminal/exec for commands, terminal/write for prompts and modifier keys, terminal/read to wait without restarting a command. Each result includes recent console history. Do not repeat a command just because wait_ms elapsed."
         if self.engine_id == "gemini":
-            system += "\nUse the original Gemini CLI tool registry and supplied schemas for files, shell and background commands, plans, tasks, skills, user questions, MCP and invoke_agent collaboration. Use the browser/desktop host tools for Android UI operations. Work in the staged project and continue through implementation and validation. A final native assistant response completes the task."
+            system += "\nUse the original Gemini CLI tool registry and supplied schemas for files, shell and background commands, plans, tasks, skills, user questions, MCP and invoke_agent collaboration. Use web_webview_search for rendered Bing web or image results and the browser/desktop host tools for Android UI operations. Work in the staged project and continue through implementation and validation. A final native assistant response completes the task."
         if self.permission_mode == "native":
             system = system.replace("Edits are staged in the current command directory.", "Edits apply immediately in the project original directory.").replace("Work in the staged project", "Work in the original project")
         from agent_permissions import permission_prompt
@@ -668,8 +691,9 @@ class AgentSession:
         from agent_task_mode import prioritize_question_tools
         host_tools = prioritize_question_tools(self, self.tools if self.request.get('isSubagent') else TOOLS)
         if self.engine_id == 'gemini':
-            host_tools = [item for item in host_tools if item['function']['name'] in {'desktop', 'browser'}]
+            host_tools = [item for item in host_tools if item['function']['name'] in CLIENT_TOOLS]
         start = {"type": "start", "system": system, "task": task + "\n\nCurrent editor context:\n" + context + plan,
+                 "images": self.request.get("images", []),
                  "history": self.request.get("history", [])[-60:], "tools": host_tools, "allowedTools": sorted(self.allowed_tools),
                  "sessionId": self.session_id, "stage": str(self.stage), "mode": self.mode,
                  "nativeTools": sorted(__import__("agent_native").GEMINI_TOOLS if self.engine_id != "gemini" else {name for name in __import__("agent_native").GEMINI_TOOLS if __import__("agent_native").native_available(self, name)}),
@@ -834,14 +858,18 @@ class AgentSession:
                 self.stage_lock = None
 
 
-def handle(workspace: Path, base: Path, request: dict, environment: dict, send, connection=None):
+def handle(workspace: Path, base: Path, request: dict, environment: dict, send, connection=None, android_mcp_port=None):
+    from agent_input_images import input_images
+    request['images'] = input_images(request)
     identifier = str(request.get("job", ""))
     session = AgentSession(identifier, workspace, base, request, environment, send)
+    session.android_mcp_port = android_mcp_port
     parent = None
     with SESSIONS_LOCK:
         if request.get('isSubagent'):
             parent = SESSIONS.get(str(request.get('parentJob', '')))
-            if parent is None or parent.workspace != session.workspace or parent.root_session is not parent or parent.cancelled.is_set():
+            if (parent is None or parent.workspace_id != session.workspace_id or parent.workspace != session.workspace
+                    or parent.root_session is not parent or parent.cancelled.is_set()):
                 raise ValueError('子代理必须属于当前工作区中正在运行的主任务')
             if session.mode != parent.mode:
                 raise ValueError('子代理不能改变主任务的权限模式')
@@ -882,7 +910,7 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
                 parent.children[identifier] = session
         elif sum(item.root_session is item for item in SESSIONS.values()) >= 2:
             raise ValueError('已有 2 个主 Agent 任务在运行')
-        if identifier in SESSIONS or len(SESSIONS) >= 6 or any(s.workspace == session.workspace and s.engine_id == session.engine_id and s.session_id == session.session_id for s in SESSIONS.values()):
+        if identifier in SESSIONS or len(SESSIONS) >= 6 or any(s.session_directory == session.session_directory and s.session_id == session.session_id for s in SESSIONS.values()):
             if parent is not None:
                 parent.children.pop(identifier, None)
             raise ValueError('已有 Agent 任务在运行')
@@ -919,7 +947,7 @@ def handle(workspace: Path, base: Path, request: dict, environment: dict, send, 
 def control(request: dict, cancel: bool = False) -> bool:
     with SESSIONS_LOCK:
         session = SESSIONS.get(str(request.get("job", "")))
-    if session is None or session.workspace.name != str(request.get("workspace", "")):
+    if session is None or session.workspace_id != request.get("workspace"):
         return False
     if request.get("op") == "agent_client_result":
         return session.accept_client_result(str(request.get("requestId", "")), request.get("result"))

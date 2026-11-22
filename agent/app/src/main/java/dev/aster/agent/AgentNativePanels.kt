@@ -92,6 +92,14 @@ import dev.aster.ide.agent.AgentChange
                     Button(onClick = { confirm = true }, enabled = !vm.locked && changes.isNotEmpty()) { Text(if (vm.busy) "正在应用…" else "应用 ${changes.size} 个文件") }
                 }
     }
-    if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text("应用这些修改？") }, text = { Text("将写入 ${vm.workspace?.name} 中的 ${changes.size} 个文件。应用前会检查文件是否已经变化。") }, confirmButton = { Button(onClick = { confirm = false; vm.applyChanges() }) { Text("确认应用") } }, dismissButton = { TextButton(onClick = { confirm = false }) { Text("返回审阅") } })
-    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("丢弃待应用修改？") }, text = { Text("工作区现有文件不会改变。") }, confirmButton = { TextButton(onClick = { discard = false; vm.discardChanges() }) { Text("丢弃") } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("取消") } })
+    if (confirm) AgentDialog("应用这些修改？", onDismissRequest = { confirm = false },
+        confirmButton = { Button(onClick = { confirm = false; vm.applyChanges() }) { Text("确认应用") } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text("返回审阅") } }) {
+        Text("将写入 ${vm.workspace?.name} 中的 ${changes.size} 个文件。应用前会检查文件是否已经变化。")
+    }
+    if (discard) AgentDialog("丢弃待应用修改？", onDismissRequest = { discard = false },
+        confirmButton = { TextButton(onClick = { discard = false; vm.discardChanges() }) { Text("丢弃") } },
+        dismissButton = { TextButton(onClick = { discard = false }) { Text("取消") } }) {
+        Text("工作区现有文件不会改变。")
+    }
 }

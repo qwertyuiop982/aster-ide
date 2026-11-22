@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:requestLegacyExternalStorage="true" android:extractNativeLibs="true" android:allowBackup="false" android:icon="@drawable/ic_aster" android:label="Aster 账户版" android:supportsRtl="true" android:theme="@style/Theme.Aster" android:usesCleartextTraffic="false">
+    <application android:requestLegacyExternalStorage="true" android:extractNativeLibs="true" android:allowBackup="false" android:icon="@drawable/ic_aster" android:label="@string/aster_app_name" android:localeConfig="@xml/aster_locales" android:supportsRtl="true" android:theme="@style/Theme.Aster" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
@@ -16,5 +16,10 @@
             <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="asteraccount" android:host="login"/></intent-filter>
         </activity>
         <service android:name=".runtime.BuildKeepAliveService" android:foregroundServiceType="dataSync" android:exported="false" />
+        <provider android:name="dev.aster.ide.data.WorkspaceDocumentsProvider"
+            android:authorities="${applicationId}.projects" android:exported="true"
+            android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
     </application>
 </manifest>

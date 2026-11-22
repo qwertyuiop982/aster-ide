@@ -1,0 +1,10 @@
+<resources>
+    <string name="shizuku_authorized">Shizuku access granted</string>
+    <string name="shizuku_permission_denied">Shizuku access denied</string>
+    <string name="shizuku_unavailable">Start Shizuku, then try again.</string>
+    <string name="shizuku_permission_prompt">Allow Aster to request screen capture and device operation access?</string>
+    <string name="shizuku_authorize">Authorize</string>
+    <string name="shizuku_request_failed">Could not request Shizuku access</string>
+    <string name="shizuku_ok">OK</string>
+    <string name="shizuku_cancel">Cancel</string>
+</resources>

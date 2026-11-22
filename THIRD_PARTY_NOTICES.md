@@ -19,7 +19,7 @@ Aster retains GPL-covered upstream components and dependencies under their respe
 
 Termux bootstrap packages retain their copyright, license texts and Debian metadata under `usr/share/doc`, `usr/share/LICENSES`, and `usr/var/lib/dpkg` after unpacking. The bootstrap is unmodified; only its original symlinks are recreated. Its version and SHA-256 are recorded in `core/termux-runtime/src/main/assets/runtime/checksums.json`.
 
-The bundled host PRoot, talloc and shmem payloads are downloaded from the official Termux package repository and SHA-256 verified against its package index. Their matching source archives are also SHA-256 verified against upstream Termux build recipes. PRoot is not modified; Aster's native launcher constructs its bind arguments.
+The PRoot launcher, talloc and shmem payloads listed above were bundled in earlier releases and are no longer packaged. Their historical source archives and notices are retained under `research/runtime-sources`. Aster now runs the native bootstrap with its own legacy path compatibility library.
 
 Termux Java source is modified only for AGP/CMake integration and a bounded external-transport TerminalSession extension. The public source includes these modifications; compare it with the pinned upstream revision recorded in research/termux-revision.txt.
 
@@ -29,7 +29,7 @@ Language servers and development tools install on demand, retain their upstream 
 
 The standard Agent uses the retained Pi, Codex and Gemini production sources and Aster adapters. Exact pins and licenses are recorded under research/pi-agent, research/agent-engines, research/gemini-agent and core/app/src/main/assets/bridge/agent_vendor. Build dependencies are restored from the retained lockfiles. Duplicate full upstream tarballs and upstream tests/examples are omitted; original snapshot URLs and hashes remain in provenance records.
 
-Shizuku API/provider 13.1.5 (RikkaApps/Shizuku-API, MIT) are Maven dependencies. The Shizuku application/server is independently installed by the user, not bundled. Its MIT notice remains in client/shizuku/src/main/assets/licenses/shizuku-LICENSE.txt. Qingzhou browser source (myos-Lu/qingzhou, AGPL-3.0) is retained for the two compiled browser engines. Operit (AAswordman/Operit, LGPL-3.0) is referenced by immutable upstream revision; its unused full reference source tree is omitted, with attribution and license retained. Client source scope is recorded in client/SOURCES.json.
+Shizuku API/provider 13.1.5 (RikkaApps/Shizuku-API, MIT) are Maven dependencies. The Shizuku app and server are installed independently. The API notice remains in `client/shizuku/src/main/assets/licenses/shizuku-LICENSE.txt`. Qingzhou browser source (myos-Lu/qingzhou, AGPL-3.0) is retained under `vendor/qingzhou` as historical source. Aster's Android WebView browser, search and device workflows reference Operit (AAswordman/Operit, LGPL-3.0). The pinned revision and license are in `vendor/operit` and client source scope is recorded in `client/SOURCES.json`.
 
 
 ## Android Code Studio UI
